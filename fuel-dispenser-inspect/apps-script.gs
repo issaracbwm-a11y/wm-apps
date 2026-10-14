@@ -47,23 +47,35 @@ function doPost(e) {
     }
 
     const now = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'dd/MM/yyyy HH:mm');
-    const rows = data.rows.map(r => [
-      '', data.date || '', data.station || '', data.address || '', data.latlng || '',
-      data.company || '', data.phone || '', r.sn || '', r.brand || '', r.oil || '',
-      r.clamp || '', r.seal || '', r.expiry || '', r.result || '', r.verdict || '',
-      r.action || '', data.inspector || '', now, id
-    ]);
+    // ข้อมูลสถานี (ลำดับ-บริษัท, นายตรวจ, เวลา) แสดงเฉพาะแถวแรกของสถานี
+    const rows = data.rows.map((r, i) => {
+      const first = i === 0;
+      return [
+        '', first ? (data.date || '') : '', first ? (data.station || '') : '',
+        first ? (data.address || '') : '', first ? (data.latlng || '') : '',
+        first ? (data.company || '') : '', data.phone || '',
+        r.sn || '', r.brand || '', r.oil || '', r.clamp || '', r.seal || '',
+        r.expiry || '', r.result || '', r.verdict || '', r.action || '',
+        first ? (data.inspector || '') : '', first ? now : '', id
+      ];
+    });
     const start = sh.getLastRow() + 1;
     TEXT_COLS.forEach(c => sh.getRange(start, c, rows.length, 1).setNumberFormat('@'));
     sh.getRange(start, 2, rows.length, 1).setNumberFormat('@');
     sh.getRange(start, 13, rows.length, 1).setNumberFormat('@');
     sh.getRange(start, 1, rows.length, NCOL).setValues(rows);
 
-    // เลขลำดับ เรียงใหม่ทั้งคอลัมน์
+    // เลขลำดับสถานี: นับ 1 ครั้งต่อสถานี ใส่เฉพาะแถวแรกของสถานี
     const n = sh.getLastRow() - 1;
     if (n > 0) {
+      const ids = sh.getRange(2, 19, n, 1).getValues();
       const seq = [];
-      for (let i = 1; i <= n; i++) seq.push([i]);
+      let k = 0, prev = null;
+      for (let i = 0; i < n; i++) {
+        const cur = String(ids[i][0]);
+        if (i === 0 || cur !== prev || cur === '') { k++; seq.push([k]); } else seq.push(['']);
+        prev = cur;
+      }
       sh.getRange(2, 1, n, 1).setValues(seq);
     }
     return out_({ ok: true, added: rows.length });
