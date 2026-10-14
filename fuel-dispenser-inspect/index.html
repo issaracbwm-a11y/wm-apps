@@ -627,7 +627,7 @@ async function readWithOCR(files,rowId){
 (()=>{try{if(!window.claude){OCR_OK=true;document.body.classList.add("has-ocr")}}catch(e){}})();
 
 /* ---------- send inspection rows to Google Sheet (Apps Script web app) ---------- */
-const SHEET_URL="";                       // URL เว็บแอป Apps Script (ลงท้าย /exec)
+const SHEET_URL="https://script.google.com/macros/s/AKfycbyBZFBazqm1ceEiVE_fEkinyxfGIx1wl4vlV0M0V5MQBy7HtEHpf1jpjCFAb7y30yitwA/exec";                       // URL เว็บแอป Apps Script (ลงท้าย /exec)
 const SHEET_TOKEN="cbwm31-fuel-2569";     // ต้องตรงกับ TOKEN ในสคริปต์
 const QKEY="fuel-sheet-queue";
 function readQ(){try{return JSON.parse(localStorage.getItem(QKEY)||"[]")}catch(e){return[]}}
