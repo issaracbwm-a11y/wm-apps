@@ -204,6 +204,7 @@ button.btn:disabled{opacity:.55;cursor:default}
     <button class="btn primary" type="button" id="pdfBtn">ส่งออก PDF</button>
   </div>
   <div class="msg" id="msg"></div>
+  <div class="msg" id="sheetMsg" role="status"></div>
 </div>
 
 <input type="file" id="shotFile" accept="image/*" multiple hidden>
@@ -494,6 +495,7 @@ $("pdfBtn").addEventListener("click",async()=>{
   const btn=$("pdfBtn");
   if(!S.meta.station.trim()){setMsg("กรุณากรอกชื่อสถานีบริการก่อนส่งออก","err");$("m_station").focus();return}
   if(!S.rows.length){setMsg("ยังไม่มีหัวจ่ายในรายการ","err");return}
+  sendToSheet();
   if(!window.html2canvas||!window.jspdf){setMsg("โหลดตัวสร้าง PDF ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่","err");return}
   btn.disabled=true;btn.textContent="กำลังสร้าง PDF…";setMsg("");
   try{
@@ -623,6 +625,49 @@ async function readWithOCR(files,rowId){
   return res;
 }
 (()=>{try{if(!window.claude){OCR_OK=true;document.body.classList.add("has-ocr")}}catch(e){}})();
+
+/* ---------- send inspection rows to Google Sheet (Apps Script web app) ---------- */
+const SHEET_URL="";                       // URL เว็บแอป Apps Script (ลงท้าย /exec)
+const SHEET_TOKEN="cbwm31-fuel-2569";     // ต้องตรงกับ TOKEN ในสคริปต์
+const QKEY="fuel-sheet-queue";
+function readQ(){try{return JSON.parse(localStorage.getItem(QKEY)||"[]")}catch(e){return[]}}
+function writeQ(q){try{localStorage.setItem(QKEY,JSON.stringify(q))}catch(e){}}
+function sheetMsg(t,k){const el=$("sheetMsg");if(!el)return;el.textContent=t||"";el.className="msg"+(k?" "+k:"")}
+function buildSheetPayload(){
+  const m=S.meta,ins=INSPECTORS[+m.inspector]||INSPECTORS[0];
+  const addr=[m.address,m.tambon?"ต."+m.tambon:"",m.amphoe?"อ."+m.amphoe:"",m.province?"จ."+m.province:"",zipOf()].filter(Boolean).join(" ");
+  const ll=[m.lat,m.lng].filter(x=>String(x||"").trim()).join(", ");
+  const rows=S.rows.map(r=>{const e=evalRow(r);
+    const a=fmtR(r.r5),b=fmtR(r.r20);
+    const res=[a?"5 ลิตร "+a+" มล.":"",b?"20 ลิตร "+b+" มล.":""].filter(Boolean).join(" / ")||"ไม่ได้ทดสอบ";
+    return {sn:r.sn||"",brand:r.brand||"",oil:r.oil||"",clamp:r.clamp||"",seal:r.seal||"",expiry:shortDate(r.expiry),
+      result:res,verdict:e.st==="pass"?"ถูก":e.st==="fail"?"ผิด":"ไม่ได้ตรวจ",action:e.act||""}});
+  return {token:SHEET_TOKEN,submitId:S.sessionId,date:shortDate(m.date),station:m.station.trim(),address:addr,latlng:ll,
+    company:m.company||"",phone:m.phone||"",inspector:ins.n+" ("+ins.p+")",rows};
+}
+async function flushQ(){
+  if(!SHEET_URL)return;
+  let q=readQ();if(!q.length)return;
+  if(navigator.onLine===false){sheetMsg("ยังไม่มีสัญญาณ รอส่งเข้า Google Sheet "+q.length+" สถานี จะส่งให้อัตโนมัติเมื่อออนไลน์","err");return}
+  const left=[];
+  for(const item of q){
+    try{await fetch(SHEET_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(item)})}
+    catch(e){left.push(item)}
+  }
+  writeQ(left);
+  if(left.length)sheetMsg("ส่งเข้า Google Sheet ไม่สำเร็จ "+left.length+" สถานี จะลองใหม่อัตโนมัติ","err");
+  else sheetMsg("ส่งผลการตรวจเข้า Google Sheet แล้ว","ok");
+}
+function sendToSheet(){
+  if(!SHEET_URL)return;
+  if(!S.sessionId){S.sessionId=Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,8);save()}
+  const p=buildSheetPayload();
+  const q=readQ().filter(x=>x.submitId!==p.submitId);q.push(p);writeQ(q);
+  sheetMsg("กำลังส่งผลการตรวจเข้า Google Sheet…");
+  flushQ();
+}
+window.addEventListener("online",flushQ);
+setTimeout(flushQ,1500);
 
 fillMeta();renderCards();
 })();
