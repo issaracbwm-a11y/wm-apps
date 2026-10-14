@@ -1,0 +1,630 @@
+<!doctype html><html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style></head><body><title>ตรวจหัวจ่ายน้ำมัน ชว.สฎ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Sarabun:wght@400;600;700&display=swap">
+<style>
+/* Layout: single-column field tool — sticky summary bar, form sections, nozzle cards, sticky export bar */
+:root{
+  --bg:#f3f5f6; --surface:#ffffff; --surface-2:#eaeef0; --line:#d5dce0;
+  --ink:#16232b; --muted:#5b6b74; --accent:#0d5f73; --accent-ink:#ffffff; --accent-soft:#dcecf0;
+  --pass:#16794a; --pass-soft:#dff1e6; --fail:#b42318; --fail-soft:#fbe4e1; --warn:#9a6200; --warn-soft:#fbefd6;
+  --f-ui:"IBM Plex Sans Thai","Sarabun",system-ui,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f171c; --surface:#17222a; --surface-2:#1f2c35; --line:#2c3b45;
+  --ink:#e4ecf0; --muted:#93a5af; --accent:#4fb3c9; --accent-ink:#06222a; --accent-soft:#163640;
+  --pass:#4cc488; --pass-soft:#123326; --fail:#ff7b6b; --fail-soft:#3d1a16; --warn:#f0b54a; --warn-soft:#3a2b10;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f171c; --surface:#17222a; --surface-2:#1f2c35; --line:#2c3b45;
+  --ink:#e4ecf0; --muted:#93a5af; --accent:#4fb3c9; --accent-ink:#06222a; --accent-soft:#163640;
+  --pass:#4cc488; --pass-soft:#123326; --fail:#ff7b6b; --fail-soft:#3d1a16; --warn:#f0b54a; --warn-soft:#3a2b10;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:0 120px}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:12px 10px;border-bottom:1px solid var(--line);margin-inline:-16px;padding-inline:16px}
+.top h1{margin:0;font-size:18px;font-weight:700;letter-spacing:.01em;text-wrap:balance}
+.top .sub{color:var(--muted);font-size:13px}
+.tally{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.tally div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:center}
+.tally b{display:block;font-family:var(--f-num);font-size:20px;font-variant-numeric:tabular-nums;line-height:1.2}
+.tally span{font-size:12px;color:var(--muted)}
+.tally .p b{color:var(--pass)} .tally .f b{color:var(--fail)}
+.banner{margin-top:14px;background:var(--warn-soft);color:var(--ink);border-radius:var(--r);padding:10px 12px;font-size:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner b{color:var(--warn)}
+section{margin-top:18px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px}
+.sec-h h2{margin:0;font-size:13px;font-weight:600;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.grid .full{grid-column:1/-1}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
+input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;display:block;min-height:44px;text-align:left}
+input::-webkit-date-and-time-value{text-align:left}
+input,select,textarea{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%;min-width:0}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.pos{font-size:13px;color:var(--accent);margin-top:2px}
+.seg{display:flex;background:var(--surface-2);border-radius:9px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;color:var(--muted);font:inherit;font-size:14px;padding:8px 6px;border-radius:7px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.crit{font-size:13px;color:var(--muted);margin-top:8px}
+.crit b{font-family:var(--f-num);color:var(--ink);font-weight:600}
+button.btn{font:inherit;font-size:15px;border-radius:9px;padding:10px 14px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;font-weight:500}
+button.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.btn.danger{color:var(--fail);border-color:var(--fail)}
+button.btn:disabled{opacity:.55;cursor:default}
+.addbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.addbar input{width:72px;text-align:center;font-family:var(--f-num)}
+.cards{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;border-left:4px solid var(--line)}
+.card.pass{border-left-color:var(--pass)} .card.fail{border-left-color:var(--fail)}
+.c-head{display:flex;align-items:center;gap:10px;min-width:0}
+.no{font-family:var(--f-num);font-weight:600;font-size:15px;background:var(--surface-2);border-radius:6px;padding:2px 8px;font-variant-numeric:tabular-nums}
+.c-id{min-width:0;flex:1}
+.c-id .oil{font-weight:600;font-size:15px}
+.c-id .sn{font-family:var(--f-num);font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{font-size:13px;font-weight:600;border-radius:999px;padding:3px 10px;white-space:nowrap;background:var(--surface-2);color:var(--muted)}
+.pill.pass{background:var(--pass-soft);color:var(--pass)} .pill.fail{background:var(--fail-soft);color:var(--fail)}
+.reads{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+.rd{background:var(--bg);border-radius:8px;padding:8px;min-width:0;border:1px solid transparent}
+.rd.pass{border-color:var(--pass)} .rd.fail{border-color:var(--fail);background:var(--fail-soft)}
+.rd .lab{font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:6px}
+.rd .row{display:flex;gap:6px;margin-top:4px}
+.rd .sign{font-family:var(--f-num);font-size:18px;width:44px;flex:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;cursor:pointer}
+.rd input{font-family:var(--f-num);font-size:20px;text-align:right;padding:6px 8px;background:var(--surface)}
+.rd .unit{align-self:center;font-size:12px;color:var(--muted)}
+.rd .err{font-family:var(--f-num);font-size:12px;color:var(--muted);margin-top:4px;min-height:1.4em}
+.rd.fail .err{color:var(--fail)}
+.warn{margin-top:8px;font-size:13px;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:4px 8px}
+.fields{margin-top:10px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.btn.sm{font-size:14px;padding:7px 12px}
+[data-shot]{display:none}
+.has-sample [data-shot],.has-ocr [data-shot]{display:inline-block}
+.ext{font-size:14px;color:var(--accent);text-decoration:none;padding:6px 2px}
+.scanmsg{margin-top:8px;font-size:13px;border-radius:6px;padding:6px 8px;background:var(--accent-soft);color:var(--ink)}
+.scanmsg.err{background:var(--fail-soft);color:var(--fail)}
+.c-foot{display:flex;justify-content:flex-end;margin-top:8px}
+.linkbtn{font:inherit;font-size:13px;background:none;border:0;color:var(--fail);padding:6px 4px;cursor:pointer}
+.foot{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--surface);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px))}
+.foot .in{max-width:760px;margin:0 auto;display:flex;gap:8px;align-items:center}
+.foot .in .primary{flex:1}
+.msg{max-width:760px;margin:6px auto 0;font-size:13px;color:var(--muted);min-height:0}
+.msg.err{color:var(--fail)} .msg.ok{color:var(--pass)}
+@media (max-width:420px){.grid{grid-template-columns:minmax(0,1fr)}.tally b{font-size:18px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- PDF report (rendered off-screen, always light, A4 @96dpi) ---------- */
+#pdfroot{position:fixed;left:-10000px;top:0;width:794px;background:#fff;color:#000}
+.pg{width:794px;height:1123px;background:#fff;color:#000;font-family:"Sarabun",sans-serif;font-size:14.5px;line-height:1.55;padding:40px 40px 34px 60px;display:flex;flex-direction:column}
+.pg .ct{flex:1;display:flex;flex-direction:column;gap:3px}
+.pg .logo{text-align:center} .pg .logo img{width:80px;height:auto}
+.pg .ttl{text-align:center;margin:4px 0 6px}
+.pg .ttl span{font-size:20px;font-weight:700;border-bottom:1.5px solid #000;padding-bottom:1px}
+.pg .ln{display:flex;align-items:baseline;gap:6px;flex-wrap:nowrap}
+.pg .ln.r{justify-content:flex-end}
+.pg .k{white-space:nowrap;font-weight:600}
+.pg .v{border-bottom:1px dotted #000;padding:0 6px;min-height:1.4em;white-space:nowrap;overflow:hidden}
+.pg .v.g{flex:1}
+.pg table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11.5px;line-height:1.3;margin-top:6px}
+.pg table,.pg th,.pg td{color:#000}
+.pg th,.pg td{border:1px solid #000;padding:3px 2px;text-align:center;vertical-align:middle;word-break:break-all}
+.pg th{font-weight:700;background:#f2f2f2}
+.pg td.l{text-align:left}
+.pg td.f{font-weight:700}
+.pg .sum{margin-top:8px;font-size:13.5px}
+.pg .note{font-size:11.5px;color:#222;margin-top:2px}
+.pg .sig{display:flex;justify-content:space-between;gap:24px;margin-top:14px;font-size:14px}
+.pg .sig > div{flex:1}
+.pg .sig .c{text-align:center}
+.pg .sl{display:inline-block;width:190px;border-bottom:1px dotted #000;height:1.3em}
+.pg .pno{text-align:right;font-size:11.5px;color:#333}
+.pg .cont{font-size:13px;font-weight:600;margin-bottom:2px}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>ตรวจมาตรวัดปริมาตรน้ำมันเชื้อเพลิง ณ สถานีบริการ</h1>
+    <div class="sub" id="topSub">ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)</div>
+    <div class="tally">
+      <div><b id="tAll">0</b><span>หัวจ่าย</span></div>
+      <div class="p"><b id="tPass">0</b><span>ถูก</span></div>
+      <div class="f"><b id="tFail">0</b><span>ผิด</span></div>
+      <div><b id="tPend">0</b><span>ยังไม่ตรวจ</span></div>
+    </div>
+  </header>
+
+  <div class="banner" id="sampleBanner" hidden>
+    <span><b>ข้อมูลตัวอย่าง</b> จากแบบฟอร์มเดิม แสดงวิธีใช้ — กด “เริ่มสถานีใหม่” ด้านล่างเพื่อล้างและเริ่มกรอกจริง</span>
+  </div>
+
+  <section>
+    <div class="sec-h"><h2>ผู้ตรวจและเกณฑ์</h2></div>
+    <div class="panel">
+      <div class="grid">
+        <label class="full">นายตรวจชั่งตวงวัด
+          <select id="m_inspector"></select>
+          <span class="pos" id="posText"></span>
+        </label>
+        <label>นายตรวจชั่งตวงวัดประจำ<input id="m_zone"></label>
+        <label>จำนวนผู้ช่วยรวม (คน)<input id="m_helpers" inputmode="numeric"></label>
+        <label class="full">พร้อมด้วย (ชื่อผู้ร่วมตรวจ)<input id="m_team" placeholder="เช่น นาย ก, นาย ข"></label>
+        <label>วันที่ตรวจ<input id="m_date" type="date"></label>
+        <label>เขียนที่<input id="m_writeAt" placeholder="ว่างไว้ = ใช้ชื่อสถานี"></label>
+        <label>เวลาเริ่มตรวจ<input id="m_tStart" type="time"></label>
+        <label>เวลาเสร็จ<input id="m_tEnd" type="time"></label>
+        <div class="full">
+          <div class="seg" role="group" aria-label="ประเภทการตรวจ">
+            <button type="button" id="modeUse" aria-pressed="true">ตรวจระหว่างใช้งาน</button>
+            <button type="button" id="modeVer" aria-pressed="false">ตรวจให้คำรับรอง</button>
+          </div>
+          <div class="crit" id="critText"></div>
+        </div>
+        <label id="mmqWrap" hidden>MMQ ของระบบ (ลิตร)<input id="m_mmq" inputmode="decimal"></label>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><h2>สถานีบริการ</h2></div>
+    <div class="panel">
+      <div class="grid">
+        <label class="full">มาตรวัดของ (ชื่อสถานีบริการ)<input id="m_station" placeholder="เช่น บจ.สยามสุขสวัสดิ์ (3110297)"></label>
+        <label>เลขประจำตัวผู้เสียภาษี<input id="m_taxId" inputmode="numeric"></label>
+        <label>ผู้จำหน่ายน้ำมันของบริษัท<input id="m_company" placeholder="เช่น ปตท., บางจาก"></label>
+        <label class="full">ตั้งอยู่ ณ เลขที่<input id="m_address"></label>
+        <label>จังหวัด<select id="m_province"></select></label>
+        <label>อำเภอ<select id="m_amphoe"></select></label>
+        <label>ตำบล<select id="m_tambon"></select></label>
+        <label>โทรศัพท์<input id="m_phone" inputmode="tel"></label>
+        <label>LAT<input id="m_lat" inputmode="decimal"></label>
+        <label>LNG<input id="m_lng" inputmode="decimal"></label>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-h"><h2>หัวจ่าย</h2><span class="crit" style="margin:0">กรอกค่าอ่านจากถังตวงแบบมาตรา (มล.)  + จ่ายเกิน · − จ่ายขาด</span></div>
+    <div class="cards" id="cards"></div>
+    <div class="addbar">
+      <button class="btn" type="button" id="add1">+ เพิ่ม 1 หัว</button>
+      <span style="color:var(--muted);font-size:14px">หรือเพิ่ม</span>
+      <input id="addN" inputmode="numeric" value="4" aria-label="จำนวนหัวจ่ายที่จะเพิ่ม">
+      <button class="btn" type="button" id="addMany">หัว</button>
+    </div>
+    <div class="crit">หัวใหม่จะคัดลอกยี่ห้อ ชนิดน้ำมัน คีม ซีล วันหมดอายุ จากหัวก่อนหน้า และเพิ่มเลขลำดับเครื่องให้อัตโนมัติ</div>
+  </section>
+</div>
+
+<div class="foot">
+  <div class="in">
+    <button class="btn" type="button" id="resetBtn">เริ่มสถานีใหม่</button>
+    <button class="btn primary" type="button" id="pdfBtn">ส่งออก PDF</button>
+  </div>
+  <div class="msg" id="msg"></div>
+</div>
+
+<input type="file" id="shotFile" accept="image/*" multiple hidden>
+<div id="pdfroot" aria-hidden="true"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(function(){
+"use strict";
+const LOGO="data:image/jpeg;base64,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";
+const INSPECTORS=[
+  {n:"นายอิสระ รัตนวัย",p:"นักวิชาการชั่งตวงวัดชำนาญการพิเศษ"},
+  {n:"นายปราโมช บ้านนบ",p:"นักวิชาการชั่งตวงวัดชำนาญการ"},
+  {n:"นายวสันต์ ดิลกสัมพันธ์",p:"นักวิชาการชั่งตวงวัดชำนาญการ"},
+  {n:"ว่าที่ ร.ต.หญิงวรรณนิศา จันทระ",p:"นักวิชาการชั่งตวงวัดชำนาญการ"},
+  {n:"นายสุภชัย สืบน้อย",p:"เจ้าพนักงานชั่งตวงวัดชำนาญงาน"}
+];
+const OIL_GROUPS=[
+  ["กลุ่มเบนซิน / แก๊สโซฮอล์",["แก๊สโซฮอล์ 95","แก๊สโซฮอล์ 91","แก๊สโซฮอล์ E20","แก๊สโซฮอล์ E85","เบนซิน 95","แก๊สโซฮอล์ 95 พรีเมียม","เบนซินพรีเมียม (97–99)"]],
+  ["กลุ่มดีเซล",["ดีเซล","ดีเซล B20","ดีเซลพรีเมียม"]]
+];
+const OILS=OIL_GROUPS.flatMap(g=>g[1]);
+const MONTHS=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+const KEY="fdvInspect.v1";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+let uid=1;const nid=()=>"r"+(Date.now().toString(36))+(uid++);
+
+function blankMeta(keep){return Object.assign({inspector:0,zone:"เขต 3-1 สุราษฎร์ธานี",team:"",helpers:"",date:today(),writeAt:"",tStart:"",tEnd:"",mode:"use",mmq:"5",
+  station:"",taxId:"",company:"",address:"",tambon:"",amphoe:"",province:"สุราษฎร์ธานี",phone:"",lat:"",lng:""},keep||{})}
+function blankRow(){return {id:nid(),sn:"",brand:"",oil:"",clamp:"",seal:"",expiry:"",r5:"",r20:"",action:""}}
+function sampleState(){
+  const m=blankMeta({team:"ว่าที่ ร.ต.ธรรมรัตน์ สายสวัสดิ์, นายอดิเทพ คุ้มจันทร์, นายธีระยุธ คงเกษตร",helpers:"3",
+    station:"บจ.สยามสุขสวัสดิ์ (3110297)",taxId:"0115555015410",address:"82/2 หมู่ที่ 3 ถนนสายเอเชีย 41 (ขาขึ้น)",tambon:"หัวเตย",amphoe:"พุนพิน",phone:"084-4391521",lat:"9.11365",lng:"99.15877",tStart:"09:30"});
+  const base={brand:"SANKI / SK56QF842B",clamp:"328",seal:"328",expiry:"2027-09-02"};
+  const rows=[
+    Object.assign(blankRow(),base,{sn:"0-004055-2-3053-000508-66",oil:"แก๊สโซฮอล์ 95",r5:"+10",r20:"+20"}),
+    Object.assign(blankRow(),base,{sn:"0-004055-2-3053-000509-66",oil:"แก๊สโซฮอล์ 91",r5:"-5",r20:"-40"}),
+    Object.assign(blankRow(),base,{sn:"0-004055-2-3053-000510-66",oil:"แก๊สโซฮอล์ E20",r5:"-10",r20:"-120"}),
+    Object.assign(blankRow(),base,{sn:"0-004055-2-3053-000516-66",brand:"SANKI / SK56QF422B",oil:"ดีเซล"})
+  ];
+  return {meta:m,rows,sample:true};
+}
+let S;
+try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.meta=blankMeta(S.meta);}}catch(e){S=null}
+if(!S||!Array.isArray(S.rows))S=sampleState();
+S.rows.forEach(r=>{if(r.sn==null){r.sn=r.newNo||r.oldNo||"";delete r.oldNo;delete r.newNo;delete r.issue}});
+let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}},300)}
+
+/* ---------- criteria ---------- */
+function mpeML(vol){ // vol in litres → allowed ±mL
+  if(S.meta.mode==="use") return vol*1000*0.005;
+  const mmq=parseFloat(S.meta.mmq)||5;
+  const emin=2*mmq*0.003*1000;
+  return Math.max(vol*1000*0.003,emin);
+}
+const fmt=n=>(Math.round(n*10)/10).toLocaleString("en-US",{maximumFractionDigits:1});
+function parseR(s){if(s==null)return null;s=String(s).trim().replace(/−/g,"-").replace(/,/g,"");if(s===""||s==="-"||s==="+")return null;const v=Number(s);return isFinite(v)?v:NaN}
+function evalRead(s,vol){const r=parseR(s);if(r===null)return {state:"empty"};if(isNaN(r))return {state:"bad"};
+  const lim=mpeML(vol);const err=-r/(vol*1000+r)*100; // meter error % (indicated − actual)/actual
+  return {state:Math.abs(r)<=lim+1e-9?"pass":"fail",r,lim,err}}
+function evalRow(row){
+  const a=evalRead(row.r5,5),b=evalRead(row.r20,20);
+  const tested=a.state!=="empty"||b.state!=="empty";
+  let st="pend";
+  if(tested){st=(a.state==="fail"||b.state==="fail"||a.state==="bad"||b.state==="bad")?"fail":"pass"}
+  const expired=row.expiry&&S.meta.date&&row.expiry<S.meta.date;
+  let autoAct="";
+  if(st==="fail"){autoAct="ทำเครื่องหมายห้ามใช้ ให้แก้ไขและยื่นตรวจใหม่"}
+  if(expired){st="fail";autoAct="ผูกบัตรห้าม เปรียบเทียบปรับ และให้ยื่นตรวจรับรอง"}
+  return {a,b,st,expired,autoAct,act:(row.action||"").trim()||autoAct};
+}
+function critText(){
+  if(S.meta.mode==="use") return 'ตรวจระหว่างใช้งาน ±0.5% (ประกาศ พณ. ข้อ 8 วรรคสี่) → 5 ลิตร <b>±'+fmt(mpeML(5))+' มล.</b> · 20 ลิตร <b>±'+fmt(mpeML(20))+' มล.</b>';
+  return 'ตรวจให้คำรับรอง ±0.3% หรือ Emin ค่าที่มากกว่า (ข้อ 20) → 5 ลิตร <b>±'+fmt(mpeML(5))+' มล.</b> · 20 ลิตร <b>±'+fmt(mpeML(20))+' มล.</b>';
+}
+
+/* ---------- meta form ---------- */
+const META_IDS=["zone","team","helpers","date","writeAt","tStart","tEnd","mmq","station","taxId","company","address","phone","lat","lng"];
+const GEO={"นครศรีธรรมราช":{"เมืองนครศรีธรรมราช":[["ในเมือง",80000],["ท่าวัง",80000],["คลัง",80000],["ท่าไร่",80000],["ปากนคร",80000],["นาทราย",80280],["กำแพงเซา",80280],["ไชยมนตรี",80000],["มะม่วงสองต้น",80000],["นาเคียน",80000],["ท่างิ้ว",80280],["โพธิ์เสด็จ",80000],["บางจาก",80330],["ปากพูน",80000],["ท่าซัก",80000],["ท่าเรือ",80000]],"พรหมคีรี":[["พรหมโลก",80320],["บ้านเกาะ",80320],["อินคีรี",80320],["ทอนหงส์",80320],["นาเรียง",80320]],"ลานสกา":[["เขาแก้ว",80230],["ลานสกา",80230],["ท่าดี",80230],["กำโลน",80230],["ขุนทะเล",80230]],"ฉวาง":[["ฉวาง",80150],["ละอาย",80250],["นาแว",80260],["ไม้เรียง",80260],["กะเปียด",80260],["นากะชะ",80150],["ห้วยปริก",80260],["ไสหร้า",80150],["นาเขลียง",80260],["จันดี",80250]],"พิปูน":[["พิปูน",80270],["กะทูน",80270],["เขาพระ",80270],["ยางค้อม",80270],["ควนกลาง",80270]],"เชียรใหญ่":[["เชียรใหญ่",80190],["ท่าขนาน",80190],["บ้านกลาง",80190],["บ้านเนิน",80190],["ไสหมาก",80190],["ท้องลำเจียก",80190],["เสือหึง",80190],["การะเกด",80190],["เขาพระบาท",80190],["แม่เจ้าอยู่หัว",80190]],"ชะอวด":[["ชะอวด",80180],["ท่าเสม็ด",80180],["ท่าประจะ",80180],["เคร็ง",80180],["วังอ่าง",80180],["บ้านตูล",80180],["ขอนหาด",80180],["เกาะขันธ์",80180],["ควนหนองหงษ์",80180],["เขาพระทอง",80180],["นางหลง",80180]],"ท่าศาลา":[["ท่าศาลา",80160],["กลาย",80160],["ท่าขึ้น",80160],["หัวตะพาน",80160],["สระแก้ว",80160],["โมคลาน",80160],["ไทยบุรี",80160],["ดอนตะโก",80160],["ตลิ่งชัน",80160],["โพธิ์ทอง",80160]],"ทุ่งสง":[["ปากแพรก",80110],["ชะมาย",80110],["หนองหงส์",80110],["ควนกรด",80110],["นาไม้ไผ่",80110],["นาหลวงเสน",80110],["เขาโร",80110],["กะปาง",80310],["ที่วัง",80110],["น้ำตก",80110],["ถ้ำใหญ่",80110],["นาโพธิ์",80110],["เขาขาว",80110]],"นาบอน":[["นาบอน",80220],["ทุ่งสง",80220],["แก้วแสน",80220]],"ทุ่งใหญ่":[["ท่ายาง",80240],["ทุ่งสัง",80240],["ทุ่งใหญ่",80240],["กุแหระ",80240],["ปริก",80240],["บางรูป",80240],["กรุงหยัน",80240]],"ปากพนัง":[["ปากพนัง",80140],["คลองน้อย",80330],["ป่าระกำ",80140],["ชะเมา",80330],["คลองกระบือ",80140],["เกาะทวด",80330],["บ้านใหม่",80140],["หูล่อง",80140],["แหลมตะลุมพุก",80140],["ปากพนังฝั่งตะวันตก",80140],["บางศาลา",80140],["บางพระ",80140],["บางตะพง",80140],["ปากพนังฝั่งตะวันออก",80140],["บ้านเพิง",80140],["ท่าพยา",80140],["ปากแพรก",80140],["ขนาบนาก",80140]],"ร่อนพิบูลย์":[["ร่อนพิบูลย์",80130],["หินตก",80350],["เสาธง",80350],["ควนเกย",80130],["ควนพัง",80130],["ควนชุม",80130]],"สิชล":[["สิชล",80120],["ทุ่งปรัง",80120],["ฉลอง",80120],["เสาเภา",80340],["เปลี่ยน",80120],["สี่ขีด",80120],["เทพราช",80340],["เขาน้อย",80120],["ทุ่งใส",80120]],"ขนอม":[["ขนอม",80210],["ควนทอง",80210],["ท้องเนียน",80210]],"หัวไทร":[["หัวไทร",80170],["หน้าสตน",80170],["ทรายขาว",80170],["แหลม",80170],["เขาพังไกร",80170],["บ้านราม",80170],["บางนบ",80170],["ท่าซอม",80170],["ควนชะลิก",80170],["รามแก้ว",80170],["เกาะเพชร",80170]],"บางขัน":[["บางขัน",80360],["บ้านลำนาว",80360],["วังหิน",80360],["บ้านนิคม",80360]],"ถ้ำพรรณรา":[["ถ้ำพรรณรา",80260],["คลองเส",80260],["ดุสิต",80260]],"จุฬาภรณ์":[["บ้านควนมุด",80180],["บ้านชะอวด",80180],["ควนหนองคว้า",80130],["ทุ่งโพธิ์",80130],["นาหมอบุญ",80130],["สามตำบล",80130]],"พระพรหม":[["นาพรุ",80000],["นาสาร",80000],["ท้ายสำเภา",80000],["ช้างซ้าย",80000]],"นบพิตำ":[["นบพิตำ",80160],["กรุงชิง",80160],["กะหรอ",80160],["นาเหรง",80160]],"ช้างกลาง":[["ช้างกลาง",80250],["หลักช้าง",80250],["สวนขัน",80250]],"เฉลิมพระเกียรติ":[["เชียรเขา",80190],["ดอนตรอ",80290],["สวนหลวง",80190],["ทางพูน",80290]]},"สุราษฎร์ธานี":{"เมืองสุราษฎร์ธานี":[["ตลาด",84000],["มะขามเตี้ย",84000],["วัดประดู่",84000],["ขุนทะเล",84100],["บางใบไม้",84000],["บางชนะ",84000],["คลองน้อย",84000],["บางไทร",84000],["บางโพธิ์",84000],["บางกุ้ง",84000],["คลองฉนาก",84000]],"กาญจนดิษฐ์":[["ท่าทองใหม่",84290],["ท่าทอง",84160],["กะแดะ",84160],["ทุ่งกง",84290],["กรูด",84160],["ช้างซ้าย",84160],["พลายวาส",84160],["ป่าร่อน",84160],["ตะเคียนทอง",84160],["ช้างขวา",84160],["ท่าอุแท",84160],["ทุ่งรัง",84290],["คลองสระ",84160]],"ดอนสัก":[["ดอนสัก",84220],["ชลคราม",84160],["ไชยคราม",84220],["ปากแพรก",84340]],"เกาะสมุย":[["อ่างทอง",84140],["ลิปะน้อย",84140],["ตลิ่งงาม",84140],["หน้าเมือง",84140],["มะเร็ต",84310],["บ่อผุด",84320],["แม่น้ำ",84330]],"เกาะพะงัน":[["เกาะพะงัน",84280],["บ้านใต้",84280],["เกาะเต่า",84360]],"ไชยา":[["ตลาดไชยา",84110],["พุมเรียง",84110],["เลม็ด",84110],["เวียง",84110],["ทุ่ง",84110],["ป่าเว",84110],["ตะกรบ",84110],["โมถ่าย",84110],["ปากหมาก",84110]],"ท่าชนะ":[["ท่าชนะ",84170],["สมอทอง",84170],["ประสงค์",84170],["คันธุลี",84170],["วัง",84170],["คลองพา",84170]],"คีรีรัฐนิคม":[["ท่าขนอน",84180],["บ้านยาง",84180],["น้ำหัก",84180],["กะเปา",84180],["ท่ากระดาน",84180],["ย่านยาว",84180],["ถ้ำสิงขร",84180],["บ้านทำเนียบ",84180]],"บ้านตาขุน":[["เขาวง",84230],["พระแสง",84230],["พรุไทย",84230],["เขาพัง",84230]],"พนม":[["พนม",84250],["ต้นยวน",84250],["คลองศก",84250],["พลูเถื่อน",84250],["พังกาญจน์",84250],["คลองชะอุ่น",84250]],"ท่าฉาง":[["ท่าฉาง",84150],["ท่าเคย",84150],["คลองไทร",84150],["เขาถ่าน",84150],["เสวียด",84150],["ปากฉลุย",84150]],"บ้านนาสาร":[["นาสาร",84120],["พรุพี",84270],["ทุ่งเตา",84120],["ลำพูน",84120],["ท่าชี",84120],["ควนศรี",84270],["ควนสุบรรณ",84120],["คลองปราบ",84120],["น้ำพุ",84120],["ทุ่งเตาใหม่",84120],["เพิ่มพูนทรัพย์",84120]],"บ้านนาเดิม":[["บ้านนา",84240],["ท่าเรือ",84240],["ทรัพย์ทวี",84240],["นาใต้",84240]],"เคียนซา":[["เคียนซา",84260],["พ่วงพรมคร",84210],["เขาตอก",84260],["อรัญคามวารี",84260],["บ้านเสด็จ",84260]],"เวียงสระ":[["เวียงสระ",84190],["บ้านส้อง",84190],["คลองฉนวน",84190],["ทุ่งหลวง",84190],["เขานิพันธ์",84190]],"พระแสง":[["อิปัน",84210],["สินปุน",84210],["บางสวรรค์",84210],["ไทรขึง",84210],["สินเจริญ",84210],["ไทรโสภา",84210],["สาคู",84210]],"พุนพิน":[["ท่าข้าม",84130],["ท่าสะท้อน",84130],["ลีเล็ด",84130],["บางมะเดื่อ",84130],["บางเดือน",84130],["ท่าโรงช้าง",84130],["กรูด",84130],["พุนพิน",84130],["บางงอน",84130],["ศรีวิชัย",84130],["น้ำรอบ",84130],["มะลวน",84130],["หัวเตย",84130],["หนองไทร",84130],["เขาหัวควาย",84130],["ตะปาน",84130]],"ชัยบุรี":[["สองแพรก",84350],["ชัยบุรี",84350],["คลองน้อย",84350],["ไทรทอง",84350]],"วิภาวดี":[["ตะกุกใต้",84370],["ตะกุกเหนือ",84370]]}};
+function opts(list,val,ph){
+  const has=!val||list.includes(val);
+  return '<option value="">'+ph+'</option>'+(has?"":'<option value="'+esc(val)+'">'+esc(val)+'</option>')+
+    list.map(x=>'<option value="'+esc(x)+'"'+(x===val?" selected":"")+'>'+esc(x)+'</option>').join("");
+}
+function fillGeo(){
+  const m=S.meta,P=GEO[m.province]||{};
+  $("m_province").innerHTML=opts(Object.keys(GEO),m.province,"เลือกจังหวัด");
+  $("m_amphoe").innerHTML=opts(Object.keys(P).sort((a,b)=>a.localeCompare(b,"th")),m.amphoe,m.province?"เลือกอำเภอ":"เลือกจังหวัดก่อน");
+  const T=(P[m.amphoe]||[]).map(x=>x[0]).sort((a,b)=>a.localeCompare(b,"th"));
+  $("m_tambon").innerHTML=opts(T,m.tambon,m.amphoe?"เลือกตำบล":"เลือกอำเภอก่อน");
+  $("m_amphoe").disabled=!m.province;$("m_tambon").disabled=!m.amphoe;
+}
+function zipOf(){const t=((GEO[S.meta.province]||{})[S.meta.amphoe]||[]).find(x=>x[0]===S.meta.tambon);return t&&t[1]?String(t[1]):""}
+$("m_province").addEventListener("change",e=>{S.meta.province=e.target.value;S.meta.amphoe="";S.meta.tambon="";fillGeo();save()});
+$("m_amphoe").addEventListener("change",e=>{S.meta.amphoe=e.target.value;S.meta.tambon="";fillGeo();save()});
+$("m_tambon").addEventListener("change",e=>{S.meta.tambon=e.target.value;save()});
+function fillMeta(){
+  const sel=$("m_inspector");sel.innerHTML=INSPECTORS.map((x,i)=>'<option value="'+i+'">'+esc(x.n)+'</option>').join("");
+  sel.value=String(S.meta.inspector||0);
+  META_IDS.forEach(k=>{$("m_"+k).value=S.meta[k]??""});
+  fillGeo();syncMode();posUpd();
+}
+function posUpd(){const i=INSPECTORS[+S.meta.inspector]||INSPECTORS[0];$("posText").textContent="ตำแหน่ง "+i.p}
+function syncMode(){
+  $("modeUse").setAttribute("aria-pressed",S.meta.mode==="use");$("modeVer").setAttribute("aria-pressed",S.meta.mode!=="use");
+  $("mmqWrap").hidden=S.meta.mode==="use";$("critText").innerHTML=critText();
+}
+$("m_inspector").addEventListener("change",e=>{S.meta.inspector=+e.target.value;posUpd();save()});
+META_IDS.forEach(k=>$("m_"+k).addEventListener("input",e=>{S.meta[k]=e.target.value;
+  if(k==="mmq"){$("critText").innerHTML=critText();refreshAll()}
+  if(k==="date")refreshAll();
+  if(k==="station")topSub();
+  save()}));
+$("modeUse").onclick=()=>{S.meta.mode="use";syncMode();refreshAll();save()};
+$("modeVer").onclick=()=>{S.meta.mode="verify";syncMode();refreshAll();save()};
+function topSub(){$("topSub").textContent=S.meta.station?S.meta.station:"ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)"}
+
+/* ---------- cards ---------- */
+function oilOpts(){return ""}
+function oilField(row){
+  const v=row.oil||"",other=v&&!OILS.includes(v);
+  return '<label>ชนิดน้ำมัน<select data-oilsel>'+
+    '<option value=""'+(v?"":" selected")+'>เลือกชนิดน้ำมัน</option>'+
+    OIL_GROUPS.map(g=>'<optgroup label="'+esc(g[0])+'">'+g[1].map(o=>'<option value="'+esc(o)+'"'+(o===v?" selected":"")+'>'+esc(o)+'</option>').join("")+'</optgroup>').join("")+
+    '<option value="__other"'+(other?" selected":"")+'>อื่น ๆ (พิมพ์เอง)</option></select>'+
+    '<input data-k="oil" placeholder="พิมพ์ชนิดน้ำมัน" value="'+esc(other?v:"")+'"'+(other?"":" hidden")+'></label>';
+}
+function cardHTML(row,i){
+  const f=(k,lab,extra)=>'<label'+(extra&&extra.full?' class="full"':'')+'>'+lab+'<input data-k="'+k+'" value="'+esc(row[k])+'"'+(extra&&extra.attr?' '+extra.attr:'')+'></label>';
+  const rd=(k,vol)=>'<div class="rd" data-rd="'+k+'"><div class="lab"><span>'+vol+' ลิตร</span><span class="lim"></span></div>'+
+    '<div class="row"><button type="button" class="sign" data-sign="'+k+'" aria-label="สลับเครื่องหมาย บวก/ลบ">±</button>'+
+    '<input data-k="'+k+'" inputmode="decimal" autocomplete="off" placeholder="—" value="'+esc(row[k])+'" aria-label="ค่าอ่าน '+vol+' ลิตร (มล.)"><span class="unit">มล.</span></div>'+
+    '<div class="err"></div></div>';
+  return '<div class="card" data-id="'+row.id+'">'+
+    '<div class="c-head"><span class="no">'+(i+1)+'</span><div class="c-id"><div class="oil">'+(esc(row.oil)||"—")+'</div></div><span class="pill">ยังไม่ตรวจ</span></div>'+
+    '<div class="tools"><button type="button" class="btn sm" data-shot>อ่านข้อมูลจากภาพ (capจอหลังจากสแกนQR)</button>'+
+    '<a class="ext" data-ext target="_blank" rel="noopener"'+(row.sn?' href="'+infoURL(row.sn)+'"':' hidden')+'>เปิดข้อมูลเครื่อง ↗</a></div>'+
+    '<div class="scanmsg" hidden></div>'+
+    '<div class="grid fields">'+
+      f("sn","หมายเลขลำดับประจำเครื่อง",{full:1,attr:'style="font-family:var(--f-num)" autocomplete="off"'})+
+      f("brand","ยี่ห้อ / รุ่น")+
+      oilField(row)+
+      f("clamp","คีม",{attr:'inputmode="numeric"'})+
+      f("seal","ซีล",{attr:'inputmode="numeric"'})+
+      '<label class="full">วันหมดอายุคำรับรอง<input data-k="expiry" type="date" value="'+esc(row.expiry)+'"></label>'+
+    '</div>'+
+    '<div class="reads">'+rd("r5",5)+rd("r20",20)+'</div>'+
+    '<div class="warn" hidden></div>'+
+    '<div class="grid fields">'+
+      f("action","ดำเนินการอย่างไร",{full:1})+
+    '</div>'+
+    '<div class="c-foot"><button type="button" class="linkbtn" data-del>ลบหัวจ่ายนี้</button></div>'+
+    '</div>';
+}
+function renderCards(){
+  $("cards").innerHTML=S.rows.map(cardHTML).join("")+'<datalist id="oilList">'+oilOpts()+'</datalist>';
+  refreshAll();
+}
+function refreshCard(row){
+  const el=document.querySelector('.card[data-id="'+row.id+'"]');if(!el)return;
+  const e=evalRow(row);
+  el.classList.toggle("pass",e.st==="pass");el.classList.toggle("fail",e.st==="fail");
+  const ex=el.querySelector("[data-ext]");if(ex){if(row.sn){ex.href=infoURL(row.sn);ex.hidden=false}else ex.hidden=true}
+  const p=el.querySelector(".pill");p.className="pill"+(e.st==="pend"?"":" "+e.st);p.textContent=e.st==="pass"?"ถูก":e.st==="fail"?(e.expired?"ผิด · สิ้นอายุ":"ผิด"):"ยังไม่ตรวจ";
+  [["r5",e.a,5],["r20",e.b,20]].forEach(([k,ev,vol])=>{
+    const box=el.querySelector('[data-rd="'+k+'"]');box.classList.remove("pass","fail");
+    box.querySelector(".lim").textContent="±"+fmt(mpeML(vol));
+    const er=box.querySelector(".err");
+    if(ev.state==="pass"||ev.state==="fail"){box.classList.add(ev.state);er.textContent="คลาดเคลื่อน "+(ev.err>0?"+":"")+ev.err.toFixed(2)+"%"+(ev.state==="fail"?" เกินเกณฑ์":"")}
+    else if(ev.state==="bad"){box.classList.add("fail");er.textContent="ตัวเลขไม่ถูกต้อง"}
+    else er.textContent="";
+  });
+  el.querySelector(".oil").textContent=row.oil||"—";
+  const ai=el.querySelector('input[data-k="action"]');if(ai)ai.placeholder=e.autoAct||"เช่น ปกติ / ทำเครื่องหมายห้ามใช้";
+  const w=el.querySelector(".warn");
+  const notes=[];if(e.expired)notes.push("คำรับรองสิ้นอายุแล้ว ณ วันที่ตรวจ → "+e.act);
+  w.hidden=!notes.length;w.textContent=notes.join(" · ");
+}
+function tally(){let p=0,f=0,q=0;S.rows.forEach(r=>{const s=evalRow(r).st;if(s==="pass")p++;else if(s==="fail")f++;else q++});
+  $("tAll").textContent=S.rows.length;$("tPass").textContent=p;$("tFail").textContent=f;$("tPend").textContent=q;return {p,f,q}}
+function refreshAll(){S.rows.forEach(refreshCard);tally();$("sampleBanner").hidden=!S.sample;topSub()}
+
+function rowById(id){return S.rows.find(r=>r.id===id)}
+$("cards").addEventListener("input",ev=>{
+  const t=ev.target,k=t.dataset.k;if(!k)return;const card=t.closest(".card");const row=rowById(card.dataset.id);if(!row)return;
+  row[k]=t.value;refreshCard(row);tally();save();
+});
+$("cards").addEventListener("change",ev=>{
+  const t=ev.target;if(!t.matches("[data-oilsel]"))return;const card=t.closest(".card");const row=rowById(card.dataset.id);if(!row)return;
+  const inp=card.querySelector('input[data-k="oil"]');
+  if(t.value==="__other"){inp.hidden=false;row.oil=inp.value;inp.focus()}else{inp.hidden=true;inp.value="";row.oil=t.value}
+  refreshCard(row);tally();save();
+});
+$("cards").addEventListener("click",ev=>{
+  const card=ev.target.closest(".card");if(!card)return;const row=rowById(card.dataset.id);if(!row)return;
+  if(ev.target.closest("[data-shot]")){shotTarget=row.id;$("shotFile").value="";$("shotFile").click();return}
+  const sg=ev.target.closest("[data-sign]");
+  if(sg){const k=sg.dataset.sign;const inp=card.querySelector('input[data-k="'+k+'"]');let v=(inp.value||"").trim().replace(/−/g,"-");
+    if(v.startsWith("-"))v="+"+v.slice(1);else if(v.startsWith("+"))v="-"+v.slice(1);else v="-"+v;
+    inp.value=v;row[k]=v;refreshCard(row);tally();save();inp.focus();return}
+  const del=ev.target.closest("[data-del]");
+  if(del){if(del.dataset.armed){S.rows=S.rows.filter(r=>r!==row);renderCards();save();return}
+    del.dataset.armed="1";del.textContent="แตะอีกครั้งเพื่อยืนยันการลบ";setTimeout(()=>{if(del.isConnected){delete del.dataset.armed;del.textContent="ลบหัวจ่ายนี้"}},3000)}
+});
+function incSerial(s){if(!s)return s;const m=[...s.matchAll(/\d{3,}/g)];if(!m.length)return s;const L=m[m.length-1];
+  const n=(BigInt(L[0])+1n).toString().padStart(L[0].length,"0");return s.slice(0,L.index)+n+s.slice(L.index+L[0].length)}
+function addRows(n){
+  n=Math.max(1,Math.min(48,n|0));
+  for(let i=0;i<n;i++){const prev=S.rows[S.rows.length-1];const r=blankRow();
+    if(prev){Object.assign(r,{brand:prev.brand,oil:prev.oil,clamp:prev.clamp,seal:prev.seal,expiry:prev.expiry,sn:incSerial(prev.sn)})}
+    S.rows.push(r)}
+  renderCards();save();
+  const last=document.querySelector(".card:last-of-type");if(last&&n===1)last.scrollIntoView({block:"center",behavior:"smooth"});
+}
+$("add1").onclick=()=>addRows(1);
+$("addMany").onclick=()=>addRows(parseInt($("addN").value,10)||1);
+
+$("resetBtn").addEventListener("click",function(){
+  const b=this;
+  if(!b.dataset.armed){b.dataset.armed="1";b.textContent="แตะอีกครั้งเพื่อล้าง";setTimeout(()=>{delete b.dataset.armed;b.textContent="เริ่มสถานีใหม่"},3000);return}
+  delete b.dataset.armed;b.textContent="เริ่มสถานีใหม่";
+  const m=S.meta;S={meta:blankMeta({inspector:m.inspector,zone:m.zone,team:m.team,helpers:m.helpers,mode:m.mode,mmq:m.mmq,province:m.province}),rows:[blankRow()],sample:false};
+  fillMeta();renderCards();save();setMsg("ล้างข้อมูลแล้ว พร้อมกรอกสถานีใหม่","ok");window.scrollTo({top:0});
+});
+function setMsg(t,c){const m=$("msg");m.textContent=t||"";m.className="msg"+(c?" "+c:"")}
+
+/* ---------- PDF ---------- */
+function thaiDate(iso){if(!iso)return {d:"",m:"",y:""};const [y,mo,d]=iso.split("-").map(Number);return {d:String(d),m:MONTHS[mo-1],y:String(y+543)}}
+function shortDate(iso){if(!iso)return "";const [y,mo,d]=iso.split("-");return d+"/"+mo+"/"+(Number(y)+543)}
+function fmtR(s){const r=parseR(s);if(r===null||isNaN(r))return "";return r>0?"+"+fmt(r):r<0?"−"+fmt(-r):"0"}
+const V=(s,cls)=>'<span class="v'+(cls?" "+cls:"")+'">'+esc(s)+'</span>';
+function headerHTML(){
+  const m=S.meta,ins=INSPECTORS[+m.inspector]||INSPECTORS[0],td=thaiDate(m.date);
+  return '<div class="logo"><img src="'+LOGO+'" alt=""></div>'+
+  '<div class="ttl"><span>รายงานตรวจสอบมาตรวัดปริมาตรน้ำมันเชื้อเพลิงตามสถานีบริการ</span></div>'+
+  '<div class="ln r"><span class="k">เขียนที่</span>'+V(m.writeAt||m.station)+'</div>'+
+  '<div class="ln r"><span class="k">วันที่</span>'+V(td.d)+'<span class="k">เดือน</span>'+V(td.m)+'<span class="k">พ.ศ.</span>'+V(td.y)+'</div>'+
+  '<div class="ln"><span class="k">เมื่อเวลา</span>'+V(m.tStart?m.tStart.replace(":",".")+" น.":"")+'<span class="k">ข้าพเจ้า</span>'+V(ins.n+"  ตำแหน่ง "+ins.p,"g")+'</div>'+
+  '<div class="ln"><span class="k">นายตรวจชั่งตวงวัดประจำ</span>'+V(m.zone,"g")+'</div>'+
+  '<div class="ln"><span class="k">พร้อมด้วย</span>'+V(m.team,"g")+'<span class="k">ผู้ช่วยรวม</span>'+V(m.helpers)+'<span class="k">คน ได้เข้าทำการตรวจสอบ</span></div>'+
+  '<div class="ln"><span class="k">มาตรวัดปริมาตรน้ำมันเชื้อเพลิงสถานีบริการของ</span>'+V(m.station,"g")+'</div>'+
+  '<div class="ln"><span class="k">เลขประจำตัวผู้เสียภาษี</span>'+V(m.taxId,"g")+'<span class="k">ซึ่งเป็นผู้จำหน่ายน้ำมันเชื้อเพลิงของบริษัท</span>'+V(m.company,"g")+'</div>'+
+  '<div class="ln"><span class="k">ตั้งอยู่ ณ เลขที่</span>'+V(m.address,"g")+'</div>'+
+  '<div class="ln"><span class="k">ตำบล</span>'+V(m.tambon,"g")+'<span class="k">อำเภอ</span>'+V(m.amphoe,"g")+'<span class="k">จังหวัด</span>'+V((m.province+" "+zipOf()).trim(),"g")+'</div>'+
+  '<div class="ln"><span class="k">LAT</span>'+V(m.lat,"g")+'<span class="k">LNG</span>'+V(m.lng,"g")+'<span class="k">โทรศัพท์</span>'+V(m.phone,"g")+'</div>'+
+  '<div class="ln"><span class="k">ทำการตรวจเรียบร้อยเมื่อเวลา</span>'+V(m.tEnd?m.tEnd.replace(":",".")+" น.":"")+'<span class="k">รายละเอียดการตรวจดังนี้</span></div>';
+}
+const COLS='<colgroup><col style="width:30px"><col style="width:132px"><col style="width:80px"><col style="width:74px"><col style="width:38px"><col style="width:38px"><col style="width:64px"><col style="width:40px"><col style="width:42px"><col style="width:28px"><col style="width:28px"><col></colgroup>';
+const THEAD='<thead><tr><th rowspan="2">ลำดับ</th><th rowspan="2">หมายเลขลำดับประจำเครื่อง</th><th rowspan="2">ยี่ห้อ / รุ่น</th><th rowspan="2">ชนิดน้ำมัน</th><th rowspan="2">คีม</th><th rowspan="2">ซีล</th><th rowspan="2">วันหมดอายุ</th><th colspan="4">ผลการตรวจ</th><th rowspan="2">ดำเนินการอย่างไร</th></tr><tr><th>5 ลิตร</th><th>20 ลิตร</th><th>ถูก</th><th>ผิด</th></tr></thead>';
+function rowTR(row,i){const e=evalRow(row);
+  return '<tr><td>'+(i+1)+'</td><td>'+esc(row.sn)+'</td><td>'+esc(row.brand)+'</td><td>'+esc(row.oil)+'</td><td>'+esc(row.clamp)+'</td><td>'+esc(row.seal)+'</td><td>'+esc(shortDate(row.expiry))+'</td>'+
+  '<td>'+fmtR(row.r5)+'</td><td>'+fmtR(row.r20)+'</td><td class="f">'+(e.st==="pass"?"✓":"")+'</td><td class="f">'+(e.st==="fail"?"✓":"")+'</td><td class="l">'+esc(e.act)+'</td></tr>'}
+function footHTML(){
+  const m=S.meta,ins=INSPECTORS[+m.inspector]||INSPECTORS[0];const t=tally();
+  const crit=m.mode==="use"?"ตรวจระหว่างใช้งาน อัตราเผื่อเหลือเผื่อขาด ±0.5% (5 ลิตร ±"+fmt(mpeML(5))+" มล. / 20 ลิตร ±"+fmt(mpeML(20))+" มล.) ตามประกาศกระทรวงพาณิชย์ เรื่อง มาตรวัดปริมาตรของเหลว ข้อ 8 วรรคสี่"
+    :"ตรวจให้คำรับรอง อัตราเผื่อเหลือเผื่อขาด ±0.3% หรือ Emin (MMQ "+esc(m.mmq)+" ลิตร) ค่าที่มากกว่า (5 ลิตร ±"+fmt(mpeML(5))+" มล. / 20 ลิตร ±"+fmt(mpeML(20))+" มล.) ตามข้อ 20";
+  return '<div class="foot-block"><div class="sum"><b>รวม '+S.rows.length+' เครื่อง</b>  ถูก '+t.p+' เครื่อง  ผิด '+t.f+' เครื่อง'+(t.q?'  ไม่ได้ตรวจ '+t.q+' เครื่อง':'')+'</div>'+
+  '<div class="note">เกณฑ์: '+crit+'<br>ช่อง 5 ลิตร / 20 ลิตร คือค่าอ่านจากถังตวงแบบมาตรา หน่วยมิลลิลิตร (+ จ่ายเกิน, − จ่ายขาด)</div>'+
+  '<div class="sig"><div><div>ข้าพเจ้า <span class="sl" style="width:230px"></span></div><div>เป็นเจ้าของ / ผู้จัดการ / ผู้แทน ของสถานที่จำหน่ายน้ำมันเชื้อเพลิงแห่งนี้ ขอรับรองว่าผลการตรวจของนายตรวจตามรายงานข้างต้นนี้เป็นความจริง</div>'+
+  '<div class="c" style="margin-top:22px">ลงชื่อ <span class="sl"></span></div><div class="c">( <span class="sl"></span> )</div><div class="c">วันที่ <span class="sl" style="width:150px"></span></div></div>'+
+  '<div class="c" style="padding-top:62px"><div>ลงชื่อ <span class="sl"></span></div><div>( '+esc(ins.n)+' )</div><div>ตำแหน่ง '+esc(ins.p)+'</div><div>นายตรวจชั่งตวงวัด</div></div></div></div>';
+}
+function newPage(first,no){
+  const pg=document.createElement("div");pg.className="pg";
+  pg.innerHTML='<div class="ct">'+(first?headerHTML():'<div class="cont">รายงานตรวจสอบมาตรวัดฯ '+esc(S.meta.station)+' (ต่อ)</div>')+'</div><div class="pno"></div>';
+  $("pdfroot").appendChild(pg);return pg;
+}
+function overflow(pg){const ct=pg.querySelector(".ct");return ct.scrollHeight>ct.clientHeight+1}
+function addTable(pg){const t=document.createElement("table");t.innerHTML=COLS+THEAD+"<tbody></tbody>";pg.querySelector(".ct").appendChild(t);return t.tBodies[0]}
+function layout(){
+  const root=$("pdfroot");root.innerHTML="";
+  let pg=newPage(true),tb=addTable(pg);const pages=[pg];
+  S.rows.forEach((row,i)=>{
+    tb.insertAdjacentHTML("beforeend",rowTR(row,i));
+    if(overflow(pg)){tb.lastElementChild.remove();pg=newPage(false);pages.push(pg);tb=addTable(pg);tb.insertAdjacentHTML("beforeend",rowTR(row,i))}
+  });
+  const ct=pg.querySelector(".ct");ct.insertAdjacentHTML("beforeend",footHTML());
+  if(overflow(pg)){ct.lastElementChild.remove();pg=newPage(false);pages.push(pg);pg.querySelector(".ct").insertAdjacentHTML("beforeend",footHTML())}
+  pages.forEach((p,i)=>p.querySelector(".pno").textContent="หน้า "+(i+1)+"/"+pages.length);
+  return pages;
+}
+let dlP=null;function getDownloads(){if(!dlP){dlP=(window.claude&&typeof window.claude.use==="function")?window.claude.use("downloads").catch(()=>null):Promise.resolve(undefined)}return dlP}
+setTimeout(getDownloads,0);
+$("pdfBtn").addEventListener("click",async()=>{
+  const btn=$("pdfBtn");
+  if(!S.meta.station.trim()){setMsg("กรุณากรอกชื่อสถานีบริการก่อนส่งออก","err");$("m_station").focus();return}
+  if(!S.rows.length){setMsg("ยังไม่มีหัวจ่ายในรายการ","err");return}
+  if(!window.html2canvas||!window.jspdf){setMsg("โหลดตัวสร้าง PDF ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่","err");return}
+  btn.disabled=true;btn.textContent="กำลังสร้าง PDF…";setMsg("");
+  try{
+    try{await document.fonts.load('400 14px "Sarabun"');await document.fonts.load('700 14px "Sarabun"');await document.fonts.ready}catch(e){}
+    const pages=layout();
+    const pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",orientation:"portrait",compress:true});
+    for(let i=0;i<pages.length;i++){
+      const c=await html2canvas(pages[i],{scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false,
+        onclone:d=>{const r=d.getElementById("pdfroot");if(r)r.style.left="0px"}});
+      if(i)pdf.addPage();
+      pdf.addImage(c.toDataURL("image/jpeg",0.92),"JPEG",0,0,210,297);
+    }
+    $("pdfroot").innerHTML="";
+    const name=("ผลตรวจมาตรวัดน้ำมัน_"+S.meta.station+"_"+shortDate(S.meta.date).replace(/\//g,"-")).replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g," ").trim()+".pdf";
+    const dl=await getDownloads();
+    if(dl===undefined){pdf.save(name);setMsg("บันทึก "+name+" แล้ว","ok")}
+    else if(dl===null){setMsg("หน้านี้บันทึกไฟล์ไม่ได้ในมุมมองนี้ ลองเปิดแอปผ่านลิงก์ใน Claude","err")}
+    else{
+      try{await dl.save({filename:name,data:pdf.output("blob")});setMsg("ส่งออก "+name+" แล้ว ("+pages.length+" หน้า) เปิดใน PDF Expert เพื่อให้ผู้ประกอบการเซ็น","ok")}
+      catch(e){const c=e&&e.code;setMsg(c==="declined"?"ยกเลิกการบันทึกไฟล์":c==="rate_limited"?"มีหน้าต่างบันทึกเปิดอยู่ ลองอีกครั้งสักครู่":"บันทึกไฟล์ไม่สำเร็จ ("+(c||"unknown")+")",c==="declined"?"":"err")}
+    }
+  }catch(e){setMsg("สร้าง PDF ไม่สำเร็จ: "+(e&&e.message||e),"err")}
+  finally{btn.disabled=false;btn.textContent="ส่งออก PDF"}
+});
+
+// clear sample flag once the user edits anything real
+document.addEventListener("input",()=>{if(S.sample){S.sample=false;$("sampleBanner").hidden=true;save()}},{capture:true});
+
+
+/* ---------- QR scan + screenshot reading ---------- */
+let scanTarget=null,shotTarget=null,SAMPLE=null;
+function infoURL(sn){return "https://service-cbwm.dit.go.th/qr/"+encodeURIComponent(sn)}
+function snFromQR(t){t=String(t||"").trim();
+  try{const u=new URL(t);const id=u.searchParams.get("id");if(id)return id.trim();const m=u.pathname.match(/\/qr\/([^/?#]+)/);if(m)return decodeURIComponent(m[1]).trim()}catch(e){}
+  if(/^\d[\d-]{8,}$/.test(t))return t;return null}
+async function loadBitmap(file){
+  if(window.createImageBitmap){try{return await createImageBitmap(file,{imageOrientation:"from-image"})}catch(e){try{return await createImageBitmap(file)}catch(e2){}}}
+  return await new Promise((res,rej)=>{const u=URL.createObjectURL(file);const im=new Image();im.onload=()=>{res(im)};im.onerror=()=>rej(new Error("อ่านภาพไม่ได้"));im.src=u});
+}
+async function decodeQR(file){
+  if(!window.jsQR)throw new Error("โหลดตัวอ่าน QR ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต");
+  const img=await loadBitmap(file);const W=img.width,H=img.height;
+  const c=document.createElement("canvas"),ctx=c.getContext("2d",{willReadFrequently:true});
+  for(const [max,inv] of [[1400,"dontInvert"],[900,"dontInvert"],[2200,"attemptBoth"],[700,"attemptBoth"]]){
+    const k=Math.min(1,max/Math.max(W,H));c.width=Math.round(W*k);c.height=Math.round(H*k);
+    ctx.drawImage(img,0,0,c.width,c.height);
+    const d=ctx.getImageData(0,0,c.width,c.height);const r=jsQR(d.data,c.width,c.height,{inversionAttempts:inv});
+    if(r&&r.data)return r.data;
+  }
+  return null;
+}
+function cardMsg(id,text,err){const el=document.querySelector('.card[data-id="'+id+'"] .scanmsg');if(!el)return;el.hidden=!text;el.textContent=text||"";el.classList.toggle("err",!!err)}
+function rerenderCard(row){const el=document.querySelector('.card[data-id="'+row.id+'"]');if(!el)return;const i=S.rows.indexOf(row);
+  el.outerHTML=cardHTML(row,i);refreshCard(row);tally()}
+
+const SHOT_PROMPT='ภาพที่แนบเป็นภาพหน้าจอจากเว็บ service-cbwm.dit.go.th (กรมการค้าภายใน) แสดงข้อมูลมาตรวัดปริมาตรน้ำมันเชื้อเพลิงหนึ่งเครื่อง อาจมีหลายภาพของหน้าเดียวกัน '+
+ 'อ่านข้อมูลแล้วตอบเป็น JSON เท่านั้น รูปแบบ {"sn":"","brand":"","model":"","clamp":"","seal":"","expiry":"","oil":""} โดย '+
+ 'sn = หมายเลขประจำเครื่อง ตามที่แสดง (รวมขีด ไม่เว้นวรรค), brand = ยี่ห้อ/เครื่องหมายการค้า, model = รุ่น, clamp = หมายเลขคีม, seal = หมายเลขซีล, '+
+ 'expiry = วันสิ้นอายุคำรับรอง แปลงเป็นปีคริสต์ศักราชในรูป YYYY-MM-DD (ปี พ.ศ. ลบ 543), oil = ชนิดน้ำมันถ้ามีแสดง ไม่มีให้เป็นค่าว่าง '+
+ 'ช่องใดไม่ปรากฏในภาพให้เป็นค่าว่าง "" ห้ามเดา';
+$("shotFile").addEventListener("change",async e=>{
+  const files=[...(e.target.files||[])];const row=rowById(shotTarget);if(!files.length||!row||!(SAMPLE||OCR_OK))return;
+  cardMsg(row.id,"กำลังอ่านข้อมูลจากภาพหน้าจอ…");
+  try{
+    let d;
+    if(SAMPLE){const lim=await SAMPLE.limits().catch(()=>null);const max=(lim&&lim.images&&lim.images.maxCount)||4;
+      d=await SAMPLE.json(SHOT_PROMPT,{images:files.slice(0,max),modelTier:"default",cache:false})}
+    else d=await readWithOCR(files,row.id);
+    const g=k=>String((d&&d[k])||"").trim();
+    const got=[];
+    const sn=g("sn").replace(/\s+/g,"");
+    let warn="";
+    if(sn){if(row.sn&&row.sn!==sn)warn=" · แทนเลขเครื่องเดิม ("+row.sn+")";if(row.sn!==sn){row.sn=sn;got.push("เลขเครื่อง")}}
+    const bm=[g("brand"),g("model")].filter(Boolean).join(" / ");if(bm){row.brand=bm;got.push("ยี่ห้อ/รุ่น")}
+    if(g("clamp")){row.clamp=g("clamp");got.push("คีม")}
+    if(g("seal")){row.seal=g("seal");got.push("ซีล")}
+    const ex=g("expiry");if(/^\d{4}-\d{2}-\d{2}$/.test(ex)){let y=+ex.slice(0,4);row.expiry=(y>2400?String(y-543):ex.slice(0,4))+ex.slice(4);got.push("วันหมดอายุ")}
+    const oil=g("oil");if(oil){const hit=OILS.find(o=>o===oil)||OILS.find(o=>oil.includes(o.replace("แก๊สโซฮอล์ ","")))||oil;row.oil=hit;got.push("ชนิดน้ำมัน")}
+    rerenderCard(row);save();
+    cardMsg(row.id,(got.length?"กรอกให้แล้ว: "+got.join(", "):"ไม่พบข้อมูลที่อ่านได้ในภาพ")+(oil?"":" · ชนิดน้ำมันไม่มีในภาพ เลือกเอง")+warn+" — ตรวจทานก่อนบันทึกผล",!got.length);
+  }catch(err){const c=err&&err.code;
+    cardMsg(row.id,c==="not_granted"?"ยังไม่ได้อนุญาตให้ส่งภาพให้ Claude อ่าน":c==="rate_limited"?"ใช้งานถี่เกินไป รอสักครู่แล้วลองใหม่":"อ่านภาพไม่สำเร็จ ("+(c||err&&err.message||"error")+") กรอกเองได้",true)}
+});
+(async()=>{try{if(window.claude&&typeof window.claude.use==="function"){const sm=await window.claude.use("sample");if(sm){const lim=await sm.limits().catch(()=>null);if(lim&&lim.images){SAMPLE=sm;document.body.classList.add("has-sample")}}}}catch(e){}})();
+
+/* ---------- on-device OCR (used when the page is NOT opened inside Claude, e.g. Netlify) ---------- */
+let OCR_OK=false,OCRW=null;
+const TESS_URL="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+function loadScript(src){return new Promise((res,rej)=>{if(window.Tesseract)return res();const sc=document.createElement("script");sc.src=src;sc.onload=()=>res();sc.onerror=()=>rej(new Error("โหลดตัวอ่านภาพไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต"));document.head.appendChild(sc)})}
+async function ocrWorkers(rowId){
+  if(OCRW)return OCRW;
+  await loadScript(TESS_URL);
+  const log=m=>{if(m&&m.status&&/load|initial/i.test(m.status))cardMsg(rowId,"กำลังเตรียมตัวอ่านภาษาไทย (ครั้งแรกใช้เวลาสักครู่)… "+Math.round((m.progress||0)*100)+"%")};
+  const th=await Tesseract.createWorker("tha+eng",1,{logger:log});
+  const en=await Tesseract.createWorker("eng",1);
+  OCRW={th,en};return OCRW;
+}
+const TH_MONTHS=[["มกรา","ม.ค"],["กุมภา","ก.พ"],["มีนา","มี.ค"],["เมษา","เม.ย"],["พฤษภา","พ.ค"],["มิถุนา","มิ.ย"],["กรกฎา","ก.ค"],["สิงหา","ส.ค"],["กันยา","ก.ย"],["ตุลา","ต.ค"],["พฤศจิ","พ.ย"],["ธันวา","ธ.ค"]];
+function monthIdx(tok){tok=tok.replace(/\s/g,"");for(let i=0;i<12;i++){const [a,b]=TH_MONTHS[i];if(tok.includes(a)||tok.startsWith(b))return i}
+  for(let i=0;i<12;i++){if(tok.slice(0,3)===TH_MONTHS[i][0].slice(0,3))return i}return -1}
+function thaiDates(text){const out=[];const re=/(\d{1,2})\s*([ก-๙.]{2,14})\s*(25\d\d)/g;let m;
+  while((m=re.exec(text))){const mi=monthIdx(m[2]);if(mi<0)continue;const d=+m[1];if(d<1||d>31)continue;
+    out.push((+m[3]-543)+"-"+String(mi+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"))}return out}
+async function readWithOCR(files,rowId){
+  OCR_OK=true;const W=await ocrWorkers(rowId);
+  const res={sn:"",brand:"",model:"",clamp:"",seal:"",expiry:"",oil:""};let alltext="";
+  for(let fi=0;fi<files.length;fi++){
+    const img=files[fi];
+    cardMsg(rowId,"กำลังอ่านภาพ "+(fi+1)+"/"+files.length+"…");
+    const r=await W.th.recognize(img,{},{text:true,blocks:true});
+    alltext+="\n"+r.data.text;
+    const lines=[];for(const b of r.data.blocks||[])for(const pa of b.paragraphs||[])for(const l of pa.lines||[]){const t=(l.text||"").trim();if(t)lines.push({t,c:t.replace(/\s+/g,""),b:l.bbox})}
+    const LABELS=[["brand",/ยี่?ห้อ|เครื่องหมายการค้า/],["model",/^รุ่น/],["seal",/ซีล/],["clamp",/หมายเลขค[ีิืึ]ม|^ค[ีิืึ]ม/]];
+    const isLabel=c=>/พิกัด|Serial|ทะเบียน|หมายเลข|ข้อมูลเครื่อง|ผลการตรวจ|^รุ่น|ยี่?ห้อ/.test(c);
+    for(const [k,re] of LABELS){
+      if(res[k])continue;const i=lines.findIndex(l=>re.test(l.c));if(i<0||!lines[i+1]||isLabel(lines[i+1].c))continue;
+      const v=lines[i+1],pad=6;
+      const rect={left:Math.max(0,v.b.x0-pad),top:Math.max(0,v.b.y0-pad),width:(v.b.x1-v.b.x0)+2*pad,height:(v.b.y1-v.b.y0)+2*pad};
+      let val=v.t;
+      try{const e=await W.en.recognize(img,{rectangle:rect});const t=(e.data.text||"").trim().split("\n")[0].trim();if(t&&/[A-Za-z0-9]/.test(t))val=t}catch(e){}
+      res[k]=val.replace(/\s{2,}/g," ");
+    }
+  }
+  const compact=alltext.replace(/\s+/g,"");
+  const sm=compact.match(/\d-\d{4,7}-\d-\d{4}-\d{4,7}-\d{2}/);if(sm)res.sn=sm[0];
+  const ds=thaiDates(alltext.replace(/\n/g," ")).sort();if(ds.length)res.expiry=ds[ds.length-1];
+  return res;
+}
+(()=>{try{if(!window.claude){OCR_OK=true;document.body.classList.add("has-ocr")}}catch(e){}})();
+
+fillMeta();renderCards();
+})();
+</script>
+</body></html>
