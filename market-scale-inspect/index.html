@@ -100,6 +100,15 @@ td .del{font:inherit;font-size:12px;border:0;background:none;color:var(--bad);cu
 .pill.ok{background:var(--ok-bg);color:var(--ok);border-color:transparent}
 .pill.bad{background:var(--bad-bg);color:var(--bad);border-color:transparent}
 .empty{color:var(--muted);font-size:14px;padding:12px;text-align:center}
+.totals{display:flex;flex-direction:column;gap:8px;background:var(--brass-soft);border-radius:10px;padding:12px}
+.tot-h{font-weight:600;font-size:15px}
+.tot-sub{font-size:13px;color:var(--muted)}
+.tot-grid{display:grid;grid-template-columns:auto 1fr 1fr;gap:8px 10px;align-items:end}
+.tot-type{font-size:14px;font-weight:500;padding-bottom:10px}
+.tot-grid input{background:var(--surface);text-align:center;font-variant-numeric:tabular-nums}
+.tot-grid input.manual{border-color:var(--brass);border-width:2px}
+.tot-sum{font-size:14px;font-variant-numeric:tabular-nums}
+.tot-sum .warn{color:var(--bad)}
 footer{font-size:12px;color:var(--muted);line-height:1.6}
 /* PDF pages (off-screen, fixed light palette for paper) */
 #pdfStage{position:fixed;left:-99999px;top:0}
@@ -246,6 +255,19 @@ footer{font-size:12px;color:var(--muted);line-height:1.6}
       <thead><tr><th>ที่</th><th>ร้าน/แผง</th><th>ชนิด</th><th>หมายเลขเครื่อง</th><th>Max/e</th><th>ลักษณะ</th><th>ตุ้ม (กก.)</th><th>แสดงค่า (กก.)</th><th>ผิดสูงสุด (ก.)</th><th>อัตรา ± (ก.)</th><th>ผล</th><th>ดำเนินการ</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
     </table></div>
+    <div class="totals" aria-labelledby="h-tot">
+      <div id="h-tot" class="tot-h">จำนวนเครื่องชั่งที่ตรวจทั้งหมดในตลาดนี้ (เครื่อง)</div>
+      <div class="tot-sub">แอปนับจากตารางให้อัตโนมัติ ถ้าตรวจบางร้านโดยไม่ได้บันทึกรายเครื่อง ให้แก้เป็นจำนวนจริงทั้งหมด ตัวเลขชุดนี้จะส่งเข้า Google Sheet</div>
+      <div class="tot-grid">
+        <div class="tot-type">เครื่องชั่งสปริง</div>
+        <label class="f">ถูก<input id="tot_sp" type="number" inputmode="numeric" min="0" step="1"></label>
+        <label class="f">ผิด<input id="tot_sf" type="number" inputmode="numeric" min="0" step="1"></label>
+        <div class="tot-type">เครื่องชั่งดิจิทัล</div>
+        <label class="f">ถูก<input id="tot_dp" type="number" inputmode="numeric" min="0" step="1"></label>
+        <label class="f">ผิด<input id="tot_df" type="number" inputmode="numeric" min="0" step="1"></label>
+      </div>
+      <div class="tot-sum" id="totSum"></div>
+    </div>
     <div class="actions">
       <button class="btn brass" id="pdfBtn" type="button">ส่งออกแบบรายงาน PDF</button>
       <button class="btn danger" id="clearBtn" type="button">ล้างตารางทั้งหมด</button>
@@ -312,10 +334,25 @@ function status(errG,mpe){const a=r1(Math.abs(errG));
 /* ---------- storage ---------- */
 function save(){try{localStorage.setItem(KEY,JSON.stringify({
   market:$("market").value,otype:$("otype").value,date:$("date").value,
-  insp:$("inspName").value,vol:$("volName").value,team:$("team").value,records:state.records,sessionId:state.sessionId||""}))}catch(e){}}
+  insp:$("inspName").value,vol:$("volName").value,team:$("team").value,records:state.records,sessionId:state.sessionId||"",totals:state.totals||{}}))}catch(e){}}
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(!s)return;
   $("market").value=s.market||"";$("otype").value=s.otype||"inspector";$("date").value=s.date||todayISO();
-  if(s.insp!=null)$("inspName").value=s.insp;$("volName").value=s.vol||"";$("team").value=s.team||"";state.records=s.records||[];state.sessionId=s.sessionId||"";}catch(e){}}
+  if(s.insp!=null)$("inspName").value=s.insp;$("volName").value=s.vol||"";$("team").value=s.team||"";state.records=s.records||[];state.sessionId=s.sessionId||"";state.totals=s.totals||{};}catch(e){}}
+
+/* ---------- market totals (may exceed per-shop records) ---------- */
+const TOT_IDS={sp:"tot_sp",sf:"tot_sf",dp:"tot_dp",df:"tot_df"};
+function recCounts(){const R=state.records||[];const c=(t,ok)=>R.filter(r=>r.type===t&&((r.result==="ผ่าน")===ok)).length;
+  return{sp:c("spring",true),sf:c("spring",false),dp:c("digital",true),df:c("digital",false)}}
+function getTotals(){const rc=recCounts(),m=state.totals||{},o={};
+  for(const k in TOT_IDS){const v=m[k];o[k]=(v!=null&&v!=="")?Math.max(0,Math.round(+v)||0):rc[k]}return o}
+function renderTotals(){const rc=recCounts(),t=getTotals(),m=state.totals||{};
+  for(const k in TOT_IDS){const el=$(TOT_IDS[k]);if(document.activeElement!==el)el.value=t[k];el.classList.toggle("manual",m[k]!=null&&m[k]!=="")}
+  const sp=t.sp+t.sf,dg=t.dp+t.df,low=Object.keys(TOT_IDS).filter(k=>t[k]<rc[k]);
+  $("totSum").innerHTML=`รวมสปริง <b>${sp}</b> · รวมดิจิทัล <b>${dg}</b> · รวมทั้งหมด <b>${sp+dg}</b> เครื่อง`
+    +(low.length?`<br><span class="warn">ตัวเลขบางช่องน้อยกว่าที่บันทึกรายเครื่องในตาราง ตรวจสอบอีกครั้ง</span>`:"");}
+for(const k in TOT_IDS){$(TOT_IDS[k]).addEventListener("input",e=>{state.totals=state.totals||{};
+  state.totals[k]=e.target.value===""?null:e.target.value;save();renderTotals()});
+  $(TOT_IDS[k]).addEventListener("blur",renderTotals)}
 
 /* ---------- send summary to Google Sheet ---------- */
 const SHEET_URL="https://script.google.com/macros/s/AKfycbxSyZQ3yg3QtnJROf7xN6dVhiFiZ6IJ2ys_sdU2GFY_BTd9pb60YsktUqVLHz6DglrZrQ/exec";                     // URL เว็บแอป Apps Script (ลงท้าย /exec)
@@ -325,14 +362,14 @@ function newId(){return Date.now().toString(36)+"-"+Math.random().toString(36).s
 function readQ(){try{return JSON.parse(localStorage.getItem(QKEY)||"[]")}catch(e){return[]}}
 function writeQ(q){try{localStorage.setItem(QKEY,JSON.stringify(q))}catch(e){}}
 function buildSummary(){
-  const o=officer(), R=state.records, fail=R.filter(r=>r.result!=="ผ่าน");
-  const cnt=(t,ok)=>R.filter(r=>r.type===t&&((r.result==="ผ่าน")===ok)).length;
-  const act=a=>fail.filter(r=>r.action===a).length;
-  const seized=act("ยึด"),tagged=act("ผูกบัตรห้ามใช้/สั่งแก้ไข"),notified=act("แจ้งนายตรวจชั่งตวงวัด");
+  const o=officer(), t=getTotals();
+  // การดำเนินการกำหนดโดยประเภทเจ้าหน้าที่และชนิดเครื่อง จึงคิดจากจำนวนรวมได้ครบทุกเครื่อง
+  const isVol=o.type==="vol";
+  const seized=isVol?0:t.sf, tagged=isVol?0:t.df, notified=isVol?t.sf+t.df:0;
   const parts=[];if(seized)parts.push(`ยึด ${seized} เครื่อง`);if(tagged)parts.push(`ผูกบัตรห้ามใช้/สั่งแก้ไข ${tagged} เครื่อง`);if(notified)parts.push(`แจ้งนายตรวจชั่งตวงวัด ${notified} เครื่อง`);
   return{token:SHEET_TOKEN,submitId:state.sessionId,date:$("date").value,market:$("market").value.trim(),
     officerType:o.typeLabel,officerName:o.name,team:$("team").value.trim(),
-    springPass:cnt("spring",true),springFail:cnt("spring",false),digitalPass:cnt("digital",true),digitalFail:cnt("digital",false),
+    springPass:t.sp,springFail:t.sf,digitalPass:t.dp,digitalFail:t.df,
     actionText:parts.length?parts.join(", "):"-",seized,tagged,notified};
 }
 function sheetMsg(t,k){const el=$("sheetMsg");el.textContent=t;el.className="msg "+(k||"")}
@@ -496,21 +533,21 @@ function renderTable(){const tb=$("tbody");tb.innerHTML="";
   const p=state.records.filter(r=>r.result==="ผ่าน").length, f=state.records.length-p;
   $("sum").innerHTML=`<span class="pill">ตรวจ ${state.records.length} เครื่อง</span><span class="pill ok">ผ่าน ${p}</span><span class="pill bad">ไม่ผ่าน ${f}</span>`
     +`<span class="pill">สปริง ${state.records.filter(r=>r.type==="spring").length} · ดิจิทัล ${state.records.filter(r=>r.type==="digital").length}</span>`;
-  $("seq").value=state.records.length+1;}
+  $("seq").value=state.records.length+1;renderTotals();}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 $("tbody").addEventListener("click",e=>{const b=e.target.closest(".del");if(!b)return;
   if(b.dataset.armed!=="1"){b.dataset.armed="1";b.textContent="ยืนยันลบ";setTimeout(()=>{b.dataset.armed="";b.textContent="ลบ"},3000);return}
   state.records.splice(+b.dataset.i,1);state.records.forEach((r,i)=>r.no=i+1);save();renderTable()});
 $("clearBtn").addEventListener("click",e=>{const b=e.currentTarget;
   if(b.dataset.armed!=="1"){b.dataset.armed="1";b.textContent="กดอีกครั้งเพื่อยืนยันล้าง";setTimeout(()=>{b.dataset.armed="";b.textContent="ล้างตารางทั้งหมด"},3500);return}
-  b.dataset.armed="";b.textContent="ล้างตารางทั้งหมด";state.records=[];state.sessionId="";save();renderTable();flash($("msg2"),"ล้างตารางแล้ว","ok")});
+  b.dataset.armed="";b.textContent="ล้างตารางทั้งหมด";state.records=[];state.sessionId="";state.totals={};save();renderTable();flash($("msg2"),"ล้างตารางแล้ว","ok")});
 
 /* ---------- PDF ---------- */
 function buildPages(){
   const o=officer(), recs=state.records, PER=11;
   const chunks=[];for(let i=0;i<recs.length;i+=PER)chunks.push(recs.slice(i,i+PER));
-  if(chunks[chunks.length-1].length>7)chunks.push([]);
-  const p=recs.filter(r=>r.result==="ผ่าน").length, f=recs.length-p;
+  if(!chunks.length||chunks[chunks.length-1].length>7)chunks.push([]);
+  const T=getTotals(), tAll=T.sp+T.sf+T.dp+T.df;
   const head=`<h3>แบบรายงานผลการตรวจสอบเครื่องชั่งในตลาดสด</h3>
     <div class="org">ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี) กองชั่งตวงวัด กรมการค้าภายใน</div>
     <div class="meta"><span><b>ตลาด</b> ${esc($("market").value||"-")}</span><span><b>วันที่ตรวจ</b> ${thDate($("date").value)}</span>
@@ -526,14 +563,16 @@ function buildPages(){
       <td>${fmtKg(r.load)}</td><td class="l" style="font-size:13px">${readsText(r)}</td><td>${r.reads.length?sgn(r.errMax):"-"}</td><td>${r.mpe==null?"-":fmtG(r.mpe)}</td>
       <td class="pf">${r.result}</td><td>${r.action}</td></tr>`).join("");
     const sig2=o.type==="vol"?`<div>ลงชื่อ ..................................................<br>(..................................................)<br>นายตรวจชั่งตวงวัด ผู้รับรายงาน</div>`:"";
-    const foot=last?`<div class="note">สรุป: ตรวจทั้งหมด ${recs.length} เครื่อง ผ่าน ${p} เครื่อง ไม่ผ่าน ${f} เครื่อง (สปริง ${recs.filter(r=>r.type==="spring").length} / ดิจิทัล ${recs.filter(r=>r.type==="digital").length})
-      · อัตราเผื่อเหลือเผื่อขาดสำหรับเครื่องที่ใช้งานแล้ว (2 เท่า) ตามประกาศกระทรวงพาณิชย์ ลว. 19 มิ.ย. 2560 · ค่าผิด = ค่าที่แสดง − น้ำหนักตุ้ม</div>
+    const foot=last?`<div class="note" style="font-size:15px"><b>สรุปจำนวนเครื่องชั่งที่ตรวจทั้งหมด ${tAll} เครื่อง</b> · เครื่องชั่งสปริง ถูก ${T.sp} ผิด ${T.sf} (รวม ${T.sp+T.sf}) · เครื่องชั่งดิจิทัล ถูก ${T.dp} ผิด ${T.df} (รวม ${T.dp+T.df})${recs.length<tAll?` · บันทึกผลรายเครื่องในตาราง ${recs.length} เครื่อง`:""}</div>
+      <div class="note">อัตราเผื่อเหลือเผื่อขาดสำหรับเครื่องที่ใช้งานแล้ว (2 เท่า) ตามประกาศกระทรวงพาณิชย์ ลว. 19 มิ.ย. 2560 · ค่าผิด = ค่าที่แสดง − น้ำหนักตุ้ม</div>
       <div class="sig"><div>ลงชื่อ ..................................................<br>(${esc(o.name||"..................................................")})<br>${o.type==="inspector"?`ตำแหน่ง ${esc(o.pos)}<br>นายตรวจชั่งตวงวัด`:`${esc(o.pos)} ผู้ตรวจสอบ`}</div>${sig2}</div>`:"";
     return `<div class="page">${head}${rows.length?`<table><thead>${thead}</thead><tbody>${body}</tbody></table>`:""}${foot}<div class="pno">หน้า ${pi+1}/${chunks.length}</div></div>`;
   });
 }
 $("pdfBtn").addEventListener("click",async()=>{
-  if(!state.records.length)return flash($("msg2"),"ยังไม่มีผลการตรวจในตาราง","err");
+  const T0=getTotals();
+  if(!state.records.length&&!(T0.sp+T0.sf+T0.dp+T0.df))return flash($("msg2"),"ยังไม่มีผลการตรวจ บันทึกรายเครื่องหรือกรอกจำนวนเครื่องชั่งก่อน","err");
+  if(!$("market").value.trim())return flash($("msg2"),"กรอกชื่อตลาดในส่วน ก ก่อนส่งออก","err");
   sendSummary();
   if(!window.jspdf||!window.html2canvas)return flash($("msg2"),"โหลดตัวสร้าง PDF ไม่สำเร็จ ตรวจการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่","err");
   const btn=$("pdfBtn");btn.disabled=true;btn.textContent="กำลังสร้าง PDF…";
