@@ -47,13 +47,13 @@ function doPost(e) {
     }
 
     const now = Utilities.formatDate(new Date(), 'Asia/Bangkok', 'dd/MM/yyyy HH:mm');
-    // ข้อมูลสถานี (ลำดับ-บริษัท, นายตรวจ, เวลา) แสดงเฉพาะแถวแรกของสถานี
+    // ข้อมูลสถานี (ลำดับ-เบอร์โทร, นายตรวจ, เวลา) แสดงเฉพาะแถวแรกของสถานี
     const rows = data.rows.map((r, i) => {
       const first = i === 0;
       return [
         '', first ? (data.date || '') : '', first ? (data.station || '') : '',
         first ? (data.address || '') : '', first ? (data.latlng || '') : '',
-        first ? (data.company || '') : '', data.phone || '',
+        first ? (data.company || '') : '', first ? (data.phone || '') : '',
         r.sn || '', r.brand || '', r.oil || '', r.clamp || '', r.seal || '',
         r.expiry || '', r.result || '', r.verdict || '', r.action || '',
         first ? (data.inspector || '') : '', first ? now : '', id
