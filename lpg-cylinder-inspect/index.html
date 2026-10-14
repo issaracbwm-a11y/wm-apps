@@ -121,6 +121,17 @@ input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline
 .msg-err{border-left-color:var(--bad);background:var(--bad-bg)}
 textarea{font-family:var(--f-num);font-size:.8rem;width:100%;min-height:8rem;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px}
 
+.tabs{display:flex;flex-wrap:wrap;gap:8px}
+.tab{font:inherit;display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:8px 12px;cursor:pointer;min-height:44px}
+.tab .tab-t{font-weight:600}
+.tab[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--accent-soft)}
+.tab-add{color:var(--accent);font-weight:600;border-style:dashed}
+.lot-body{display:grid;gap:14px;border-top:1px solid var(--line);padding-top:14px}
+.lot-name{font-weight:500;color:var(--muted);font-size:.9rem}
+.tbl-wrap{overflow-x:auto}
+table.sum{width:100%;border-collapse:collapse;font-size:.88rem}
+table.sum th{font-weight:600;color:var(--muted);text-align:left;font-size:.78rem;padding:6px 8px;border-bottom:1px solid var(--line)}
+table.sum td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
 .refs{font-size:.84rem;color:var(--muted);display:grid;gap:6px}
 .refs ul{margin:0;padding-left:1.1rem;display:grid;gap:4px}
 
@@ -136,38 +147,46 @@ textarea{font-family:var(--f-num);font-size:.8rem;width:100%;min-height:8rem;bac
   <header>
     <p class="eyebrow">ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)</p>
     <h1>ตรวจก๊าซหุงต้มบรรจุถัง</h1>
-    <p class="lead">คำนวณผลการสุ่มตรวจปริมาณสุทธิตามประกาศกระทรวงพาณิชย์ ลงวันที่ 12 มี.ค. 2561 ข้อ 6 และประกาศกรมการค้าภายใน ลงวันที่ 8 มิ.ย. 2561 ข้อ 4</p>
+    <p class="lead">คำนวณผลการสุ่มตรวจปริมาณสุทธิตามประกาศกระทรวงพาณิชย์ ลงวันที่ 12 มี.ค. 2561 ข้อ 6 และประกาศกรมการค้าภายใน ลงวันที่ 8 มิ.ย. 2561 ข้อ 4 ตรวจได้หลายขนาดถังในร้านเดียว</p>
   </header>
 
   <div class="banner" id="exBanner" hidden>
     <span>ตอนนี้เป็นข้อมูลตัวอย่าง ไม่ใช่ผลตรวจจริง</span>
-    <button class="btn primary" id="startNew1" type="button">เริ่มตรวจล็อตใหม่</button>
+    <button class="btn primary" id="startNew1" type="button">เริ่มตรวจร้านใหม่</button>
   </div>
 
-  <section class="card" aria-labelledby="h-lot">
-    <div class="card-h"><h2 id="h-lot"><span class="step">1</span>ข้อมูลล็อต</h2></div>
+  <section class="card" aria-labelledby="h-site">
+    <div class="card-h"><h2 id="h-site"><span class="step">1</span>สถานที่ตรวจ</h2></div>
     <div class="grid2">
       <label class="field">ชื่อสถานที่ตรวจ<input id="shop" type="text" autocomplete="off" placeholder="เช่น ร้านก๊าซ มะขามเตี้ย"></label>
       <label class="field">ที่อยู่<input id="address" type="text" autocomplete="off" placeholder="เลขที่ ตำบล อำเภอ จังหวัด"></label>
-      <label class="field">ยี่ห้อก๊าซ / ผู้บรรจุ<input id="brand" type="text" autocomplete="off"></label>
       <label class="field">วันที่ตรวจ<input id="date" type="date"></label>
       <label class="field">นายตรวจชั่งตวงวัด<select id="inspector"><option value="">— เลือกนายตรวจชั่งตวงวัด —</option><option value="นายอิสระ รัตนวัย">นายอิสระ รัตนวัย (นักวิชาการชั่งตวงวัดชำนาญการพิเศษ)</option><option value="นายปราโมช บ้านนบ">นายปราโมช บ้านนบ (นักวิชาการชั่งตวงวัดชำนาญการ)</option><option value="นายวสันต์ ดิลกสัมพันธ์">นายวสันต์ ดิลกสัมพันธ์ (นักวิชาการชั่งตวงวัดชำนาญการ)</option><option value="ว่าที่ ร.ต.หญิงวรรณนิศา จันทระ">ว่าที่ ร.ต.หญิงวรรณนิศา จันทระ (นักวิชาการชั่งตวงวัดชำนาญการ)</option><option value="นายสุภชัย สืบน้อย">นายสุภชัย สืบน้อย (เจ้าพนักงานชั่งตวงวัดชำนาญงาน)</option></select></label>
     </div>
-    <div class="field" style="display:grid;gap:6px">
-      <span class="hint" style="color:var(--muted)">ขนาดถัง (ปริมาณสุทธิที่แสดง)</span>
-      <div class="chips" id="sizeChips"></div>
-      <label class="field" id="customWrap" hidden>ระบุปริมาณสุทธิ (กก.)<input id="customSize" inputmode="decimal" placeholder="1 – 50"></label>
+  </section>
+
+  <section class="card" aria-labelledby="h-lot">
+    <div class="card-h"><h2 id="h-lot"><span class="step">2</span>ล็อตที่ตรวจ (1 ล็อต = 1 ขนาดถัง)</h2></div>
+    <div class="tabs" id="lotTabs" role="group" aria-label="เลือกล็อต"></div>
+    <div class="lot-body">
+      <label class="field">ยี่ห้อก๊าซ / ผู้บรรจุ<input id="brand" type="text" autocomplete="off"></label>
+      <div class="field" style="display:grid;gap:6px">
+        <span class="hint">ขนาดถัง (ปริมาณสุทธิที่แสดง)</span>
+        <div class="chips" id="sizeChips"></div>
+        <label class="field" id="customWrap" hidden>ระบุปริมาณสุทธิ (กก.)<input id="customSize" inputmode="decimal" placeholder="1 – 50"></label>
+      </div>
+      <label class="field">จำนวนถังขนาดนี้ทั้งหมดในล็อต (ถัง)
+        <input id="lotN" inputmode="numeric" placeholder="นับถังที่มีอยู่จริง ณ จุดตรวจ">
+      </label>
+      <p class="hint">ถ้ามีถังขนาดนี้ไม่เกิน 20 ถัง ให้กรอกจำนวนจริง แอปจะตั้งเป็นตรวจทุกถัง</p>
+      <div class="plan" id="plan"></div>
+      <div class="row-actions"><button class="btn danger" type="button" id="delLot">ลบล็อตนี้</button></div>
     </div>
-    <label class="field">จำนวนถังขนาดนี้ทั้งหมดในล็อต (ถัง)
-      <input id="lotN" inputmode="numeric" placeholder="นับถังที่มีอยู่จริง ณ จุดตรวจ">
-    </label>
-    <p class="hint">ถ้ามีถังขนาดนี้ไม่เกิน 20 ถัง ให้กรอกจำนวนจริง แอปจะตั้งเป็นตรวจทุกถัง</p>
-    <div class="plan" id="plan"></div>
   </section>
 
   <section class="card" aria-labelledby="h-w">
     <div class="card-h">
-      <h2 id="h-w"><span class="step">2</span>บันทึกผลชั่ง (กก.)</h2>
+      <h2 id="h-w"><span class="step">3</span>บันทึกผลชั่ง <span id="wLotName" class="lot-name"></span></h2>
       <div class="seg" role="group" aria-label="วิธีกรอก">
         <button type="button" id="modeGT">รวม − ถังเปล่า</button>
         <button type="button" id="modeNet">สุทธิ</button>
@@ -186,23 +205,30 @@ textarea{font-family:var(--f-num);font-size:.8rem;width:100%;min-height:8rem;bac
   </section>
 
   <section class="card" aria-labelledby="h-r" id="results">
-    <div class="card-h"><h2 id="h-r"><span class="step">3</span>ผลการตรวจ</h2></div>
+    <div class="card-h"><h2 id="h-r"><span class="step">4</span>ผลการตรวจ <span id="rLotName" class="lot-name"></span></h2></div>
     <div class="verdict" id="verdict"></div>
     <div class="stats" id="stats"></div>
     <div class="crit" id="crit"></div>
     <div id="extraNote"></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-all">
+    <div class="card-h"><h2 id="h-all"><span class="step">5</span>สรุปผลทั้งร้าน</h2></div>
+    <div class="verdict" id="allVerdict"></div>
+    <div class="tbl-wrap"><table class="sum" id="sumTable"></table></div>
     <div class="row-actions">
       <button class="btn primary" type="button" id="exportBtn">ส่งออกแบบฟอร์ม PDF</button>
       <button class="btn" type="button" id="copyBtn">คัดลอกสรุปผล</button>
-      <button class="btn danger" type="button" id="startNew2">เริ่มตรวจล็อตใหม่</button>
+      <button class="btn danger" type="button" id="startNew2">เริ่มตรวจร้านใหม่</button>
     </div>
-    <p class="hint" id="exportMsg">ไฟล์ PDF ขนาด A4 พร้อมช่องลงนามนายตรวจชั่งตวงวัดและผู้ประกอบการ เปิดเซ็นต่อใน PDF Expert ได้</p>
+    <p class="hint" id="exportMsg">แบบฟอร์ม PDF ฉบับเดียวรวมทุกล็อต ขนาด A4 พร้อมช่องลงนามนายตรวจชั่งตวงวัดและผู้ประกอบการ เปิดเซ็นต่อใน PDF Expert ได้</p>
     <textarea id="copyFallback" hidden readonly aria-label="สรุปผลสำหรับคัดลอก"></textarea>
   </section>
 
   <section class="refs">
     <h2 style="font-size:.95rem;color:var(--ink)">หลักเกณฑ์ที่ใช้</h2>
     <ul>
+      <li>ถังแต่ละขนาดเป็นคนละล็อต ตรวจและตัดสินผลแยกกัน ร้านผ่านเมื่อทุกล็อตผ่าน</li>
       <li>อัตราเผื่อเหลือเผื่อขาดขั้นที่ 1 (T1) ตามประกาศ พณ. ข้อ 6(2): เกิน 1–10 กก. = 1.5%, เกิน 10–15 กก. = 150 ก., เกิน 15–50 กก. = 1% และ T2 = 2 × T1</li>
       <li>ล็อตไม่เกิน 20 ถัง: ตรวจทุกถัง · ล็อตมากกว่า 20 ถัง: สุ่ม 20 ถัง ยอมให้ขาดเกิน T1 (ไม่เกิน T2) ได้ 1 ถัง ค่าแก้ไข 0.640 (ประกาศกรมฯ ข้อ 4(1))</li>
       <li>เกณฑ์ค่าเฉลี่ย: x̄ + (ค่าแก้ไข × S) ต้องไม่น้อยกว่าปริมาณสุทธิที่แสดง (ข้อ 4(2)) · ทุกถังต้องขาดไม่เกิน T2 (ข้อ 4(3))</li>
@@ -233,7 +259,7 @@ function gtxt(g){const v=Math.round(g*10)/10;return (v>0?'+':'')+(Number.isInteg
 function stTxt(s){return s==='ok'?'ปกติ':s==='warn'?'เกิน T1':'เกิน T2';}
 const DOTS='..................................';
 
-function render(R,S,mk,FAM){
+function render(items,S,mk,FAM){
   const pages=[];let ctx,y;
   const seg=(typeof Intl!=='undefined'&&Intl.Segmenter)?new Intl.Segmenter('th',{granularity:'word'}):null;
   function newPage(){const c=mk(Math.round(PW*SC),Math.round(PH*SC));ctx=c.getContext('2d');ctx.setTransform(SC,0,0,SC,0,0);ctx.fillStyle='#ffffff';ctx.fillRect(0,0,PW,PH);pages.push({c,ctx});y=MT;}
@@ -263,7 +289,7 @@ function render(R,S,mk,FAM){
       y+=lh;});
     y+=o.after||0;
   }
-  function heading(s){y+=10;ensure(80);text(s,{size:12.5,bold:true,after:3});}
+  function heading(s,keep){y+=10;ensure(keep||80);text(s,{size:12.5,bold:true,after:3});}
   function table(widths,rows,o){
     o=o||{};const sz=o.size||11,lh=sz*1.42,pad=o.pad==null?4:o.pad;
     const measure=r=>{let m=1;r.forEach((c,i)=>{font(sz,c.b);m=Math.max(m,wrap(c.t,widths[i]-2*pad).length);});return m*lh+2*pad;};
@@ -286,64 +312,75 @@ function render(R,S,mk,FAM){
     };
     rows.forEach((r,ri)=>{const h=measure(r);if(y+h>PH-MB){newPage();if(o.header&&ri>0)draw(rows[0]);}draw(r);});
   }
+  const HF='#DCE4F0';
+  const hd=t=>({t,b:true,fill:HF,align:'center'});
+  const vFill=v=>v==='ok'?'#E2F0D9':v==='bad'?'#F8D7D3':null;
+  const lotName=(it,k)=>'ล็อตที่ '+(k+1)+' ถัง '+it.R.sizeTxt+(it.L.brand?' '+it.L.brand:'');
 
   newPage();
-  const p=R.p,HF='#DCE4F0';
-  const hd=t=>({t,b:true,fill:HF,align:'center'});
   text('แบบสรุปผลการตรวจสอบความถูกต้องของการแสดงปริมาณสินค้าหีบห่อ',{size:14,bold:true,align:'center'});
   text('รายการก๊าซปิโตรเลียมเหลว เฉพาะบรรจุถังใช้สำหรับหุงต้ม',{size:14,bold:true,align:'center'});
   text('ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี) กองชั่งตวงวัด กรมการค้าภายใน',{size:12,align:'center',after:4});
 
   heading('1. ข้อมูลการตรวจสอบ');
-  const L=130;
-  table([L,CW-L],[
+  const L0=130;
+  table([L0,CW-L0],[
     ['วันที่ตรวจสอบ',thDate(S.date)],
     ['ชื่อสถานที่ตรวจ',S.shop||DOTS+DOTS],
     ['ที่อยู่',S.address||DOTS+DOTS],
-    ['ยี่ห้อก๊าซ / ผู้บรรจุ',S.brand||DOTS+DOTS],
-    ['ปริมาณสุทธิที่แสดง',R.sizeTxt+' ('+kg(R.Q)+' กิโลกรัม)'],
-    ['จำนวนถังในล็อต',p.N.toLocaleString('th-TH')+' ถัง'],
-    ['วิธีการตรวจสอบ',p.all?'ตรวจทุกถัง จำนวน '+p.N+' ถัง':'สุ่มตัวอย่าง 20 ถัง'],
+    ['ขนาดถังที่ตรวจ',items.length+' ขนาด ('+items.map(it=>it.R.sizeTxt).join(', ')+')'],
   ].map(r=>[{t:r[0]},{t:r[1]}]),{noBorder:true,size:12,pad:1});
 
   heading('2. เกณฑ์การพิจารณา');
-  const t1=String(Math.round(R.T1*100)/100),t2=String(Math.round(R.T2*100)/100);
-  text('2.1 อัตราเผื่อเหลือเผื่อขาดฝ่ายน้อยขั้นที่ 1 (T1) = '+t1+' กรัม ขั้นที่ 2 (T2) = '+t2+' กรัม ตามประกาศกระทรวงพาณิชย์ เรื่อง กำหนดชนิดของสินค้าหีบห่อ หลักเกณฑ์และวิธีการแสดงปริมาณของสินค้า และอัตราเผื่อเหลือเผื่อขาด ลงวันที่ 12 มีนาคม 2561 ข้อ 6',{indent:18});
-  text('2.2 ประกาศกรมการค้าภายใน เรื่อง หลักเกณฑ์และวิธีการตรวจสอบการแสดงปริมาณของสินค้าหีบห่อ ลงวันที่ 8 มิถุนายน 2561 ข้อ 4 '+
-    (p.all?'จำนวนถังไม่เกิน 20 ถัง ตรวจทุกถัง ค่าเฉลี่ยต้องไม่น้อยกว่าปริมาณสุทธิที่แสดง ไม่มีถังขาดเกิน T1 และทุกถังต้องขาดไม่เกิน T2':
-      'สุ่มตัวอย่าง 20 ถัง ค่าเฉลี่ยรวมกับ 0.640 เท่าของค่าเบี่ยงเบนมาตรฐานต้องไม่น้อยกว่าปริมาณสุทธิที่แสดง ยอมให้มีถังขาดเกิน T1 แต่ไม่เกิน T2 ได้ไม่เกิน 1 ถัง และทุกถังต้องขาดไม่เกิน T2'),{indent:18});
+  text('2.1 อัตราเผื่อเหลือเผื่อขาดฝ่ายน้อยขั้นที่ 1 (T1) ตามประกาศกระทรวงพาณิชย์ เรื่อง กำหนดชนิดของสินค้าหีบห่อ หลักเกณฑ์และวิธีการแสดงปริมาณของสินค้า และอัตราเผื่อเหลือเผื่อขาด ลงวันที่ 12 มีนาคม 2561 ข้อ 6 (2) และขั้นที่ 2 (T2) เท่ากับสองเท่าของ T1 ค่าของแต่ละขนาดถังแสดงในข้อ 3',{indent:18});
+  text('2.2 ประกาศกรมการค้าภายใน เรื่อง หลักเกณฑ์และวิธีการตรวจสอบการแสดงปริมาณของสินค้าหีบห่อ ลงวันที่ 8 มิถุนายน 2561 ข้อ 4 ถังแต่ละขนาดเป็นคนละล็อต ล็อตที่มีไม่เกิน 20 ถัง ตรวจทุกถัง ค่าเฉลี่ยต้องไม่น้อยกว่าปริมาณสุทธิที่แสดง และไม่มีถังขาดเกิน T1 ล็อตที่มีมากกว่า 20 ถัง สุ่มตัวอย่าง 20 ถัง ค่าเฉลี่ยรวมกับ 0.640 เท่าของค่าเบี่ยงเบนมาตรฐานต้องไม่น้อยกว่าปริมาณสุทธิที่แสดง และยอมให้มีถังขาดเกิน T1 แต่ไม่เกิน T2 ได้ไม่เกิน 1 ถัง ทุกล็อตต้องไม่มีถังใดขาดเกิน T2',{indent:18});
 
-  heading('3. ผลการชั่งรายถัง (หน่วย: กิโลกรัม)');
-  const gt=S.mode!=='net';
-  const w6=[38,78,80,80,76,CW-352];
-  const rows=[[hd('ลำดับ'),hd('น้ำหนักรวม'),hd('น้ำหนักถังเปล่า'),hd('ปริมาณสุทธิ'),hd('ผลต่าง (กรัม)'),hd('ผล')]];
-  const add=(x,k,extra)=>{const r=S.rows[x.i]||{};
-    rows.push([{t:String(k),align:'center'},{t:gt?String(r.g||'-'):'-',align:'center'},{t:gt?String(r.t||'-'):'-',align:'center'},
-      {t:kg(x.net),align:'center',b:true},{t:gtxt(x.net-R.Q),align:'center'},
-      {t:(extra?'นอกตัวอย่าง\n':'')+stTxt(x.st),align:'center',fill:x.st==='ok'?null:(x.st==='warn'?'#FFF2CC':'#F8D7D3')}]);};
-  R.used.forEach((x,j)=>add(x,j+1,false));
-  R.extra.forEach((x,j)=>add(x,R.used.length+j+1,true));
-  table(w6,rows,{header:true});
-  if(R.extra.length)text('หมายเหตุ ถังลำดับที่ '+(R.extra.length===1?(R.used.length+1):(R.used.length+1)+' ถึง '+(R.used.length+R.extra.length))+' ชั่งเกินจำนวนตัวอย่างที่กำหนด แสดงไว้เพื่อข้อมูล ไม่นำมาพิจารณาตามเกณฑ์',{size:10.5,before:3});
+  heading('3. สรุปผลรายล็อต');
+  const sw=[30,104,46,54,66,40,40];sw.push(CW-sw.reduce((a,b)=>a+b,0));
+  const srows=[[hd('ล็อต'),hd('ขนาดถัง / ยี่ห้อ'),hd('ในล็อต (ถัง)'),hd('ตรวจ (ถัง)'),hd('ค่าเฉลี่ย (กก.)'),hd('เกิน T1'),hd('เกิน T2'),hd('ผล')]];
+  items.forEach((it,k)=>{const R=it.R;
+    srows.push([{t:String(k+1),align:'center'},{t:R.sizeTxt+(it.L.brand?'\n'+it.L.brand:'')},{t:R.p.N.toLocaleString('th-TH'),align:'center'},{t:String(R.n),align:'center'},
+      {t:R.n?kg(R.mean):'-',align:'center'},{t:String(R.nWarn),align:'center'},{t:String(R.nBad),align:'center'},{t:R.vt,b:true,align:'center',fill:vFill(R.v)}]);});
+  table(sw,srows,{header:true});
 
-  heading('4. ผลการพิจารณาตามเกณฑ์');
-  const res=(ok,final)=>final?{t:ok?'ผ่าน':'ไม่ผ่าน',b:true,align:'center',fill:ok?'#E2F0D9':'#F8D7D3'}:{t:'ยังไม่ครบ',align:'center'};
-  const meanTxt='ค่าเฉลี่ย = '+(R.n?kg(R.mean):'-')+' กก.'+(p.k?'\nS = '+(R.n>1?(Math.round(R.sd*10)/10)+' กรัม':'-')+'\nค่าเฉลี่ย + 0.640S = '+(R.n?kg(R.adj):'-')+' กก.':'');
-  table([200,CW-280,80],[
-    [hd('เกณฑ์'),hd('ค่าที่ได้'),hd('ผล')],
-    [{t:p.k?'1) ค่าเฉลี่ย + (0.640 × S) ต้องไม่น้อยกว่า '+kg(R.Q)+' กก.':'1) ค่าเฉลี่ยต้องไม่น้อยกว่า '+kg(R.Q)+' กก.'},{t:meanTxt},res(R.c1,R.complete)],
-    [{t:'2) ถังที่ขาดเกิน T1 แต่ไม่เกิน T2 มีได้ไม่เกิน '+p.allow+' ถัง'},{t:R.nWarn+' ถัง'},res(R.c2,!(R.c2&&!R.complete))],
-    [{t:'3) ถังที่ขาดเกิน T2 (น้อยกว่า '+kg(R.Q-R.T2)+' กก.) ต้องไม่มี'},{t:R.nBad+' ถัง'},res(R.c3,!(R.c3&&!R.complete))],
-  ],{header:true});
+  heading('4. รายละเอียดผลการชั่งรายล็อต',140);
+  items.forEach((it,k)=>{
+    const R=it.R,p=R.p,L=it.L,gt=L.mode!=='net';
+    if(k>0)y+=8;
+    ensure(140);
+    text('4.'+(k+1)+' '+lotName(it,k),{size:12,bold:true});
+    text('จำนวนในล็อต '+p.N.toLocaleString('th-TH')+' ถัง · '+(p.all?'ตรวจทุกถัง':'สุ่มตัวอย่าง 20 ถัง')+' · T1 = '+String(Math.round(R.T1*100)/100)+' กรัม · T2 = '+String(Math.round(R.T2*100)/100)+' กรัม',{indent:18,size:11,after:3});
+    const w6=[38,78,80,80,76];w6.push(CW-w6.reduce((a,b)=>a+b,0));
+    const rows=[[hd('ลำดับ'),hd('น้ำหนักรวม (กก.)'),hd('น้ำหนักถังเปล่า (กก.)'),hd('ปริมาณสุทธิ (กก.)'),hd('ผลต่าง (กรัม)'),hd('ผล')]];
+    const add=(x,j,extra)=>{const r=L.rows[x.i]||{};
+      rows.push([{t:String(j),align:'center'},{t:gt?String(r.g||'-'):'-',align:'center'},{t:gt?String(r.t||'-'):'-',align:'center'},
+        {t:kg(x.net),align:'center',b:true},{t:gtxt(x.net-R.Q),align:'center'},
+        {t:(extra?'นอกตัวอย่าง\n':'')+stTxt(x.st),align:'center',fill:x.st==='ok'?null:(x.st==='warn'?'#FFF2CC':'#F8D7D3')}]);};
+    R.used.forEach((x,j)=>add(x,j+1,false));
+    R.extra.forEach((x,j)=>add(x,R.used.length+j+1,true));
+    if(rows.length===1)rows.push([{t:'-',align:'center'},{t:'ยังไม่มีผลชั่ง',align:'center'},{t:''},{t:''},{t:''},{t:''}]);
+    table(w6,rows,{header:true});
+    if(R.extra.length)text('หมายเหตุ ถังลำดับที่ '+(R.extra.length===1?(R.used.length+1):(R.used.length+1)+' ถึง '+(R.used.length+R.extra.length))+' ชั่งเกินจำนวนตัวอย่างที่กำหนด แสดงไว้เพื่อข้อมูล ไม่นำมาพิจารณาตามเกณฑ์',{size:10.5,before:3});
+    y+=6;ensure(165);
+    const res=(ok,final)=>final?{t:ok?'ผ่าน':'ไม่ผ่าน',b:true,align:'center',fill:ok?'#E2F0D9':'#F8D7D3'}:{t:'ยังไม่ครบ',align:'center'};
+    const meanTxt='ค่าเฉลี่ย = '+(R.n?kg(R.mean):'-')+' กก.'+(p.k?'\nS = '+(R.n>1?(Math.round(R.sd*10)/10)+' กรัม':'-')+'\nค่าเฉลี่ย + 0.640S = '+(R.n?kg(R.adj):'-')+' กก.':'');
+    table([200,CW-280,80],[
+      [hd('เกณฑ์'),hd('ค่าที่ได้'),hd('ผล')],
+      [{t:p.k?'1) ค่าเฉลี่ย + (0.640 × S) ต้องไม่น้อยกว่า '+kg(R.Q)+' กก.':'1) ค่าเฉลี่ยต้องไม่น้อยกว่า '+kg(R.Q)+' กก.'},{t:meanTxt},res(R.c1,R.complete)],
+      [{t:'2) ถังที่ขาดเกิน T1 แต่ไม่เกิน T2 มีได้ไม่เกิน '+p.allow+' ถัง'},{t:R.nWarn+' ถัง'},res(R.c2,!(R.c2&&!R.complete))],
+      [{t:'3) ถังที่ขาดเกิน T2 (น้อยกว่า '+kg(R.Q-R.T2)+' กก.) ต้องไม่มี'},{t:R.nBad+' ถัง'},res(R.c3,!(R.c3&&!R.complete))],
+    ],{header:true});
+    text('ผลล็อตนี้: '+R.vt+' ('+R.reason+')',{size:11.5,bold:true,before:4,indent:18,color:R.v==='ok'?'#1b6b3a':R.v==='bad'?'#a1281d':'#000000'});
+  });
 
-  heading('5. สรุปผลการตรวจสอบ');
-  ensure(40);
+  const O=overall(items.map(it=>it.R));
+  heading('5. สรุปผลการตรวจสอบ',150);
   font(12,false);ctx.fillStyle='#000000';ctx.textAlign='left';
   const lab='ผลการตรวจสอบ: ';ctx.fillText(lab,ML+18,y+12*1.12);
   const vx=ML+18+W(lab);font(14,true);
-  ctx.fillStyle=R.vt==='ผ่าน'?'#1b6b3a':R.vt==='ไม่ผ่าน'?'#a1281d':'#000000';ctx.fillText(R.vt,vx,y+12*1.12);
+  ctx.fillStyle=O.v==='ok'?'#1b6b3a':O.v==='bad'?'#a1281d':'#000000';ctx.fillText(O.vt,vx,y+12*1.12);
   y+=12*1.6;
-  text('('+R.reason+')',{indent:18});
+  text('('+O.reason+')',{indent:18});
 
   y+=34;ensure(110);
   const half=CW/2;
@@ -355,6 +392,16 @@ function render(R,S,mk,FAM){
   pages.forEach((pg,i)=>{const c=pg.ctx;c.font='400 9px '+FAM;c.fillStyle='#666666';c.textAlign='center';
     c.fillText('หน้า '+(i+1)+' / '+n,PW/2,PH-30);});
   return pages.map(pg=>pg.c);
+}
+
+function overall(Rs){
+  const bad=[],pend=[];
+  Rs.forEach((R,k)=>{if(R.v==='bad')bad.push(k);else if(R.v!=='ok')pend.push(k);});
+  const nm=k=>'ล็อตที่ '+(k+1)+' ('+Rs[k].sizeTxt+')';
+  if(!Rs.length)return {v:'pend',vt:'ยังสรุปไม่ได้',reason:'ยังไม่มีล็อตที่ตรวจ'};
+  if(bad.length)return {v:'bad',vt:'ไม่ผ่าน',reason:'ไม่ผ่าน '+bad.map(nm).join(', ')+(pend.length?' · ยังตรวจไม่ครบ '+pend.map(nm).join(', '):'')};
+  if(pend.length)return {v:'pend',vt:'ยังสรุปไม่ได้',reason:'ยังตรวจไม่ครบ '+pend.map(nm).join(', ')};
+  return {v:'ok',vt:'ผ่าน',reason:Rs.length===1?'ผ่านครบทั้ง 3 เกณฑ์':'ผ่านทั้ง '+Rs.length+' ล็อต'};
 }
 
 function pdf(imgs){
@@ -380,139 +427,197 @@ function pdf(imgs){
   const out=new Uint8Array(len);let o=0;parts.forEach(u=>{out.set(u,o);o+=u.length;});
   return out;
 }
-return {render,pdf,INSPECTORS};
+return {render,pdf,overall,INSPECTORS};
 })();
 if(typeof module!=='undefined')module.exports=LPGPDF;
 </script>
 <script>
 (function(){
 const SIZES=[4,7,11.5,13.5,15,48];
-const KEY='lpg-check-v1';
+const NEXT_SIZE=[15,48,4,7,11.5,13.5];
+const KEY='lpg-check-v2',OLD_KEY='lpg-check-v1';
 let uid=0;
 const EX_NET=[15.02,14.98,15.05,14.96,15.10,14.99,15.03,14.82,15.00,15.04,14.97,15.06,15.01,14.95,15.08,15.00,14.98,15.02,15.03,14.99];
 const EX_TARE=[17.6,18.2,17.9,18.4,17.5,18.0,18.6,17.8,18.1,17.7,18.3,17.9,18.5,17.6,18.2,18.0,17.8,18.4,17.7,18.1];
-
-function today(){const d=new Date();const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
-function exampleState(){
-  return {example:true,size:15,custom:'',N:'60',mode:'gt',shop:'ร้านตัวอย่าง',address:'',brand:'',date:today(),inspector:'',
-    rows:EX_NET.map((n,i)=>({id:++uid,g:(n+EX_TARE[i]).toFixed(2),t:EX_TARE[i].toFixed(1),n:n.toFixed(2)}))};
-}
-function blankState(prev){
-  const s={example:false,size:prev?prev.size:15,custom:prev?prev.custom:'',N:'',mode:prev?prev.mode:'gt',shop:'',address:'',brand:'',date:today(),inspector:prev?prev.inspector:'',rows:[]};
-  for(let i=0;i<20;i++)s.rows.push({id:++uid,g:'',t:'',n:''});
-  return s;
-}
-let S;
-try{const raw=localStorage.getItem(KEY);if(raw){S=JSON.parse(raw);S.rows.forEach(r=>{r.id=++uid;});}}catch(e){S=null;}
-if(!S||!Array.isArray(S.rows))S=exampleState();
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+const EX48_NET=[48.10,47.95,48.20,48.05,47.40,48.15];
+const EX48_TARE=[38.5,39.2,38.8,39.0,38.6,39.4];
 
 const $=id=>document.getElementById(id);
 const num=v=>{if(v===undefined||v===null)return NaN;const s=String(v).trim().replace(',','.');if(s==='')return NaN;return Number(s);};
 const r3=x=>Math.round(x*1000)/1000;
 const fmtKg=g=>(g/1000).toFixed(3);
 const fmtG=g=>{const v=Math.round(g*10)/10;return (Number.isInteger(v)?v.toLocaleString('th-TH'):v.toLocaleString('th-TH',{minimumFractionDigits:1,maximumFractionDigits:1}));};
-
-function qnGrams(){
-  if(S.size==='other'){const v=num(S.custom);return (v>0&&v<=50)?r3(v*1000):NaN;}
-  return r3(S.size*1000);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function today(){const d=new Date();const p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+function blankRows(n){const a=[];for(let i=0;i<n;i++)a.push({id:++uid,g:'',t:'',n:''});return a;}
+function newLot(o){o=o||{};return {id:++uid,size:o.size==null?15:o.size,custom:o.custom||'',N:o.N||'',mode:o.mode||'gt',brand:o.brand||'',rows:o.rows||blankRows(20)};}
+function exampleState(){
+  return {example:true,shop:'ร้านตัวอย่าง',address:'',date:today(),inspector:'',cur:0,lots:[
+    newLot({size:15,N:'60',brand:'ปตท.',rows:EX_NET.map((n,i)=>({id:++uid,g:(n+EX_TARE[i]).toFixed(2),t:EX_TARE[i].toFixed(1),n:n.toFixed(2)}))}),
+    newLot({size:48,N:'6',brand:'ปตท.',rows:EX48_NET.map((n,i)=>({id:++uid,g:(n+EX48_TARE[i]).toFixed(2),t:EX48_TARE[i].toFixed(1),n:n.toFixed(2)}))})
+  ]};
 }
+function blankState(prev){
+  return {example:false,shop:'',address:'',date:today(),inspector:prev?prev.inspector:'',cur:0,lots:[newLot({mode:prev&&prev.lots&&prev.lots[0]?prev.lots[0].mode:'gt'})]};
+}
+function load(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw){const s=JSON.parse(raw);if(s&&Array.isArray(s.lots)&&s.lots.length){s.lots.forEach(l=>{l.id=++uid;(l.rows||[]).forEach(r=>{r.id=++uid;});});if(!(s.cur>=0&&s.cur<s.lots.length))s.cur=0;return s;}}
+    const old=localStorage.getItem(OLD_KEY);
+    if(old){const o=JSON.parse(old);if(o&&Array.isArray(o.rows)){o.rows.forEach(r=>{r.id=++uid;});
+      return {example:!!o.example,shop:o.shop||'',address:o.address||'',date:o.date||today(),inspector:o.inspector||'',cur:0,
+        lots:[newLot({size:o.size,custom:o.custom,N:o.N,mode:o.mode,brand:o.brand,rows:o.rows})]};}}
+  }catch(e){}
+  return null;
+}
+let S=load()||exampleState();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+const cur=()=>S.lots[S.cur];
+
+/* ---------- per-lot maths (no DOM) ---------- */
+function qnOf(L){if(L.size==='other'){const v=num(L.custom);return (v>0&&v<=50)?r3(v*1000):NaN;}return r3(L.size*1000);}
 function t1(q){
   let v;
   if(q<=50)v=q*0.09;else if(q<=100)v=4.5;else if(q<=200)v=q*0.045;else if(q<=300)v=9;
   else if(q<=500)v=q*0.03;else if(q<=1000)v=15;else if(q<=10000)v=q*0.015;else if(q<=15000)v=150;else v=q*0.01;
   return Math.round(v*1e6)/1e6;
 }
-function t1Basis(q){
-  if(q<=1000)return '';
-  if(q<=10000)return '1.5% ของปริมาณที่แสดง';
-  if(q<=15000)return 'คงที่ 150 ก.';
-  return '1% ของปริมาณที่แสดง';
+function t1Basis(q){if(q<=1000)return '';if(q<=10000)return '1.5% ของปริมาณที่แสดง';if(q<=15000)return 'คงที่ 150 ก.';return '1% ของปริมาณที่แสดง';}
+function planOf(L){const N=num(L.N);if(!(N>=1)||!Number.isInteger(N))return null;if(N<=20)return {N,n:N,all:true,allow:0,k:0};return {N,n:20,all:false,allow:1,k:0.640};}
+function netOf(L,r){
+  if(L.mode==='net'){const n=num(r.n);return isNaN(n)?null:r3(n*1000);}
+  const g=num(r.g),t=num(r.t);if(isNaN(g)||isNaN(t))return null;return r3((g-t)*1000);
 }
-function plan(){
-  const N=num(S.N);
-  if(!(N>=1)||!Number.isInteger(N))return null;
-  if(N<=20)return {N,n:N,all:true,allow:0,k:0};
-  return {N,n:20,all:false,allow:1,k:0.640};
+function sizeTxtOf(L){const v=L.size==='other'?num(L.custom):L.size;return (v>0)?v+' กก.':'ขนาด ?';}
+function compute(L){
+  const Q=qnOf(L),p=planOf(L),T1=isNaN(Q)?NaN:t1(Q),T2=2*T1;
+  const filled=[],status={};
+  L.rows.forEach((r,i)=>{
+    const net=netOf(L,r);
+    if(net===null){status[r.id]={k:'pend'};return;}
+    if(net<=0){status[r.id]={k:'err',net};return;}
+    let st='ok';if(!isNaN(Q)){const short=Q-net;if(short>T2+1e-9)st='bad';else if(short>T1+1e-9)st='warn';}
+    const order=filled.length;filled.push({i,net,st,id:r.id});
+    status[r.id]={k:st,net,extra:!!(p&&order>=p.n)};
+  });
+  const base={Q,T1,T2,p,filled,status,sizeTxt:sizeTxtOf(L)};
+  if(isNaN(Q)||!p)return Object.assign(base,{ready:false,v:'pend',vt:'ยังสรุปไม่ได้',reason:isNaN(Q)?'เลือกขนาดถังก่อน':'กรอกจำนวนถังในล็อตก่อน',used:filled,extra:[],n:filled.length});
+  const used=filled.slice(0,p.n),extra=filled.slice(p.n);
+  const overflowErr=p.all&&filled.length>p.N;
+  const n=used.length;
+  const mean=n?used.reduce((a,b)=>a+b.net,0)/n:NaN;
+  const sd=n>1?Math.sqrt(used.reduce((a,b)=>a+(b.net-mean)**2,0)/(n-1)):0;
+  const adj=mean+p.k*sd;
+  const nWarn=used.filter(x=>x.st==='warn').length,nBad=used.filter(x=>x.st==='bad').length;
+  const complete=n===p.n&&!overflowErr;
+  const c1=n?(adj>=Q-1e-9):null,c2=nWarn<=p.allow,c3=nBad===0;
+  let v,vt,reason;
+  if(overflowErr){v='pend';vt='ตรวจข้อมูลอีกครั้ง';reason='จำนวนถังที่กรอกมากกว่าจำนวนในล็อต';}
+  else if(!c3){v='bad';vt='ไม่ผ่าน';reason='มีถังขาดเกิน T2 จำนวน '+nBad+' ถัง';}
+  else if(!c2){v='bad';vt='ไม่ผ่าน';reason='ถังขาดเกิน T1 มี '+nWarn+' ถัง เกินที่ยอมให้ ('+p.allow+')';}
+  else if(!complete){v='pend';vt='ยังสรุปไม่ได้';reason='ต้องชั่งให้ครบ '+p.n+' ถัง (ขาดอีก '+(p.n-n)+' ถัง)';}
+  else if(!c1){v='bad';vt='ไม่ผ่าน';reason='ไม่ผ่านเกณฑ์ค่าเฉลี่ย';}
+  else{v='ok';vt='ผ่าน';reason='ผ่านครบทั้ง 3 เกณฑ์';}
+  return Object.assign(base,{ready:true,used,extra,overflowErr,n,mean,sd,adj,nWarn,nBad,complete,c1,c2,c3,v,vt,reason});
 }
-function netOf(r){
-  if(S.mode==='net'){const n=num(r.n);return isNaN(n)?null:r3(n*1000);}
-  const g=num(r.g),t=num(r.t);
-  if(isNaN(g)||isNaN(t))return null;
-  return r3((g-t)*1000);
+
+/* ---------- lot tabs ---------- */
+function renderTabs(Rs){
+  const box=$('lotTabs');box.innerHTML='';
+  S.lots.forEach((L,k)=>{
+    const R=Rs[k];const b=document.createElement('button');b.type='button';b.className='tab';
+    b.setAttribute('aria-pressed',String(k===S.cur));
+    b.innerHTML='<span class="tab-t">'+esc(R.sizeTxt)+'</span><span class="tag '+(R.v==='ok'?'t-ok':R.v==='bad'?'t-bad':'t-pend')+'">'+(R.v==='ok'?'ผ่าน':R.v==='bad'?'ไม่ผ่าน':(R.p?R.n+'/'+R.p.n:'รอ'))+'</span>';
+    b.setAttribute('aria-label','ล็อตที่ '+(k+1)+' ถัง '+R.sizeTxt+' '+R.vt);
+    b.onclick=()=>{S.cur=k;showLot();};
+    box.appendChild(b);
+  });
+  const add=document.createElement('button');add.type='button';add.className='tab tab-add';add.textContent='+ เพิ่มขนาดถัง';
+  add.onclick=()=>{
+    const used=S.lots.map(l=>l.size);const sz=NEXT_SIZE.find(s=>used.indexOf(s)<0);
+    S.lots.push(newLot({size:sz==null?'other':sz,brand:cur().brand,mode:cur().mode}));
+    S.cur=S.lots.length-1;S.example=false;showLot();$('lotN').focus();
+  };
+  box.appendChild(add);
 }
 
 /* ---------- lot section ---------- */
 function renderChips(){
-  const box=$('sizeChips');box.innerHTML='';
+  const L=cur();const box=$('sizeChips');box.innerHTML='';
   SIZES.concat(['other']).forEach(s=>{
     const b=document.createElement('button');b.type='button';b.className='chip-btn';
     b.textContent=s==='other'?'ขนาดอื่น':(s+' กก.');
-    b.setAttribute('aria-pressed',String(S.size===s));
-    b.onclick=()=>{S.size=s;renderChips();$('customWrap').hidden=S.size!=='other';update();};
+    b.setAttribute('aria-pressed',String(L.size===s));
+    b.onclick=()=>{L.size=s;renderChips();update();};
     box.appendChild(b);
   });
-  $('customWrap').hidden=S.size!=='other';
+  $('customWrap').hidden=L.size!=='other';
 }
-function bindField(id,key){const el=$(id);el.value=S[key]||'';const h=()=>{S[key]=el.value;update();};el.addEventListener('input',h);if(el.tagName==='SELECT')el.addEventListener('change',h);}
+function showLot(){
+  const L=cur();
+  $('brand').value=L.brand||'';$('lotN').value=L.N||'';$('customSize').value=L.custom||'';
+  delArmed=false;$('delLot').textContent='ลบล็อตนี้';$('delLot').disabled=S.lots.length<2;
+  renderChips();renderRows();update();
+}
 
 /* ---------- rows ---------- */
-function rowHTML(r,i){
+function rowHTML(L,r,i){
+  const net=L.mode==='net';
   return '<span class="idx">'+(i+1)+'</span>'+
-    '<input id="g-'+r.id+'" class="in-g" inputmode="decimal" aria-label="น้ำหนักรวม ถังที่ '+(i+1)+'" value="'+(r.g||'')+'"'+(S.mode==='net'?' hidden':'')+'>'+
-    '<input id="t-'+r.id+'" class="in-t col-t" inputmode="decimal" aria-label="น้ำหนักถังเปล่า ถังที่ '+(i+1)+'" value="'+(r.t||'')+'"'+(S.mode==='net'?' hidden':'')+'>'+
-    '<input id="n-'+r.id+'" class="in-n" inputmode="decimal" aria-label="น้ำหนักสุทธิ ถังที่ '+(i+1)+'" value="'+(r.n||'')+'"'+(S.mode==='net'?'':' hidden')+'>'+
+    '<input id="g-'+r.id+'" class="in-g" inputmode="decimal" aria-label="น้ำหนักรวม ถังที่ '+(i+1)+'" value="'+esc(r.g||'')+'"'+(net?' hidden':'')+'>'+
+    '<input id="t-'+r.id+'" class="in-t col-t" inputmode="decimal" aria-label="น้ำหนักถังเปล่า ถังที่ '+(i+1)+'" value="'+esc(r.t||'')+'"'+(net?' hidden':'')+'>'+
+    '<input id="n-'+r.id+'" class="in-n" inputmode="decimal" aria-label="น้ำหนักสุทธิ ถังที่ '+(i+1)+'" value="'+esc(r.n||'')+'"'+(net?'':' hidden')+'>'+
     '<div class="out"><span class="net num" id="o-'+r.id+'">—</span><span class="tag t-pend" id="s-'+r.id+'">รอกรอก</span></div>'+
     '<button class="del" type="button" aria-label="ลบถังที่ '+(i+1)+'" data-del="'+r.id+'">×</button>';
 }
 function renderRows(){
-  const box=$('rows');box.innerHTML='';
-  $('rowsBox').classList.toggle('net-mode',S.mode==='net');
-  $('modeGT').setAttribute('aria-pressed',String(S.mode==='gt'));
-  $('modeNet').setAttribute('aria-pressed',String(S.mode==='net'));
-  S.rows.forEach((r,i)=>{
-    const d=document.createElement('div');d.className='row';d.id='row-'+r.id;d.innerHTML=rowHTML(r,i);box.appendChild(d);
-  });
+  const L=cur();const box=$('rows');box.innerHTML='';
+  $('rowsBox').classList.toggle('net-mode',L.mode==='net');
+  $('modeGT').setAttribute('aria-pressed',String(L.mode==='gt'));
+  $('modeNet').setAttribute('aria-pressed',String(L.mode==='net'));
+  L.rows.forEach((r,i)=>{const d=document.createElement('div');d.className='row';d.id='row-'+r.id;d.innerHTML=rowHTML(L,r,i);box.appendChild(d);});
 }
 $('rows').addEventListener('input',e=>{
   const el=e.target;if(el.tagName!=='INPUT')return;
-  const id=Number(el.id.split('-')[1]);const r=S.rows.find(x=>x.id===id);if(!r)return;
-  const k=el.id[0];r[k]=el.value;
-  if(S.example){S.example=false;}
-  update();
+  const id=Number(el.id.split('-')[1]);const r=cur().rows.find(x=>x.id===id);if(!r)return;
+  r[el.id[0]]=el.value;S.example=false;update();
 });
 $('rows').addEventListener('click',e=>{
   const id=e.target.getAttribute&&e.target.getAttribute('data-del');if(!id)return;
-  S.rows=S.rows.filter(x=>x.id!==Number(id));if(!S.rows.length)S.rows.push({id:++uid,g:'',t:'',n:''});
+  const L=cur();L.rows=L.rows.filter(x=>x.id!==Number(id));if(!L.rows.length)L.rows=blankRows(1);
   renderRows();update();
 });
 $('rows').addEventListener('keydown',e=>{
   if(e.key!=='Enter')return;e.preventDefault();
   const ins=[...document.querySelectorAll('#rows input:not([hidden])')];
   const i=ins.indexOf(e.target);
-  if(i>-1&&i<ins.length-1){ins[i+1].focus();ins[i+1].select();}
-  else{addRow(true);}
+  if(i>-1&&i<ins.length-1){ins[i+1].focus();ins[i+1].select();}else addRow(true);
 });
 function addRow(focus){
-  S.rows.push({id:++uid,g:'',t:'',n:''});renderRows();update();
-  if(focus){const ins=[...document.querySelectorAll('#rows input:not([hidden])')];const last=S.mode==='net'?ins[ins.length-1]:ins[ins.length-2];if(last)last.focus();}
+  const L=cur();L.rows.push({id:++uid,g:'',t:'',n:''});renderRows();update();
+  if(focus){const ins=[...document.querySelectorAll('#rows input:not([hidden])')];const last=L.mode==='net'?ins[ins.length-1]:ins[ins.length-2];if(last)last.focus();}
 }
 $('addRow').onclick=()=>addRow(true);
-$('fillRows').onclick=()=>{const p=plan();const need=(p?p.n:20)-S.rows.length;for(let i=0;i<need;i++)S.rows.push({id:++uid,g:'',t:'',n:''});renderRows();update();};
-$('modeGT').onclick=()=>{S.mode='gt';renderRows();update();};
+$('fillRows').onclick=()=>{const L=cur();const p=planOf(L);const need=(p?p.n:20)-L.rows.length;if(need>0)L.rows=L.rows.concat(blankRows(need));renderRows();update();};
+$('modeGT').onclick=()=>{cur().mode='gt';renderRows();update();};
 $('modeNet').onclick=()=>{
-  S.rows.forEach(r=>{if((r.n===''||r.n==null)){const g=num(r.g),t=num(r.t);if(!isNaN(g)&&!isNaN(t))r.n=(g-t).toFixed(3).replace(/0+$/,'').replace(/\.$/,'');}});
-  S.mode='net';renderRows();update();
+  const L=cur();
+  L.rows.forEach(r=>{if(r.n===''||r.n==null){const g=num(r.g),t=num(r.t);if(!isNaN(g)&&!isNaN(t))r.n=(g-t).toFixed(3).replace(/0+$/,'').replace(/\.$/,'');}});
+  L.mode='net';renderRows();update();
 };
 
-/* ---------- compute ---------- */
-let lastSummary='';let R=null;
+/* ---------- render current lot + whole shop ---------- */
+let lastSummary='';let Rs=[];
 function update(){
   $('exBanner').hidden=!S.example;
-  const Q=qnGrams();const p=plan();
-  const T1=isNaN(Q)?NaN:t1(Q);const T2=2*T1;
+  const L=cur();
+  Rs=S.lots.map(compute);
+  const R=Rs[S.cur],Q=R.Q,p=R.p,T1=R.T1,T2=R.T2;
+  renderTabs(Rs);
+  const nm='· ล็อตที่ '+(S.cur+1)+' ถัง '+R.sizeTxt;
+  $('wLotName').textContent=nm;$('rLotName').textContent=nm;
 
-  // plan box
   let ph='';
   if(isNaN(Q)){ph='<p>เลือกขนาดถัง หรือระบุปริมาณสุทธิระหว่าง 1–50 กก.</p>';}
   else{
@@ -528,28 +633,19 @@ function update(){
   }
   $('plan').innerHTML=ph;
 
-  // rows status
-  const filled=[];
-  S.rows.forEach((r,i)=>{
-    const net=netOf(r);const o=$('o-'+r.id),s=$('s-'+r.id),row=$('row-'+r.id);if(!o)return;
-    row.classList.remove('extra');
-    if(net===null){o.textContent='—';s.className='tag t-pend';s.textContent='รอกรอก';return;}
-    o.textContent=(net/1000).toFixed(3);
-    if(net<=0){s.className='tag t-bad';s.textContent='ค่าผิด';return;}
-    const order=filled.length;filled.push({i,net,order,id:r.id});
-    let st='ok';if(!isNaN(Q)){const short=Q-net;if(short>T2+1e-9)st='bad';else if(short>T1+1e-9)st='warn';}
-    filled[filled.length-1].st=st;
-    const extra=p&&order>=p.n;
-    if(extra)row.classList.add('extra');
-    s.className='tag '+(st==='ok'?'t-ok':st==='warn'?'t-warn':'t-bad');
-    s.textContent=(extra?'นอกตัวอย่าง · ':'')+(st==='ok'?'ปกติ':st==='warn'?'เกิน T1':'เกิน T2');
+  L.rows.forEach(r=>{
+    const o=$('o-'+r.id),s=$('s-'+r.id),row=$('row-'+r.id);if(!o)return;
+    const x=R.status[r.id]||{k:'pend'};row.classList.toggle('extra',!!x.extra);
+    if(x.k==='pend'){o.textContent='—';s.className='tag t-pend';s.textContent='รอกรอก';return;}
+    o.textContent=(x.net/1000).toFixed(3);
+    if(x.k==='err'){s.className='tag t-bad';s.textContent='ค่าผิด';return;}
+    s.className='tag '+(x.k==='ok'?'t-ok':x.k==='warn'?'t-warn':'t-bad');
+    s.textContent=(x.extra?'นอกตัวอย่าง · ':'')+(x.k==='ok'?'ปกติ':x.k==='warn'?'เกิน T1':'เกิน T2');
   });
 
-  const nNeed=p?p.n:null;
-  const used=p?filled.slice(0,p.n):filled;
-  const extra=p?filled.slice(p.n):[];
+  const filled=R.filled,extra=R.extra||[];
   $('counter').textContent=p?('กรอกแล้ว '+Math.min(filled.length,p.n)+' / '+p.n+' ถัง'+(extra.length?' (+'+extra.length+' เกิน)':'')):'กรอกแล้ว '+filled.length+' ถัง';
-  $('barCount').textContent=p?('ชั่งแล้ว '+Math.min(filled.length,p.n)+'/'+p.n+' ถัง'):'ยังไม่ได้ระบุจำนวนถังในล็อต';
+  $('barCount').textContent='ล็อต '+R.sizeTxt+': '+(p?('ชั่งแล้ว '+Math.min(filled.length,p.n)+'/'+p.n+' ถัง'):'ยังไม่ได้ระบุจำนวนถัง');
 
   let sn='';
   if(p&&p.all&&filled.length>p.N)sn='<p class="note msg-err">กรอกผลชั่ง '+filled.length+' ถัง มากกว่าจำนวนถังในล็อต ('+p.N+' ถัง) ตรวจจำนวนถังในล็อตอีกครั้ง</p>';
@@ -557,70 +653,54 @@ function update(){
   else if(p&&!p.all&&extra.length)sn='<p class="note">กรอกเกิน 20 ถัง แอปใช้ 20 ถังแรกตามลำดับตัดสินผล อีก '+extra.length+' ถังแสดงไว้เพื่อข้อมูล</p>';
   $('sampleNote').innerHTML=sn;
 
-  // stats & criteria
   const verdict=$('verdict'),crit=$('crit'),stats=$('stats');
-  if(isNaN(Q)||!p){
-    verdict.className='verdict v-pend';verdict.innerHTML='<span class="v">ยังสรุปไม่ได้</span><span>'+(isNaN(Q)?'เลือกขนาดถังก่อน':'กรอกจำนวนถังในล็อตก่อน')+'</span>';
-    stats.innerHTML='';crit.innerHTML='';$('extraNote').innerHTML='';setBar('pend','รอข้อมูล');lastSummary='';R=null;save();return;
+  if(!R.ready){
+    verdict.className='verdict v-pend';verdict.innerHTML='<span class="v">ยังสรุปไม่ได้</span><span>'+R.reason+'</span>';
+    stats.innerHTML='';crit.innerHTML='';$('extraNote').innerHTML='';
+  }else{
+    const n=R.n;
+    stats.innerHTML=st('ตัวอย่างที่ใช้',n+' / '+p.n+' ถัง')+st('ค่าเฉลี่ย x̄',n?fmtKg(R.mean)+' กก.':'—')+st('S',n>1?fmtG(R.sd)+' ก.':'—')+(p.k?st('x̄ + 0.640S',n?fmtKg(R.adj)+' กก.':'—'):'');
+    const mk=ok=>ok===null?'<span class="mark t-pend">…</span>':ok?'<span class="mark t-ok">✓</span>':'<span class="mark t-bad">✕</span>';
+    crit.innerHTML=
+      '<div class="c">'+mk(R.complete?R.c1:null)+'<span class="t">เกณฑ์ค่าเฉลี่ย</span><span class="d">'+
+        (p.k?'x̄ + 0.640 × S = <span class="num">'+(n?fmtKg(R.adj):'—')+'</span> กก. ต้องไม่น้อยกว่า <span class="num">'+fmtKg(Q)+'</span> กก.':'x̄ = <span class="num">'+(n?fmtKg(R.mean):'—')+'</span> กก. ต้องไม่น้อยกว่า <span class="num">'+fmtKg(Q)+'</span> กก.')+
+        (!R.complete&&n?' (คำนวณจากถังที่กรอกแล้ว)':'')+'</span></div>'+
+      '<div class="c">'+mk(R.c2?(R.complete?true:null):false)+'<span class="t">ถังที่ขาดเกิน T1 แต่ไม่เกิน T2</span><span class="d">พบ <span class="num">'+R.nWarn+'</span> ถัง · ยอมให้ได้ <span class="num">'+p.allow+'</span> ถัง</span></div>'+
+      '<div class="c">'+mk(R.c3?(R.complete?true:null):false)+'<span class="t">ถังที่ขาดเกิน T2</span><span class="d">พบ <span class="num">'+R.nBad+'</span> ถัง · ต้องไม่มีเลย (น้อยกว่า <span class="num">'+fmtKg(Q-T2)+'</span> กก.)</span></div>';
+    verdict.className='verdict v-'+R.v;verdict.innerHTML='<span class="v">'+R.vt+'</span><span>'+R.reason+'</span>';
+    const exBad=extra.filter(x=>x.st==='bad').length,exWarn=extra.filter(x=>x.st==='warn').length;
+    $('extraNote').innerHTML=extra.length?'<p class="note">ถังนอกตัวอย่าง '+extra.length+' ถัง: ขาดเกิน T1 '+exWarn+' ถัง, ขาดเกิน T2 '+exBad+' ถัง'+(exBad?' ควรพิจารณาประกอบ':'')+'</p>':'';
   }
-  const overflowErr=p.all&&filled.length>p.N;
-  const n=used.length;
-  const mean=n?used.reduce((a,b)=>a+b.net,0)/n:NaN;
-  const sd=n>1?Math.sqrt(used.reduce((a,b)=>a+(b.net-mean)**2,0)/(n-1)):0;
-  const adj=mean+p.k*sd;
-  const nWarn=used.filter(x=>x.st==='warn').length;
-  const nBad=used.filter(x=>x.st==='bad').length;
-  const complete=n===p.n&&!overflowErr;
+  setBar(R.v,R.vt);
 
-  const c1=n?(adj>=Q-1e-9):null;
-  const c2=nWarn<=p.allow;
-  const c3=nBad===0;
+  // whole shop
+  const O=LPGPDF.overall(Rs);
+  $('allVerdict').className='verdict v-'+O.v;$('allVerdict').innerHTML='<span class="v">'+O.vt+'</span><span>'+esc(O.reason)+'</span>';
+  let t='<thead><tr><th>ล็อต</th><th>ขนาด / ยี่ห้อ</th><th>ในล็อต</th><th>ตรวจ</th><th>เกิน T1</th><th>เกิน T2</th><th>ผล</th></tr></thead><tbody>';
+  S.lots.forEach((Lk,k)=>{const r=Rs[k];
+    t+='<tr><td class="num">'+(k+1)+'</td><td>'+esc(r.sizeTxt)+(Lk.brand?'<br><span class="hint">'+esc(Lk.brand)+'</span>':'')+'</td><td class="num">'+(r.p?r.p.N:'—')+'</td><td class="num">'+(r.p?Math.min(r.filled.length,r.p.n)+'/'+r.p.n:r.filled.length)+'</td><td class="num">'+(r.ready?r.nWarn:'—')+'</td><td class="num">'+(r.ready?r.nBad:'—')+'</td><td><span class="tag '+(r.v==='ok'?'t-ok':r.v==='bad'?'t-bad':'t-pend')+'">'+r.vt+'</span></td></tr>';});
+  $('sumTable').innerHTML=t+'</tbody>';
 
-  stats.innerHTML=
-    st('ตัวอย่างที่ใช้',n+' / '+p.n+' ถัง')+
-    st('ค่าเฉลี่ย x̄',n?fmtKg(mean)+' กก.':'—')+
-    st('S',n>1?fmtG(sd)+' ก.':'—')+
-    (p.k?st('x̄ + 0.640S',n?fmtKg(adj)+' กก.':'—'):'');
-
-  const mk=(ok)=>ok===null?'<span class="mark t-pend">…</span>':ok?'<span class="mark t-ok">✓</span>':'<span class="mark t-bad">✕</span>';
-  crit.innerHTML=
-    '<div class="c">'+mk(complete?c1:null)+'<span class="t">เกณฑ์ค่าเฉลี่ย</span><span class="d">'+
-      (p.k?'x̄ + 0.640 × S = <span class="num">'+(n?fmtKg(adj):'—')+'</span> กก. ต้องไม่น้อยกว่า <span class="num">'+fmtKg(Q)+'</span> กก.':'x̄ = <span class="num">'+(n?fmtKg(mean):'—')+'</span> กก. ต้องไม่น้อยกว่า <span class="num">'+fmtKg(Q)+'</span> กก.')+
-      (!complete&&n?' (คำนวณจากถังที่กรอกแล้ว)':'')+'</span></div>'+
-    '<div class="c">'+mk(c2?(complete?true:null):false)+'<span class="t">ถังที่ขาดเกิน T1 แต่ไม่เกิน T2</span><span class="d">พบ <span class="num">'+nWarn+'</span> ถัง · ยอมให้ได้ <span class="num">'+p.allow+'</span> ถัง</span></div>'+
-    '<div class="c">'+mk(c3?(complete?true:null):false)+'<span class="t">ถังที่ขาดเกิน T2</span><span class="d">พบ <span class="num">'+nBad+'</span> ถัง · ต้องไม่มีเลย (น้อยกว่า <span class="num">'+fmtKg(Q-T2)+'</span> กก.)</span></div>';
-
-  let v,vt,reason;
-  if(overflowErr){v='pend';vt='ตรวจข้อมูลอีกครั้ง';reason='จำนวนถังที่กรอกมากกว่าจำนวนในล็อต';}
-  else if(!c3){v='bad';vt='ไม่ผ่าน';reason='มีถังขาดเกิน T2 จำนวน '+nBad+' ถัง';}
-  else if(!c2){v='bad';vt='ไม่ผ่าน';reason='ถังขาดเกิน T1 มี '+nWarn+' ถัง เกินที่ยอมให้ ('+p.allow+')';}
-  else if(!complete){v='pend';vt='ยังสรุปไม่ได้';reason='ต้องชั่งให้ครบ '+p.n+' ถัง (ขาดอีก '+(p.n-n)+' ถัง)';}
-  else if(!c1){v='bad';vt='ไม่ผ่าน';reason='ไม่ผ่านเกณฑ์ค่าเฉลี่ย';}
-  else{v='ok';vt='ผ่าน';reason='ผ่านครบทั้ง 3 เกณฑ์';}
-  verdict.className='verdict v-'+v;verdict.innerHTML='<span class="v">'+vt+'</span><span>'+reason+'</span>';
-  setBar(v,vt);
-
-  const exBad=extra.filter(x=>x.st==='bad').length,exWarn=extra.filter(x=>x.st==='warn').length;
-  $('extraNote').innerHTML=extra.length?'<p class="note">ถังนอกตัวอย่าง '+extra.length+' ถัง: ขาดเกิน T1 '+exWarn+' ถัง, ขาดเกิน T2 '+exBad+' ถัง'+(exBad?' ควรพิจารณาประกอบ':'')+'</p>':'';
-
-  // summary
-  const sizeTxt=(S.size==='other'?num(S.custom):S.size)+' กก.';
-  const lines=[
-    'ผลการตรวจสอบก๊าซหุงต้มบรรจุถัง',
-    'สถานที่ตรวจ: '+(S.shop||'-'),'ที่อยู่: '+(S.address||'-'),'ยี่ห้อ/ผู้บรรจุ: '+(S.brand||'-'),'วันที่ตรวจ: '+(S.date||'-'),'นายตรวจชั่งตวงวัด: '+(S.inspector?S.inspector+(((LPGPDF.INSPECTORS.find(x=>x[0]===S.inspector)||[])[1])?' ตำแหน่ง '+LPGPDF.INSPECTORS.find(x=>x[0]===S.inspector)[1]:''):'-'),
-    'ขนาดถัง '+sizeTxt+' | จำนวนในล็อต '+p.N+' ถัง | '+(p.all?'ตรวจทุกถัง':'สุ่มตรวจ 20 ถัง'),
-    'T1 '+fmtG(T1)+' ก. | T2 '+fmtG(T2)+' ก.',
-    'ค่าเฉลี่ย '+(n?fmtKg(mean):'-')+' กก. | S '+(n>1?fmtG(sd):'-')+' ก.'+(p.k?' | x̄+0.640S '+(n?fmtKg(adj):'-')+' กก.':''),
-    '1) เกณฑ์ค่าเฉลี่ย: '+(complete?(c1?'ผ่าน':'ไม่ผ่าน'):'ยังไม่ครบ'),
-    '2) ขาดเกิน T1 แต่ไม่เกิน T2: '+nWarn+' ถัง (ยอมให้ '+p.allow+'): '+(c2?'ผ่าน':'ไม่ผ่าน'),
-    '3) ขาดเกิน T2: '+nBad+' ถัง: '+(c3?'ผ่าน':'ไม่ผ่าน'),
-    'สรุป: '+vt+' ('+reason+')',
-    'น้ำหนักสุทธิรายถัง (กก.): '+used.map((x,j)=>(j+1)+') '+(x.net/1000).toFixed(3)).join(', ')
-  ];
-  if(extra.length)lines.push('ถังนอกตัวอย่าง: '+extra.map(x=>(x.net/1000).toFixed(3)).join(', '));
-  lastSummary=lines.join('\n');
-  R={Q,T1,T2,p,used,extra,n,mean,sd,adj,nWarn,nBad,complete,c1,c2,c3,vt,reason,sizeTxt};
+  lastSummary=buildSummary(O);
   save();
+}
+function buildSummary(O){
+  const insp=LPGPDF.INSPECTORS.find(x=>x[0]===S.inspector);
+  const lines=['ผลการตรวจสอบก๊าซหุงต้มบรรจุถัง',
+    'สถานที่ตรวจ: '+(S.shop||'-'),'ที่อยู่: '+(S.address||'-'),'วันที่ตรวจ: '+(S.date||'-'),
+    'นายตรวจชั่งตวงวัด: '+(S.inspector?S.inspector+(insp?' ตำแหน่ง '+insp[1]:''):'-'),''];
+  S.lots.forEach((L,k)=>{const R=Rs[k];
+    lines.push('ล็อตที่ '+(k+1)+': ถัง '+R.sizeTxt+(L.brand?' ยี่ห้อ '+L.brand:'')+(R.p?' | ในล็อต '+R.p.N+' ถัง | '+(R.p.all?'ตรวจทุกถัง':'สุ่มตรวจ 20 ถัง'):''));
+    if(R.ready){
+      lines.push('  T1 '+fmtG(R.T1)+' ก. | T2 '+fmtG(R.T2)+' ก. | ค่าเฉลี่ย '+(R.n?fmtKg(R.mean):'-')+' กก. | S '+(R.n>1?fmtG(R.sd):'-')+' ก.'+(R.p.k?' | x̄+0.640S '+(R.n?fmtKg(R.adj):'-')+' กก.':''));
+      lines.push('  ขาดเกิน T1 '+R.nWarn+' ถัง | ขาดเกิน T2 '+R.nBad+' ถัง');
+      lines.push('  น้ำหนักสุทธิรายถัง (กก.): '+R.used.map((x,j)=>(j+1)+') '+(x.net/1000).toFixed(3)).join(', '));
+      if(R.extra.length)lines.push('  ถังนอกตัวอย่าง: '+R.extra.map(x=>(x.net/1000).toFixed(3)).join(', '));
+    }
+    lines.push('  ผล: '+R.vt+' ('+R.reason+')','');
+  });
+  lines.push('สรุปทั้งร้าน: '+O.vt+' ('+O.reason+')');
+  return lines.join('\n');
 }
 function st(l,v){return '<div class="stat"><span>'+l+'</span><b>'+v+'</b></div>';}
 function setBar(v,t){const b=$('barPill');b.textContent=t;b.className='pill '+(v==='ok'?'t-ok':v==='bad'?'t-bad':'t-pend');}
@@ -639,41 +719,54 @@ const plainSave={save:async({filename,data})=>{const url=URL.createObjectURL(dat
   try{dl=await window.claude.use('downloads');}catch(e){dl=null;}
   if(!dl){exBtn.disabled=true;exMsg.textContent='ส่งออกไฟล์ไม่ได้ในมุมมองนี้ ใช้ปุ่ม "คัดลอกสรุปผล" แทน';}})();
 exBtn.onclick=async()=>{
-  if(!dl){return;}
-  if(!R){exMsg.textContent='เลือกขนาดถังและกรอกจำนวนถังในล็อตก่อนส่งออก';return;}
+  if(!dl)return;
+  const items=S.lots.map((L,k)=>({L,R:Rs[k]})).filter(it=>it.R.ready);
+  if(!items.length){exMsg.textContent='เลือกขนาดถังและกรอกจำนวนถังในล็อตอย่างน้อย 1 ล็อตก่อนส่งออก';return;}
+  const skipped=S.lots.length-items.length;
   exBtn.disabled=true;exMsg.textContent='กำลังสร้างไฟล์…';
   try{
     try{await Promise.all([document.fonts.load('400 12px Sarabun','ก'),document.fonts.load('700 12px Sarabun','ก')]);}catch(e){}
-    const pages=LPGPDF.render(R,S,(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;},'Sarabun, "IBM Plex Sans Thai", "Noto Sans Thai", sans-serif');
+    const pages=LPGPDF.render(items,S,(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;},'Sarabun, "IBM Plex Sans Thai", "Noto Sans Thai", sans-serif');
     const imgs=await Promise.all(pages.map(c=>new Promise((res,rej)=>c.toBlob(b=>{if(!b){rej(new Error('สร้างภาพหน้าไม่สำเร็จ'));return;}b.arrayBuffer().then(ab=>res({bytes:new Uint8Array(ab),w:c.width,h:c.height}),rej);},'image/jpeg',0.92))));
     const blob=new Blob([LPGPDF.pdf(imgs)],{type:'application/pdf'});
     const safe=t=>String(t||'').replace(/[\\/:*?"<>|]+/g,' ').trim().slice(0,60);
     const name='ผลตรวจก๊าซหุงต้ม'+(S.shop?'_'+safe(S.shop):'')+'_'+(S.date||'')+'.pdf';
     await dl.save({filename:name,data:blob});
-    exMsg.textContent='ส่งไฟล์ '+name+' แล้ว ('+pages.length+' หน้า)';
+    exMsg.textContent='ส่งไฟล์ '+name+' แล้ว ('+pages.length+' หน้า, '+items.length+' ล็อต)'+(skipped?' · ไม่รวม '+skipped+' ล็อตที่ยังไม่ระบุขนาดหรือจำนวนถัง':'');
   }catch(e){
     const c=e&&e.code;
     exMsg.textContent=c==='declined'?'ยกเลิกการบันทึกไฟล์':c==='rate_limited'?'มีหน้าต่างบันทึกเปิดค้างอยู่ ลองอีกครั้งในอีกสักครู่':'ส่งออกไม่สำเร็จ'+(e&&e.message?' ('+e.message+')':'');
   }finally{exBtn.disabled=false;}
 };
+
+let delArmed=false;
+$('delLot').onclick=()=>{
+  if(S.lots.length<2)return;
+  const b=$('delLot');
+  if(!delArmed){delArmed=true;b.textContent='แตะอีกครั้งเพื่อลบล็อต '+cur().size+(cur().size==='other'?'':' กก.');setTimeout(()=>{if(delArmed){delArmed=false;b.textContent='ลบล็อตนี้';}},3000);return;}
+  delArmed=false;S.lots.splice(S.cur,1);S.cur=Math.max(0,S.cur-1);showLot();
+};
 let armed=null;
 function startNew(btn){
-  if(armed!==btn){armed=btn;const old=btn.textContent;btn.textContent='แตะอีกครั้งเพื่อล้างข้อมูล';setTimeout(()=>{if(armed===btn){armed=null;btn.textContent=old;}},3000);return;}
-  armed=null;S=blankState(S.example?null:S);initFields();renderChips();renderRows();update();
-  $('startNew1').textContent='เริ่มตรวจล็อตใหม่';$('startNew2').textContent='เริ่มตรวจล็อตใหม่';
+  if(armed!==btn){armed=btn;const old=btn.textContent;btn.textContent='แตะอีกครั้งเพื่อล้างข้อมูลทุกล็อต';setTimeout(()=>{if(armed===btn){armed=null;btn.textContent=old;}},3000);return;}
+  armed=null;S=blankState(S.example?null:S);initFields();showLot();
+  $('startNew1').textContent='เริ่มตรวจร้านใหม่';$('startNew2').textContent='เริ่มตรวจร้านใหม่';
   $('shop').focus();
 }
 $('startNew1').onclick=()=>startNew($('startNew1'));
 $('startNew2').onclick=()=>startNew($('startNew2'));
 
-function initFields(){
-  ['shop','address','brand','date','inspector'].forEach(k=>{$(k).value=S[k]||'';});
-  $('lotN').value=S.N||'';$('customSize').value=S.custom||'';
-}
-['shop','address','brand','date','inspector'].forEach(k=>bindField(k,k));
-$('lotN').addEventListener('input',e=>{S.N=e.target.value.replace(/[^\d]/g,'');update();});
-$('customSize').addEventListener('input',e=>{S.custom=e.target.value;update();});
-initFields();renderChips();renderRows();update();
+function initFields(){['shop','address','date','inspector'].forEach(k=>{$(k).value=S[k]||'';});}
+['shop','address','date','inspector'].forEach(k=>{const el=$(k);const h=()=>{S[k]=el.value;update();};el.addEventListener('input',h);if(el.tagName==='SELECT')el.addEventListener('change',h);});
+$('brand').addEventListener('input',e=>{cur().brand=e.target.value;update();});
+$('lotN').addEventListener('input',e=>{
+  const L=cur();L.N=e.target.value.replace(/[^\d]/g,'');
+  const p=planOf(L);
+  if(p&&L.rows.every(r=>!r.g&&!r.t&&!r.n)&&L.rows.length!==p.n){L.rows=blankRows(p.n);renderRows();}
+  update();
+});
+$('customSize').addEventListener('input',e=>{cur().custom=e.target.value;update();});
+initFields();showLot();
 })();
 </script>
 
