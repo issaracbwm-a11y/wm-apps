@@ -99,7 +99,8 @@ button.btn:disabled{opacity:.55;cursor:default}
 /* ---------- PDF report (rendered off-screen, always light, A4 @96dpi) ---------- */
 #pdfroot{position:fixed;left:-10000px;top:0;width:794px;background:#fff;color:#000}
 .pg{width:794px;height:1123px;background:#fff;color:#000;font-family:"Sarabun",sans-serif;font-size:14.5px;line-height:1.55;padding:40px 40px 34px 60px;display:flex;flex-direction:column}
-.pg .ct{flex:1;display:flex;flex-direction:column;gap:3px}
+.pg .ct{flex:1 1 0;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:3px}
+.pg .ct>*{flex:none}
 .pg .logo{text-align:center} .pg .logo img{width:80px;height:auto}
 .pg .ttl{text-align:center;margin:4px 0 6px}
 .pg .ttl span{font-size:20px;font-weight:700;border-bottom:1.5px solid #000;padding-bottom:1px}
@@ -108,9 +109,10 @@ button.btn:disabled{opacity:.55;cursor:default}
 .pg .k{white-space:nowrap;font-weight:600}
 .pg .v{border-bottom:1px dotted #000;padding:0 6px;min-height:1.4em;white-space:nowrap;overflow:hidden}
 .pg .v.g{flex:1}
-.pg table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11.5px;line-height:1.3;margin-top:6px}
+.pg table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10.5px;line-height:1.25;margin-top:6px}
 .pg table,.pg th,.pg td{color:#000}
-.pg th,.pg td{border:1px solid #000;padding:3px 2px;text-align:center;vertical-align:middle;word-break:break-all}
+.pg th,.pg td{border:1px solid #000;padding:2px 2px;text-align:center;vertical-align:middle;word-break:normal;overflow-wrap:anywhere}
+.pg td.n{white-space:nowrap;overflow:hidden}
 .pg th{font-weight:700;background:#f2f2f2}
 .pg td.l{text-align:left}
 .pg td.f{font-weight:700}
@@ -441,7 +443,7 @@ function fmtR(s){const r=parseR(s);if(r===null||isNaN(r))return "";return r>0?"+
 const V=(s,cls)=>'<span class="v'+(cls?" "+cls:"")+'">'+esc(s)+'</span>';
 function headerHTML(){
   const m=S.meta,ins=INSPECTORS[+m.inspector]||INSPECTORS[0],td=thaiDate(m.date);
-  return '<div class="logo"><img src="'+LOGO+'" alt=""></div>'+
+  return '<div class="logo"><img src="'+LOGO+'" alt="" width="80" height="92" style="width:80px;height:92px"></div>'+
   '<div class="ttl"><span>รายงานตรวจสอบมาตรวัดปริมาตรน้ำมันเชื้อเพลิงตามสถานีบริการ</span></div>'+
   '<div class="ln r"><span class="k">เขียนที่</span>'+V(m.writeAt||m.station)+'</div>'+
   '<div class="ln r"><span class="k">วันที่</span>'+V(td.d)+'<span class="k">เดือน</span>'+V(td.m)+'<span class="k">พ.ศ.</span>'+V(td.y)+'</div>'+
@@ -455,11 +457,11 @@ function headerHTML(){
   '<div class="ln"><span class="k">LAT</span>'+V(m.lat,"g")+'<span class="k">LNG</span>'+V(m.lng,"g")+'<span class="k">โทรศัพท์</span>'+V(m.phone,"g")+'</div>'+
   '<div class="ln"><span class="k">ทำการตรวจเรียบร้อยเมื่อเวลา</span>'+V(m.tEnd?m.tEnd.replace(":",".")+" น.":"")+'<span class="k">รายละเอียดการตรวจดังนี้</span></div>';
 }
-const COLS='<colgroup><col style="width:30px"><col style="width:132px"><col style="width:80px"><col style="width:74px"><col style="width:38px"><col style="width:38px"><col style="width:64px"><col style="width:40px"><col style="width:42px"><col style="width:28px"><col style="width:28px"><col></colgroup>';
+const COLS='<colgroup><col style="width:24px"><col style="width:148px"><col style="width:104px"><col style="width:72px"><col style="width:30px"><col style="width:46px"><col style="width:60px"><col style="width:36px"><col style="width:38px"><col style="width:22px"><col style="width:22px"><col></colgroup>';
 const THEAD='<thead><tr><th rowspan="2">ลำดับ</th><th rowspan="2">หมายเลขลำดับประจำเครื่อง</th><th rowspan="2">ยี่ห้อ / รุ่น</th><th rowspan="2">ชนิดน้ำมัน</th><th rowspan="2">คีม</th><th rowspan="2">ซีล</th><th rowspan="2">วันหมดอายุ</th><th colspan="4">ผลการตรวจ</th><th rowspan="2">ดำเนินการอย่างไร</th></tr><tr><th>5 ลิตร</th><th>20 ลิตร</th><th>ถูก</th><th>ผิด</th></tr></thead>';
 function rowTR(row,i){const e=evalRow(row);
-  return '<tr><td>'+(i+1)+'</td><td>'+esc(row.sn)+'</td><td>'+esc(row.brand)+'</td><td>'+esc(row.oil)+'</td><td>'+esc(row.clamp)+'</td><td>'+esc(row.seal)+'</td><td>'+esc(shortDate(row.expiry))+'</td>'+
-  '<td>'+fmtR(row.r5)+'</td><td>'+fmtR(row.r20)+'</td><td class="f">'+(e.st==="pass"?"✓":"")+'</td><td class="f">'+(e.st==="fail"?"✓":"")+'</td><td class="l">'+esc(e.act)+'</td></tr>'}
+  return '<tr><td class="n">'+(i+1)+'</td><td class="n">'+esc(row.sn)+'</td><td>'+esc(row.brand)+'</td><td>'+esc(row.oil)+'</td><td class="n">'+esc(row.clamp)+'</td><td class="n">'+esc(row.seal)+'</td><td class="n">'+esc(shortDate(row.expiry))+'</td>'+
+  '<td class="n">'+fmtR(row.r5)+'</td><td class="n">'+fmtR(row.r20)+'</td><td class="f">'+(e.st==="pass"?"✓":"")+'</td><td class="f">'+(e.st==="fail"?"✓":"")+'</td><td class="l">'+esc(e.act)+'</td></tr>'}
 function footHTML(){
   const m=S.meta,ins=INSPECTORS[+m.inspector]||INSPECTORS[0];const t=tally();
   const crit=m.mode==="use"?"ตรวจระหว่างใช้งาน อัตราเผื่อเหลือเผื่อขาด ±0.5% (5 ลิตร ±"+fmt(mpeML(5))+" มล. / 20 ลิตร ±"+fmt(mpeML(20))+" มล.) ตามประกาศกระทรวงพาณิชย์ เรื่อง มาตรวัดปริมาตรของเหลว ข้อ 8 วรรคสี่"
@@ -475,7 +477,8 @@ function newPage(first,no){
   pg.innerHTML='<div class="ct">'+(first?headerHTML():'<div class="cont">รายงานตรวจสอบมาตรวัดฯ '+esc(S.meta.station)+' (ต่อ)</div>')+'</div><div class="pno"></div>';
   $("pdfroot").appendChild(pg);return pg;
 }
-function overflow(pg){const ct=pg.querySelector(".ct");return ct.scrollHeight>ct.clientHeight+1}
+function overflow(pg){const ct=pg.querySelector(".ct");const last=ct.lastElementChild;if(!last)return false;
+  return last.getBoundingClientRect().bottom>ct.getBoundingClientRect().bottom-28||ct.scrollHeight>ct.clientHeight+1}
 function addTable(pg){const t=document.createElement("table");t.innerHTML=COLS+THEAD+"<tbody></tbody>";pg.querySelector(".ct").appendChild(t);return t.tBodies[0]}
 function layout(){
   const root=$("pdfroot");root.innerHTML="";
