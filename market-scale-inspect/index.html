@@ -87,6 +87,8 @@ input.s-bad{border-color:var(--bad);background:var(--bad-bg)}
 .actions{display:flex;gap:10px;flex-wrap:wrap}
 .actions .btn{flex:1 1 160px}
 .msg{font-size:14px;min-height:1.5em}
+.shopHint{font-size:13px;color:var(--brass);font-weight:500;min-height:1.2em}
+.unit{font-size:12px;color:var(--muted)}
 .msg.err{color:var(--bad)} .msg.ok{color:var(--ok)}
 /* table */
 .tbl{overflow-x:auto;border:1px solid var(--line);border-radius:8px}
@@ -170,8 +172,10 @@ footer{font-size:12px;color:var(--muted);line-height:1.6}
         <input id="seq" readonly>
       </label>
       <label class="f">4. ชื่อร้าน/แผง
-        <input id="shop" placeholder="เช่น แผงหมู ป้าแดง / แผง A12" autocomplete="off">
+        <input id="shop" placeholder="เช่น แผงหมู ป้าแดง / แผง A12" autocomplete="off" list="shopList">
+        <datalist id="shopList"></datalist>
       </label>
+      <div class="shopHint full" id="shopHint"></div>
       <div class="f full" style="display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:500">5. ชนิดเครื่องชั่ง
         <div class="seg" id="typeSeg" role="group" aria-label="ชนิดเครื่องชั่ง">
           <button type="button" data-v="spring" aria-pressed="true">เครื่องชั่งสปริง</button>
@@ -242,7 +246,8 @@ footer{font-size:12px;color:var(--muted);line-height:1.6}
     </div>
 
     <div class="actions">
-      <button class="btn primary" id="saveBtn" type="button">บันทึกผลการตรวจ</button>
+      <button class="btn ghost" id="saveSameBtn" type="button">บันทึก · ตรวจเครื่องถัดไปในร้านนี้</button>
+      <button class="btn primary" id="saveBtn" type="button">บันทึก · ไปร้านถัดไป</button>
     </div>
     <div class="msg" id="msg" role="status"></div>
   </section>
@@ -495,9 +500,19 @@ function evaluate(){
   return{ready:true,result,cssKey:legalBad&&worst?(cssKey):cssKey,act,cls,mpe,errs,errMax,complete};
 }
 
+/* ---------- shops with several scales ---------- */
+const shopKey=s=>String(s||"").trim().replace(/\s+/g," ").toLowerCase();
+function shopCount(name){const k=shopKey(name);return state.records.filter(r=>shopKey(r.shop)===k).length}
+function renumberUnits(){const seen={};state.records.forEach((r,i)=>{r.no=i+1;const k=shopKey(r.shop);seen[k]=(seen[k]||0)+1;r.unit=seen[k]})}
+function shopLabel(r){return shopCount(r.shop)>1?`${r.shop} (เครื่องที่ ${r.unit})`:r.shop}
+function updateShopHint(){const n=shopCount($("shop").value);
+  $("shopHint").textContent=$("shop").value.trim()&&n?`ร้านนี้บันทึกแล้ว ${n} เครื่อง · เครื่องนี้จะเป็นเครื่องที่ ${n+1} ของร้าน`:"";
+  const dl=$("shopList");dl.innerHTML="";[...new Set(state.records.map(r=>r.shop))].forEach(n=>{const o=document.createElement("option");o.value=n;dl.appendChild(o)})}
+$("shop").addEventListener("input",updateShopHint);
+
 /* ---------- save record ---------- */
 function flash(el,txt,kind){el.textContent=txt;el.className="msg "+(kind||"");clearTimeout(el._t);el._t=setTimeout(()=>{el.textContent=""},3500)}
-$("saveBtn").addEventListener("click",()=>{
+function saveRecord(keepShop){
   const ev=evaluate(), mx=num($("max").value), e=num($("e").value), L=num($("load").value);
   if(!$("shop").value.trim())return flash($("msg"),"กรอกชื่อร้าน/แผงก่อนบันทึก","err");
   if(!(mx>0&&e>0))return flash($("msg"),"กรอกพิกัดกำลังและค่า e","err");
@@ -508,15 +523,18 @@ $("saveBtn").addEventListener("click",()=>{
   const rec={no:state.records.length+1,shop:$("shop").value.trim(),serial:$("serial").value.trim(),type:state.type,max:mx,e,cls:scaleClass(state.type,mx,e),
     legal:state.legal,legalNotes:legalNotes(),load:L,mpe:ev.mpe,
     reads:ev.errs.map(x=>({k:x.k,lab:x.lab,v:x.v,err:x.err,st:x.st,kh:x.kh,base:x.base})),errMax:ev.errMax,
-    result:ev.result,css:ev.cssKey,action:ev.act};
+    result:ev.result,css:ev.cssKey,action:ev.act,unit:shopCount($("shop").value)+1};
   if(!state.records.length||!state.sessionId)state.sessionId=newId();
-  state.records.push(rec);save();renderTable();clearShop();
-  flash($("msg"),`บันทึกที่ ${rec.no} แล้ว – ${rec.shop}: ${rec.result}`,"ok");
-  $("shop").focus();
-});
+  state.records.push(rec);renumberUnits();save();renderTable();
+  const shopName=rec.shop;clearShop();
+  if(keepShop){$("shop").value=shopName;updateShopHint();$("serial").focus()}else $("shop").focus();
+  flash($("msg"),`บันทึกที่ ${rec.no} แล้ว – ${shopName} เครื่องที่ ${rec.unit}: ${rec.result}`+(keepShop?" · กรอกเครื่องถัดไปของร้านนี้":""),"ok");
+}
+$("saveBtn").addEventListener("click",()=>saveRecord(false));
+$("saveSameBtn").addEventListener("click",()=>saveRecord(true));
 function clearShop(){$("shop").value="";$("serial").value="";$("load").value="";document.querySelectorAll(".rd").forEach(i=>i.value="");
   buildLegalChips();setLegal("ok");
-  $("seq").value=state.records.length+1;evaluate();}
+  $("seq").value=state.records.length+1;updateShopHint();evaluate();}
 
 /* ---------- table ---------- */
 const typeTH=t=>t==="spring"?"สปริง":"ดิจิทัล";
@@ -524,20 +542,21 @@ function springText(x){if(!x)return"";if(x.kh==null||x.kh===0)return fmtKg(x.v);
   return `${fmtKg(x.base)} ${x.kh>0?"+":"−"}${Math.abs(x.kh)} ขีด (= ${fmtKg(x.v)})`}
 function readsText(r){return r.type==="spring"?springText(r.reads[0]):r.reads.map(x=>`${x.lab} ${fmtKg(x.v)}`).join(", ")}
 function renderTable(){const tb=$("tbody");tb.innerHTML="";
-  if(!state.records.length){tb.innerHTML=`<tr><td colspan="13" class="empty">ยังไม่มีผลที่บันทึก กด “บันทึกผลการตรวจ” หลังตรวจแต่ละร้าน</td></tr>`}
+  if(!state.records.length){tb.innerHTML=`<tr><td colspan="13" class="empty">ยังไม่มีผลที่บันทึก กดปุ่มบันทึกหลังตรวจแต่ละเครื่อง</td></tr>`}
   state.records.forEach((r,i)=>{const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${r.no}</td><td>${esc(r.shop)}</td><td>${typeTH(r.type)}</td><td>${esc(r.serial||"-")}</td><td>${r.max} กก./${r.e} ก.</td>
+    tr.innerHTML=`<td>${r.no}</td><td>${esc(r.shop)}${shopCount(r.shop)>1?` <span class="unit">เครื่องที่ ${r.unit}</span>`:""}</td><td>${typeTH(r.type)}</td><td>${esc(r.serial||"-")}</td><td>${r.max} กก./${r.e} ก.</td>
       <td>${r.legal==="ok"?"ถูกต้อง":"ไม่ถูกต้อง"}</td><td>${fmtKg(r.load)}</td><td>${readsText(r)}</td>
       <td>${r.reads.length?sgn(r.errMax):"-"}</td><td>${r.mpe==null?"-":fmtG(r.mpe)}</td><td class="res-${r.css}">${r.result}</td><td>${r.action}</td>
       <td><button class="del" data-i="${i}" aria-label="ลบรายการที่ ${r.no}">ลบ</button></td>`;tb.appendChild(tr)});
   const p=state.records.filter(r=>r.result==="ผ่าน").length, f=state.records.length-p;
-  $("sum").innerHTML=`<span class="pill">ตรวจ ${state.records.length} เครื่อง</span><span class="pill ok">ผ่าน ${p}</span><span class="pill bad">ไม่ผ่าน ${f}</span>`
+  const nShops=new Set(state.records.map(r=>shopKey(r.shop))).size;
+  $("sum").innerHTML=`<span class="pill">${nShops} ร้าน/แผง · ${state.records.length} เครื่อง</span><span class="pill ok">ผ่าน ${p}</span><span class="pill bad">ไม่ผ่าน ${f}</span>`
     +`<span class="pill">สปริง ${state.records.filter(r=>r.type==="spring").length} · ดิจิทัล ${state.records.filter(r=>r.type==="digital").length}</span>`;
-  $("seq").value=state.records.length+1;renderTotals();}
+  $("seq").value=state.records.length+1;renderTotals();updateShopHint();}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 $("tbody").addEventListener("click",e=>{const b=e.target.closest(".del");if(!b)return;
   if(b.dataset.armed!=="1"){b.dataset.armed="1";b.textContent="ยืนยันลบ";setTimeout(()=>{b.dataset.armed="";b.textContent="ลบ"},3000);return}
-  state.records.splice(+b.dataset.i,1);state.records.forEach((r,i)=>r.no=i+1);save();renderTable()});
+  state.records.splice(+b.dataset.i,1);renumberUnits();save();renderTable()});
 $("clearBtn").addEventListener("click",e=>{const b=e.currentTarget;
   if(b.dataset.armed!=="1"){b.dataset.armed="1";b.textContent="กดอีกครั้งเพื่อยืนยันล้าง";setTimeout(()=>{b.dataset.armed="";b.textContent="ล้างตารางทั้งหมด"},3500);return}
   b.dataset.armed="";b.textContent="ล้างตารางทั้งหมด";state.records=[];state.sessionId="";state.totals={};save();renderTable();flash($("msg2"),"ล้างตารางแล้ว","ok")});
@@ -558,12 +577,12 @@ function buildPages(){
     <th style="width:62px">อัตรา ± (ก.)</th><th style="width:52px">ผล</th><th style="width:118px">ดำเนินการ</th></tr>`;
   return chunks.map((rows,pi)=>{
     const last=pi===chunks.length-1;
-    const body=rows.map(r=>`<tr><td>${r.no}</td><td class="l">${esc(r.shop)}</td><td>${typeTH(r.type)}</td><td style="word-break:break-all">${esc(r.serial||"-")}</td><td>${r.max} กก.</td><td>${r.e}</td>
+    const body=rows.map(r=>`<tr><td>${r.no}</td><td class="l">${esc(shopLabel(r))}</td><td>${typeTH(r.type)}</td><td style="word-break:break-all">${esc(r.serial||"-")}</td><td>${r.max} กก.</td><td>${r.e}</td>
       <td>${r.legal==="ok"?"ถูกต้อง":"ไม่ถูกต้อง"+(r.legalNotes.length?`<br><span style="font-size:12px">${esc(r.legalNotes.join(", "))}</span>`:"")}</td>
       <td>${fmtKg(r.load)}</td><td class="l" style="font-size:13px">${readsText(r)}</td><td>${r.reads.length?sgn(r.errMax):"-"}</td><td>${r.mpe==null?"-":fmtG(r.mpe)}</td>
       <td class="pf">${r.result}</td><td>${r.action}</td></tr>`).join("");
     const sig2=o.type==="vol"?`<div>ลงชื่อ ..................................................<br>(..................................................)<br>นายตรวจชั่งตวงวัด ผู้รับรายงาน</div>`:"";
-    const foot=last?`<div class="note" style="font-size:15px"><b>สรุปจำนวนเครื่องชั่งที่ตรวจทั้งหมด ${tAll} เครื่อง</b> · เครื่องชั่งสปริง ถูก ${T.sp} ผิด ${T.sf} (รวม ${T.sp+T.sf}) · เครื่องชั่งดิจิทัล ถูก ${T.dp} ผิด ${T.df} (รวม ${T.dp+T.df})${recs.length<tAll?` · บันทึกผลรายเครื่องในตาราง ${recs.length} เครื่อง`:""}</div>
+    const foot=last?`<div class="note" style="font-size:15px"><b>สรุปจำนวนเครื่องชั่งที่ตรวจทั้งหมด ${tAll} เครื่อง</b> · เครื่องชั่งสปริง ถูก ${T.sp} ผิด ${T.sf} (รวม ${T.sp+T.sf}) · เครื่องชั่งดิจิทัล ถูก ${T.dp} ผิด ${T.df} (รวม ${T.dp+T.df})${recs.length?` · บันทึกผลรายเครื่องในตาราง ${recs.length} เครื่อง จาก ${new Set(recs.map(r=>shopKey(r.shop))).size} ร้าน/แผง`:""}</div>
       <div class="note">อัตราเผื่อเหลือเผื่อขาดสำหรับเครื่องที่ใช้งานแล้ว (2 เท่า) ตามประกาศกระทรวงพาณิชย์ ลว. 19 มิ.ย. 2560 · ค่าผิด = ค่าที่แสดง − น้ำหนักตุ้ม</div>
       <div class="sig"><div>ลงชื่อ ..................................................<br>(${esc(o.name||"..................................................")})<br>${o.type==="inspector"?`ตำแหน่ง ${esc(o.pos)}<br>นายตรวจชั่งตวงวัด`:`${esc(o.pos)} ผู้ตรวจสอบ`}</div>${sig2}</div>`:"";
     return `<div class="page">${head}${rows.length?`<table><thead>${thead}</thead><tbody>${body}</tbody></table>`:""}${foot}<div class="pno">หน้า ${pi+1}/${chunks.length}</div></div>`;
@@ -602,7 +621,7 @@ $("pdfBtn").addEventListener("click",async()=>{
 
 /* ---------- init ---------- */
 $("date").value=todayISO();
-load();setType("spring");syncOfficer();renderTable();
+load();renumberUnits();setType("spring");syncOfficer();renderTable();
 flushQ();
 </script>
 
