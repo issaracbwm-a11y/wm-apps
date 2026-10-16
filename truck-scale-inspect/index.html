@@ -373,7 +373,7 @@ button.btn:disabled{opacity:.55;cursor:default}
     <div class="panel" id="wtPanel">
       <h3>ทดสอบด้วยตุ้มน้ำหนักแบบมาตรา (Weighing Test) <span class="pill" id="pWt">—</span></h3>
       <div class="wt" id="wtRows"></div>
-      <div class="hint">ผลต่าง = ค่าที่เครื่องชั่งแสดง − น้ำหนักทดสอบ · แก้น้ำหนักทดสอบในช่องซ้ายได้ถ้าวางไม่ตรงตามแบบฟอร์ม</div>
+      <div class="hint">ช่องค่าที่เครื่องชั่งแสดงใส่ค่าเท่ากับน้ำหนักทดสอบไว้ให้แล้ว แก้เฉพาะจุดที่เครื่องแสดงต่างไป · ผลต่าง = ค่าที่เครื่องชั่งแสดง − น้ำหนักทดสอบ · แก้น้ำหนักทดสอบในช่องซ้ายได้ถ้าวางไม่ตรงตามแบบฟอร์ม</div>
     </div>
 
     <div class="panel">
@@ -460,7 +460,7 @@ function blankMachine(){return {
   seal:{head:"",remote:"",jbox:"",other:"",no:"",ok:""},
   checks:{c1:"",c2:"",c3:"",c4:"",c5:"",printer:""},
   ref:{L:"",I:""},ecc:{in:["","",""],out:["","",""]},rep:{W:"",r:["","",""]},
-  wt:LOADS.map(l=>({L:String(l),I:""})),disc:"",
+  wt:LOADS.map(l=>({L:String(l),I:String(l)})),disc:"", // ค่าที่แสดงตั้งต้น = น้ำหนักทดสอบ แก้ได้
   result:{reason:"",action:"",signer:"",role:""}}}
 const MKEYS=["scale","seal","checks","ref","ecc","rep","wt","disc","result"];
 function blankMeta(){return {ins1:0,team:"",date:today(),mode:"use",vehicle:"crane"}}
@@ -485,7 +485,7 @@ function sampleState(){
 function merge(def,v){if(Array.isArray(def))return Array.isArray(v)?v:def;if(def&&typeof def==="object"){const o={};for(const k in def)o[k]=merge(def[k],v&&v[k]);for(const k in (v||{}))if(!(k in o))o[k]=v[k];return o}return v===undefined||v===null?def:v}
 function load(v){
   if(!v.machines&&v.scale){const m={};MKEYS.forEach(k=>m[k]=v[k]);v.machines=[m]}
-  const ms=(v.machines||[]).map(m=>merge(blankMachine(),m));if(!ms.length)ms.push(blankMachine());
+  const ms=(v.machines||[]).map(m=>merge(blankMachine(),m));ms.forEach(m=>m.wt.forEach(r=>{if(String(r.I??"").trim()==="")r.I=r.L}));if(!ms.length)ms.push(blankMachine());
   const s={meta:merge(blankMeta(),v.meta),site:merge(blankSite(),v.site),machines:ms,cur:Math.min(Math.max(0,+v.cur||0),ms.length-1),sample:!!v.sample};
   delete s.meta.ins2;return attach(s)}
 let S;
@@ -619,12 +619,15 @@ $("m_ins1").addEventListener("change",e=>{S.meta.ins1=+e.target.value;posUpd();c
 function posUpd(){const a=INSPECTORS[+S.meta.ins1];$("pos1").textContent=a?"ตำแหน่ง "+a.p:""}
 
 /* generic binding */
-document.addEventListener("input",e=>{const el=e.target;const p=el.dataset&&el.dataset.bind;if(!p)return;setP(p,el.value);
+document.addEventListener("input",e=>{const el=e.target;const p=el.dataset&&el.dataset.bind;if(!p)return;
+  const wm=p.match(/^wt\.(\d+)\.L$/);if(wm){const r=S.wt[+wm[1]];if(r&&(String(r.I).trim()===""||r.I===r.L)){r.I=el.value;const ii=$("w_I"+wm[1]);if(ii)ii.value=el.value}}
+  setP(p,el.value);
   if(S.sample){S.sample=false}changed()});
 document.addEventListener("click",e=>{const b=e.target.closest("[data-seg]");if(!b)return;const p=b.dataset.seg,v=b.dataset.val;
   setP(p,(getP(p)===v&&!b.dataset.keep)?"":v);if(S.sample)S.sample=false;syncSegs();changed()});
 function syncSegs(){document.querySelectorAll("[data-seg]").forEach(b=>b.setAttribute("aria-pressed",String(getP(b.dataset.seg)===b.dataset.val)))}
 function fillAll(){
+  if(document.querySelectorAll("[data-wr]").length!==S.wt.length)buildWt();
   document.querySelectorAll("[data-bind]").forEach(el=>{const v=getP(el.dataset.bind);el.value=v==null?"":v});
   $("m_ins1").value=String(S.meta.ins1);
   fillGeo();posUpd();syncSegs();refresh();
@@ -834,7 +837,7 @@ function renderBar(){
 function goMachine(i){S.cur=i;resetDel();fillAll();save();const el=$("machineTop");if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-$("mbar").closest(".top").offsetHeight-8})}
 $("mbar").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   if(b.id==="addM"){const prev=S.machines[S.cur];const m=blankMachine();
-    m.ref.L=prev.ref.L;m.wt=prev.wt.map(r=>({L:r.L,I:""}));m.rep.W=prev.rep.W;m.result.signer=prev.result.signer;m.result.role=prev.result.role;
+    m.ref.L=prev.ref.L;m.wt=prev.wt.map(r=>({L:r.L,I:r.L}));m.rep.W=prev.rep.W;m.result.signer=prev.result.signer;m.result.role=prev.result.role;
     S.machines.push(m);if(S.sample)S.sample=false;goMachine(S.machines.length-1);setMsg("เพิ่มเครื่องที่ "+S.machines.length+" แล้ว (คัดลอกน้ำหนักรถและน้ำหนักทดสอบจากเครื่องก่อนหน้า)","ok");return}
   const i=+b.dataset.m;if(i!==S.cur)goMachine(i)});
 let delT=0;function resetDel(){clearTimeout(delT);delT=0;$("delBtn").textContent="ลบเครื่องนี้"}
