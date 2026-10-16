@@ -109,6 +109,8 @@ td .del{font:inherit;font-size:12px;border:0;background:none;color:var(--bad);cu
 .tot-type{font-size:14px;font-weight:500;padding-bottom:10px}
 .tot-grid input{background:var(--surface);text-align:center;font-variant-numeric:tabular-nums}
 .tot-grid input.manual{border-color:var(--brass);border-width:2px}
+.tot-shops input{background:var(--surface);text-align:center;font-variant-numeric:tabular-nums;max-width:180px}
+.tot-shops input.manual{border-color:var(--brass);border-width:2px}
 .tot-sum{font-size:14px;font-variant-numeric:tabular-nums}
 .tot-sum .warn{color:var(--bad)}
 footer{font-size:12px;color:var(--muted);line-height:1.6}
@@ -266,6 +268,9 @@ footer{font-size:12px;color:var(--muted);line-height:1.6}
         <label class="f">ถูก<input id="tot_dp" type="number" inputmode="numeric" min="0" step="1"></label>
         <label class="f">ผิด<input id="tot_df" type="number" inputmode="numeric" min="0" step="1"></label>
       </div>
+      <label class="f tot-shops">จำนวนร้านค้าที่ตรวจในครั้งนี้ (ร้าน) <small>นับจากชื่อร้าน/แผงในตารางให้อัตโนมัติ แก้เป็นจำนวนจริงได้</small>
+        <input id="tot_shops" type="number" inputmode="numeric" min="0" step="1">
+      </label>
       <div class="tot-sum" id="totSum"></div>
     </div>
     <div class="actions">
@@ -339,11 +344,17 @@ function recCounts(){const R=state.records||[];const c=(t,ok)=>R.filter(r=>r.typ
   return{sp:c("spring",true),sf:c("spring",false),dp:c("digital",true),df:c("digital",false)}}
 function getTotals(){const rc=recCounts(),m=state.totals||{},o={};
   for(const k in TOT_IDS){const v=m[k];o[k]=(v!=null&&v!=="")?Math.max(0,Math.round(+v)||0):rc[k]}return o}
+const recShops=()=>new Set((state.records||[]).map(r=>String(r.shop||"").trim().replace(/\s+/g," ").toLowerCase())).size;
+function getShops(){const v=(state.totals||{}).shops;return(v!=null&&v!=="")?Math.max(0,Math.round(+v)||0):recShops()}
 function renderTotals(){const rc=recCounts(),t=getTotals(),m=state.totals||{};
+  {const el=$("tot_shops");if(document.activeElement!==el)el.value=getShops();el.classList.toggle("manual",m.shops!=null&&m.shops!=="")}
   for(const k in TOT_IDS){const el=$(TOT_IDS[k]);if(document.activeElement!==el)el.value=t[k];el.classList.toggle("manual",m[k]!=null&&m[k]!=="")}
   const sp=t.sp+t.sf,dg=t.dp+t.df,low=Object.keys(TOT_IDS).filter(k=>t[k]<rc[k]);
-  $("totSum").innerHTML=`รวมสปริง <b>${sp}</b> · รวมดิจิทัล <b>${dg}</b> · รวมทั้งหมด <b>${sp+dg}</b> เครื่อง`
-    +(low.length?`<br><span class="warn">ตัวเลขบางช่องน้อยกว่าที่บันทึกรายเครื่องในตาราง ตรวจสอบอีกครั้ง</span>`:"");}
+  $("totSum").innerHTML=`ร้านค้า <b>${getShops()}</b> ร้าน · รวมสปริง <b>${sp}</b> · รวมดิจิทัล <b>${dg}</b> · รวมทั้งหมด <b>${sp+dg}</b> เครื่อง`
+    +(low.length?`<br><span class="warn">ตัวเลขบางช่องน้อยกว่าที่บันทึกรายเครื่องในตาราง ตรวจสอบอีกครั้ง</span>`:"")
+    +(getShops()<recShops()?`<br><span class="warn">จำนวนร้านค้าน้อยกว่าจำนวนร้านในตาราง (${recShops()} ร้าน) ตรวจสอบอีกครั้ง</span>`:"");}
+$("tot_shops").addEventListener("input",e=>{state.totals=state.totals||{};state.totals.shops=e.target.value===""?null:e.target.value;save();renderTotals()});
+$("tot_shops").addEventListener("blur",renderTotals);
 for(const k in TOT_IDS){$(TOT_IDS[k]).addEventListener("input",e=>{state.totals=state.totals||{};
   state.totals[k]=e.target.value===""?null:e.target.value;save();renderTotals()});
   $(TOT_IDS[k]).addEventListener("blur",renderTotals)}
@@ -363,7 +374,7 @@ function buildSummary(){
   const parts=[];if(seized)parts.push(`ยึด ${seized} เครื่อง`);if(tagged)parts.push(`ผูกบัตรห้ามใช้/สั่งแก้ไข ${tagged} เครื่อง`);if(notified)parts.push(`แจ้งนายตรวจชั่งตวงวัด ${notified} เครื่อง`);
   return{token:SHEET_TOKEN,submitId:state.sessionId,date:$("date").value,market:$("market").value.trim(),
     officerType:o.typeLabel,officerName:o.name,team:$("team").value.trim(),
-    springPass:t.sp,springFail:t.sf,digitalPass:t.dp,digitalFail:t.df,
+    shops:getShops(),springPass:t.sp,springFail:t.sf,digitalPass:t.dp,digitalFail:t.df,
     actionText:parts.length?parts.join(", "):"-",seized,tagged,notified};
 }
 function sheetMsg(t,k){const el=$("sheetMsg");el.textContent=t;el.className="msg "+(k||"")}
@@ -567,7 +578,7 @@ function buildPages(){
       <td>${fmtKg(r.load)}</td><td class="l" style="font-size:13px">${readsText(r)}</td><td>${r.reads.length?sgn(r.errMax):"-"}</td><td>${r.mpe==null?"-":fmtG(r.mpe)}</td>
       <td class="pf">${r.result}</td><td>${r.action}</td></tr>`).join("");
     const sig2=o.type==="vol"?`<div>ลงชื่อ ..................................................<br>(..................................................)<br>นายตรวจชั่งตวงวัด ผู้รับรายงาน</div>`:"";
-    const foot=last?`<div class="note" style="font-size:15px"><b>สรุปจำนวนเครื่องชั่งที่ตรวจทั้งหมด ${tAll} เครื่อง</b> · เครื่องชั่งสปริง ถูก ${T.sp} ผิด ${T.sf} (รวม ${T.sp+T.sf}) · เครื่องชั่งดิจิทัล ถูก ${T.dp} ผิด ${T.df} (รวม ${T.dp+T.df})${recs.length?` · บันทึกผลรายเครื่องในตาราง ${recs.length} เครื่อง จาก ${new Set(recs.map(r=>shopKey(r.shop))).size} ร้าน/แผง`:""}</div>
+    const foot=last?`<div class="note" style="font-size:15px"><b>ตรวจร้านค้า ${getShops()} ร้าน · เครื่องชั่งทั้งหมด ${tAll} เครื่อง</b> · เครื่องชั่งสปริง ถูก ${T.sp} ผิด ${T.sf} (รวม ${T.sp+T.sf}) · เครื่องชั่งดิจิทัล ถูก ${T.dp} ผิด ${T.df} (รวม ${T.dp+T.df})${recs.length&&recs.length<tAll?` · บันทึกผลรายเครื่องในตาราง ${recs.length} เครื่อง`:""}</div>
       <div class="note">อัตราเผื่อเหลือเผื่อขาดสำหรับเครื่องที่ใช้งานแล้ว (2 เท่า) ตามประกาศกระทรวงพาณิชย์ ลว. 19 มิ.ย. 2560 · ค่าผิด = ค่าที่แสดง − น้ำหนักตุ้ม</div>
       <div class="sig"><div>ลงชื่อ ..................................................<br>(${esc(o.name||"..................................................")})<br>${o.type==="inspector"?`ตำแหน่ง ${esc(o.pos)}<br>นายตรวจชั่งตวงวัด`:`${esc(o.pos)} ผู้ตรวจสอบ`}</div>${sig2}</div>`:"";
     return `<div class="page">${head}${rows.length?`<table><thead>${thead}</thead><tbody>${body}</tbody></table>`:""}${foot}<div class="pno">หน้า ${pi+1}/${chunks.length}</div></div>`;
@@ -578,6 +589,7 @@ $("pdfBtn").addEventListener("click",async()=>{
   if(!state.records.length&&!(T0.sp+T0.sf+T0.dp+T0.df))return flash($("msg2"),"ยังไม่มีผลการตรวจ บันทึกรายเครื่องหรือกรอกจำนวนเครื่องชั่งก่อน","err");
   if(!$("market").value.trim())return flash($("msg2"),"กรอกชื่อตลาดในส่วน ก ก่อนส่งออก","err");
   if(!$("volName").value.trim())return flash($("msg2"),"กรอกชื่อ อส.ชว.ตลาดสด ในส่วน ก ก่อนส่งออก","err");
+  if(!getShops())return flash($("msg2"),"กรอกจำนวนร้านค้าที่ตรวจในครั้งนี้ก่อนส่งออก","err");
   sendSummary();
   if(!window.jspdf||!window.html2canvas)return flash($("msg2"),"โหลดตัวสร้าง PDF ไม่สำเร็จ ตรวจการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่","err");
   const btn=$("pdfBtn");btn.disabled=true;btn.textContent="กำลังสร้าง PDF…";
