@@ -83,6 +83,7 @@ button.btn:disabled{opacity:.55;cursor:default}
 .btn.sm{font-size:14px;padding:7px 12px}
 [data-shot]{display:none}
 .has-sample [data-shot],.has-ocr [data-shot]{display:inline-block}
+.placebar{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .ext{font-size:14px;color:var(--accent);text-decoration:none;padding:6px 2px}
 .scanmsg{margin-top:8px;font-size:13px;border-radius:6px;padding:6px 8px;background:var(--accent-soft);color:var(--ink)}
 .scanmsg.err{background:var(--fail-soft);color:var(--fail)}
@@ -173,6 +174,8 @@ button.btn:disabled{opacity:.55;cursor:default}
     <div class="sec-h"><h2>สถานีบริการ</h2></div>
     <div class="panel">
       <div class="grid">
+        <div class="full placebar"><button type="button" class="btn sm" data-shot id="placeBtn">อ่านชื่อและที่อยู่จากภาพ (capจอหลังจากสแกนQR)</button>
+          <div class="scanmsg" id="placeMsg" hidden></div></div>
         <label class="full">มาตรวัดของ (ชื่อสถานีบริการ)<input id="m_station" placeholder="เช่น บจ.สยามสุขสวัสดิ์ (3110297)"></label>
         <label>เลขประจำตัวผู้เสียภาษี<input id="m_taxId" inputmode="numeric"></label>
         <label>ผู้จำหน่ายน้ำมันของบริษัท<input id="m_company" placeholder="เช่น ปตท., บางจาก"></label>
@@ -210,6 +213,7 @@ button.btn:disabled{opacity:.55;cursor:default}
 </div>
 
 <input type="file" id="shotFile" accept="image/*" multiple hidden>
+<input type="file" id="placeFile" accept="image/*" multiple hidden>
 <div id="pdfroot" aria-hidden="true"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -555,9 +559,10 @@ function rerenderCard(row){const el=document.querySelector('.card[data-id="'+row
   el.outerHTML=cardHTML(row,i);refreshCard(row);tally()}
 
 const SHOT_PROMPT='ภาพที่แนบเป็นภาพหน้าจอจากเว็บ service-cbwm.dit.go.th (กรมการค้าภายใน) แสดงข้อมูลมาตรวัดปริมาตรน้ำมันเชื้อเพลิงหนึ่งเครื่อง อาจมีหลายภาพของหน้าเดียวกัน '+
- 'อ่านข้อมูลแล้วตอบเป็น JSON เท่านั้น รูปแบบ {"sn":"","brand":"","model":"","clamp":"","seal":"","expiry":"","oil":""} โดย '+
+ 'อ่านข้อมูลแล้วตอบเป็น JSON เท่านั้น รูปแบบ {"sn":"","brand":"","model":"","clamp":"","seal":"","expiry":"","oil":"","place":""} โดย '+
  'sn = หมายเลขประจำเครื่อง ตามที่แสดง (รวมขีด ไม่เว้นวรรค), brand = ยี่ห้อ/เครื่องหมายการค้า, model = รุ่น, clamp = หมายเลขคีม, seal = หมายเลขซีล, '+
- 'expiry = วันสิ้นอายุคำรับรอง แปลงเป็นปีคริสต์ศักราชในรูป YYYY-MM-DD (ปี พ.ศ. ลบ 543), oil = ชนิดน้ำมันถ้ามีแสดง ไม่มีให้เป็นค่าว่าง '+
+ 'expiry = วันสิ้นอายุคำรับรอง แปลงเป็นปีคริสต์ศักราชในรูป YYYY-MM-DD (ปี พ.ศ. ลบ 543), oil = ชนิดน้ำมันถ้ามีแสดง ไม่มีให้เป็นค่าว่าง, '+
+ 'place = ข้อความในช่อง "สถานที่ติดตั้ง" ทั้งหมดตามที่แสดง (ชื่อสถานที่และที่อยู่ ต่อกันเป็นบรรทัดเดียว) '+
  'ช่องใดไม่ปรากฏในภาพให้เป็นค่าว่าง "" ห้ามเดา';
 $("shotFile").addEventListener("change",async e=>{
   const files=[...(e.target.files||[])];const row=rowById(shotTarget);if(!files.length||!row||!(SAMPLE||OCR_OK))return;
@@ -577,10 +582,55 @@ $("shotFile").addEventListener("change",async e=>{
     if(g("seal")){row.seal=g("seal");got.push("ซีล")}
     const ex=g("expiry");if(/^\d{4}-\d{2}-\d{2}$/.test(ex)){let y=+ex.slice(0,4);row.expiry=(y>2400?String(y-543):ex.slice(0,4))+ex.slice(4);got.push("วันหมดอายุ")}
     const oil=g("oil");if(oil){const hit=OILS.find(o=>o===oil)||OILS.find(o=>oil.includes(o.replace("แก๊สโซฮอล์ ","")))||oil;row.oil=hit;got.push("ชนิดน้ำมัน")}
+    const pg=applyPlace(parsePlace(g("place")),false);if(pg.length)got.push("ชื่อและที่อยู่สถานี");
     rerenderCard(row);save();
     cardMsg(row.id,(got.length?"กรอกให้แล้ว: "+got.join(", "):"ไม่พบข้อมูลที่อ่านได้ในภาพ")+(oil?"":" · ชนิดน้ำมันไม่มีในภาพ เลือกเอง")+warn+" — ตรวจทานก่อนบันทึกผล",!got.length);
   }catch(err){const c=err&&err.code;
     cardMsg(row.id,c==="not_granted"?"ยังไม่ได้อนุญาตให้ส่งภาพให้ Claude อ่าน":c==="rate_limited"?"ใช้งานถี่เกินไป รอสักครู่แล้วลองใหม่":"อ่านภาพไม่สำเร็จ ("+(c||err&&err.message||"error")+") กรอกเองได้",true)}
+});
+
+/* ---------- installation place (สถานที่ติดตั้ง) → station name + address ---------- */
+function parsePlace(s){
+  s=String(s||"").replace(/\s+/g," ").trim();
+  if(/(?:[ก-๙] ){4,}/.test(s))s=s.replace(/([ก-๙])\s+(?=[ก-๙])/g,"$1");
+  s=s.replace(/\s*\.\s*/g,".").replace(/๓\./g,"ต.").replace(/หมู่\s+ที่/g,"หมู่ที่").replace(/^บงจ\./,"บจ.");
+  s=s.replace(/(หมู่ที่|ต\.|อ\.|จ\.|ถ\.|ตำบล|อำเภอ|จังหวัด)/g,(m,x,i)=>i>4&&/[ก-๙0-9)]/.test(s[i-1])?" "+m:m);
+  const r={name:"",address:"",tambon:"",amphoe:"",province:"",zip:""};if(!s)return r;
+  const f=re=>{const m=s.match(re);return m?m[1]:""};
+  r.tambon=f(/(?:^|\s)(?:ต\.|ตำบล)\s*([ก-๙]+)/);r.amphoe=f(/(?:^|\s)(?:อ\.|อำเภอ)\s*([ก-๙]+)/);r.province=f(/(?:^|\s)(?:จ\.|จังหวัด)\s*([ก-๙]+)/);
+  r.zip=f(/(?:^|\s)(\d{5})(?:\s|$)/);
+  const tpos=s.search(/(?:^|\s)(?:ต\.|ตำบล|แขวง|อ\.|อำเภอ)/);const head=(tpos>0?s.slice(0,tpos):s).trim();
+  const h=head.match(/(?:^|\s)(\d+(?:\/\d+)?)(?=\s+(?:หมู่ที่|หมู่|ม\.|ถนน|ถ\.|ซอย|ซ\.)|\s*$)/);
+  if(h){r.name=head.slice(0,h.index).trim();r.address=head.slice(h.index).trim()}
+  else{const k=head.search(/(?:^|\s)(?:หมู่ที่|ม\.|ถนน|ถ\.|ซอย)/);if(k>0){r.name=head.slice(0,k).trim();r.address=head.slice(k).trim()}else r.name=head}
+  const P=Object.keys(GEO).find(x=>x===r.province)||Object.keys(GEO).find(x=>r.province&&(x.includes(r.province)||r.province.includes(x)));
+  if(P){r.province=P;const A=Object.keys(GEO[P]);const a=A.find(x=>x===r.amphoe)||A.find(x=>r.amphoe&&(x.includes(r.amphoe)||r.amphoe.includes(x)));
+    r.amphoe=a||r.amphoe;if(a){const TB=GEO[P][a].map(x=>x[0]);r.tambon=TB.find(x=>x===r.tambon)||TB.find(x=>r.tambon&&(x.includes(r.tambon)||r.tambon.includes(x)))||r.tambon}}
+  return r}
+window.__parsePlace=parsePlace;
+function applyPlace(pl,force){
+  if(!pl||!(pl.name||pl.tambon))return [];
+  const m=S.meta;if(!force&&m.station.trim())return [];
+  const got=[];
+  if(pl.name){m.station=pl.name;got.push("ชื่อสถานี")}
+  if(pl.address){m.address=pl.address;got.push("เลขที่/ที่อยู่")}
+  if(pl.province){m.province=pl.province;m.amphoe=pl.amphoe||"";m.tambon=pl.tambon||"";got.push("ตำบล/อำเภอ/จังหวัด")}
+  S.sample=false;fillMeta();topSub();save();return got;
+}
+function placeMsg(t,err){const el=$("placeMsg");el.hidden=!t;el.textContent=t||"";el.classList.toggle("err",!!err)}
+$("placeBtn").onclick=()=>{$("placeFile").value="";$("placeFile").click()};
+$("placeFile").addEventListener("change",async e=>{
+  const files=[...(e.target.files||[])];if(!files.length||!(SAMPLE||OCR_OK))return;
+  placeMsg("กำลังอ่านสถานที่ติดตั้งจากภาพ…");
+  try{
+    let d;
+    if(SAMPLE){const lim=await SAMPLE.limits().catch(()=>null);const max=(lim&&lim.images&&lim.images.maxCount)||4;
+      d=await SAMPLE.json(SHOT_PROMPT,{images:files.slice(0,max),modelTier:"default",cache:false})}
+    else d=await readWithOCR(files,null,t=>placeMsg(t));
+    const got=applyPlace(parsePlace(d&&d.place),true);
+    placeMsg(got.length?"กรอกให้แล้ว: "+got.join(", ")+" — ตรวจทานก่อนส่งออก PDF":"ไม่พบช่อง “สถานที่ติดตั้ง” ในภาพ ให้แคปหน้าจอส่วนล่างสุดของหน้าข้อมูลเครื่อง",!got.length);
+  }catch(err){const c=err&&err.code;
+    placeMsg(c==="not_granted"?"ยังไม่ได้อนุญาตให้ส่งภาพให้ Claude อ่าน":"อ่านภาพไม่สำเร็จ ("+(c||err&&err.message||"error")+") กรอกเองได้",true)}
 });
 (async()=>{try{if(window.claude&&typeof window.claude.use==="function"){const sm=await window.claude.use("sample");if(sm){const lim=await sm.limits().catch(()=>null);if(lim&&lim.images){SAMPLE=sm;document.body.classList.add("has-sample")}}}}catch(e){}})();
 
@@ -588,10 +638,10 @@ $("shotFile").addEventListener("change",async e=>{
 let OCR_OK=false,OCRW=null;
 const TESS_URL="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
 function loadScript(src){return new Promise((res,rej)=>{if(window.Tesseract)return res();const sc=document.createElement("script");sc.src=src;sc.onload=()=>res();sc.onerror=()=>rej(new Error("โหลดตัวอ่านภาพไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต"));document.head.appendChild(sc)})}
-async function ocrWorkers(rowId){
+async function ocrWorkers(rowId,msg){
   if(OCRW)return OCRW;
   await loadScript(TESS_URL);
-  const log=m=>{if(m&&m.status&&/load|initial/i.test(m.status))cardMsg(rowId,"กำลังเตรียมตัวอ่านภาษาไทย (ครั้งแรกใช้เวลาสักครู่)… "+Math.round((m.progress||0)*100)+"%")};
+  const log=m=>{if(m&&m.status&&/load|initial/i.test(m.status))(msg||(t=>cardMsg(rowId,t)))("กำลังเตรียมตัวอ่านภาษาไทย (ครั้งแรกใช้เวลาสักครู่)… "+Math.round((m.progress||0)*100)+"%")};
   const th=await Tesseract.createWorker("tha+eng",1,{logger:log});
   const en=await Tesseract.createWorker("eng",1);
   OCRW={th,en};return OCRW;
@@ -602,12 +652,12 @@ function monthIdx(tok){tok=tok.replace(/\s/g,"");for(let i=0;i<12;i++){const [a,
 function thaiDates(text){const out=[];const re=/(\d{1,2})\s*([ก-๙.]{2,14})\s*(25\d\d)/g;let m;
   while((m=re.exec(text))){const mi=monthIdx(m[2]);if(mi<0)continue;const d=+m[1];if(d<1||d>31)continue;
     out.push((+m[3]-543)+"-"+String(mi+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"))}return out}
-async function readWithOCR(files,rowId){
-  OCR_OK=true;const W=await ocrWorkers(rowId);
-  const res={sn:"",brand:"",model:"",clamp:"",seal:"",expiry:"",oil:""};let alltext="";
+async function readWithOCR(files,rowId,msg){
+  OCR_OK=true;msg=msg||(t=>cardMsg(rowId,t));const W=await ocrWorkers(rowId,msg);
+  const res={sn:"",brand:"",model:"",clamp:"",seal:"",expiry:"",oil:"",place:""};let alltext="";
   for(let fi=0;fi<files.length;fi++){
     const img=files[fi];
-    cardMsg(rowId,"กำลังอ่านภาพ "+(fi+1)+"/"+files.length+"…");
+    msg("กำลังอ่านภาพ "+(fi+1)+"/"+files.length+"…");
     const r=await W.th.recognize(img,{},{text:true,blocks:true});
     alltext+="\n"+r.data.text;
     const lines=[];for(const b of r.data.blocks||[])for(const pa of b.paragraphs||[])for(const l of pa.lines||[]){const t=(l.text||"").trim();if(t)lines.push({t,c:t.replace(/\s+/g,""),b:l.bbox})}
@@ -621,6 +671,10 @@ async function readWithOCR(files,rowId){
       try{const e=await W.en.recognize(img,{rectangle:rect});const t=(e.data.text||"").trim().split("\n")[0].trim();if(t&&/[A-Za-z0-9]/.test(t))val=t}catch(e){}
       res[k]=val.replace(/\s{2,}/g," ");
     }
+    // สถานที่ติดตั้ง: รวมบรรทัดหลังป้ายจนจบส่วน
+    if(!res.place){const ip=lines.findIndex(l=>/สถานที่ติดตั้ง/.test(l.c));if(ip>=0){const parts=[];
+      for(let j=ip+1;j<lines.length;j++){const c=lines[j].c;if(/ข้อมูล|ผลการ|ผู้ตรวจ|คำขอ|service-cbwm|dit\.go/.test(c)||!/[ก-๙0-9]{2}/.test(c))break;parts.push(lines[j].t)}
+      res.place=parts.join(" ")}}
   }
   const compact=alltext.replace(/\s+/g,"");
   const sm=compact.match(/\d-\d{4,7}-\d-\d{4}-\d{4,7}-\d{2}/);if(sm)res.sn=sm[0];
