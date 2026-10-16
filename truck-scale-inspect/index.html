@@ -125,6 +125,12 @@ button.btn:disabled{opacity:.55;cursor:default}
 .foot .rs{max-width:760px;margin:8px auto 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:14px}
 .msg{max-width:760px;margin:6px auto 0;font-size:13px;color:var(--muted)}
 .msg.err{color:var(--fail)} .msg.ok{color:var(--pass)}
+.scan{background:var(--accent-soft);border-radius:8px;padding:10px 12px;margin-bottom:14px}
+.scan .t{font-size:13px;color:var(--muted);margin-bottom:8px}
+.scan .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ext{font-size:14px;color:var(--accent);text-decoration:none;padding:6px 2px;font-weight:600}
+.scanmsg{margin-top:8px;font-size:13px;border-radius:6px;padding:6px 8px;background:var(--surface);color:var(--ink)}
+.scanmsg.err{background:var(--fail-soft);color:var(--fail)} .scanmsg.ok{color:var(--pass)}
 @media (max-width:480px){
   .grid,.grid.g3{grid-template-columns:minmax(0,1fr)}
   .grid.keep{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -257,12 +263,21 @@ button.btn:disabled{opacity:.55;cursor:default}
   <section>
     <div class="sec-h" id="machineTop"><h2 id="mHead">คุณลักษณะของเครื่องชั่ง</h2><button class="btn sm danger" type="button" id="delBtn" hidden>ลบเครื่องนี้</button></div>
     <div class="panel">
+      <div class="scan">
+        <div class="t">จากสติกเกอร์คำรับรอง (แบบ ชว.3010) — สแกน QR แล้วเปิดข้อมูลเครื่องบนเว็บกรมฯ แคปหน้าจอ แล้วให้แอปอ่านมากรอก</div>
+        <div class="tools">
+          <button class="btn sm" type="button" id="qrBtn">สแกน QR สติกเกอร์</button>
+          <button class="btn sm" type="button" id="shotBtn" hidden>อ่านข้อมูลจากภาพหน้าจอ</button>
+          <a class="ext" id="infoLink" target="_blank" rel="noopener" hidden>เปิดข้อมูลเครื่องบนเว็บกรมฯ ↗</a>
+        </div>
+        <div class="scanmsg" id="scanMsg" role="status" hidden></div>
+      </div>
       <div class="grid">
         <div class="full"><label>เครื่องชั่งชนิดไม่อัตโนมัติ</label>
           <div class="seg" role="group"><button type="button" data-seg="scale.self" data-val="self" data-keep="1">แสดงค่าได้เอง</button><button type="button" data-seg="scale.self" data-val="non" data-keep="1">แสดงค่าเองไม่ได้</button></div></div>
         <div class="full"><label>มีส่วนแสดงค่าแบบ</label>
           <div class="seg" role="group"><button type="button" data-seg="scale.disp" data-val="digital" data-keep="1">ดิจิตอล</button><button type="button" data-seg="scale.disp" data-val="beam" data-keep="1">คันชั่ง</button><button type="button" data-seg="scale.disp" data-val="both" data-keep="1">คันชั่ง+ดิจิตอล</button></div></div>
-        <label>หมายเลขประจำเครื่อง<input id="c_sn" data-bind="scale.serial"></label>
+        <label>หมายเลขประจำเครื่อง<input id="c_sn" data-bind="scale.serial" autocomplete="off" placeholder="เลขบนสติกเกอร์ ชว.3010"></label>
         <label>เครื่องหมายเฉพาะตัว<input id="c_mark" data-bind="scale.mark"></label>
         <label>พิกัดกำลัง Max (กก.)<input id="c_max" data-bind="scale.max" inputmode="numeric" class="num"></label>
         <label>ค่าอ่านละเอียด d (กก.)<input id="c_d" data-bind="scale.d" inputmode="numeric" class="num"></label>
@@ -402,6 +417,8 @@ button.btn:disabled{opacity:.55;cursor:default}
 </div>
 
 <div id="pdfroot" aria-hidden="true"></div>
+<input type="file" id="qrFile" accept="image/*" capture="environment" hidden>
+<input type="file" id="shotFile" accept="image/*" multiple hidden>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -675,6 +692,7 @@ function refresh(){
   $("tVd").textContent=V.st==="pass"?"ถูก":V.st==="fail"?"ผิด":"—";$("tVerdict").className="vd "+(V.st==="pass"?"pass":V.st==="fail"?"fail":"");
   $("topSub").textContent=(S.site.name||"ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)")+" · เครื่องที่ "+(S.cur+1)+"/"+S.machines.length+(S.scale.serial?" ("+S.scale.serial+")":"");
   renderBar();
+  const sn=(S.scale.serial||"").trim();const il=$("infoLink");il.hidden=!CERT_RE.test(sn);if(!il.hidden)il.href=infoURL(sn);
   $("sampleBanner").hidden=!S.sample;
 }
 
@@ -689,6 +707,93 @@ $("gpsBtn").addEventListener("click",()=>{const msg=$("gpsMsg");
 /* วางพิกัดแบบ "lat, lng" (คัดลอกจาก Google Maps) ในช่อง LAT หรือ LNG → แยกให้อัตโนมัติ */
 ["s_lat","s_lng"].forEach(id=>$(id).addEventListener("input",e=>{const m=String(e.target.value).match(/(-?\d{1,3}\.\d+)\s*[, ]\s*(-?\d{1,3}\.\d+)/);
   if(!m)return;S.site.lat=Number(m[1]).toFixed(5);S.site.lng=Number(m[2]).toFixed(5);$("s_lat").value=S.site.lat;$("s_lng").value=S.site.lng;$("gpsMsg").textContent="แยกพิกัดให้แล้ว";changed()}));
+
+/* ---------- สติกเกอร์คำรับรอง: สแกน QR + อ่านภาพหน้าจอเว็บกรมฯ ---------- */
+const CERT_RE=/^\d-\d{4,7}-\d-\d{4}-\d{4,7}-\d{2}$/;
+function infoURL(sn){return "https://service-cbwm.dit.go.th/qr/"+encodeURIComponent(sn)}
+function snFromQR(t){t=String(t||"").trim();
+  try{const u=new URL(t);const id=u.searchParams.get("id");if(id)return id.trim();const m=u.pathname.match(/\/qr\/([^/?#]+)/);if(m)return decodeURIComponent(m[1]).trim()}catch(e){}
+  if(/^\d[\d-]{8,}$/.test(t))return t;return null}
+function scanMsg(text,k){const el=$("scanMsg");el.hidden=!text;el.textContent=text||"";el.className="scanmsg"+(k?" "+k:"")}
+function loadScript(src,test){return new Promise((res,rej)=>{if(test())return res();const sc=document.createElement("script");sc.src=src;sc.onload=()=>res();sc.onerror=()=>rej(new Error("โหลดตัวอ่านไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต"));document.head.appendChild(sc)})}
+async function loadBitmap(file){
+  if(window.createImageBitmap){try{return await createImageBitmap(file,{imageOrientation:"from-image"})}catch(e){try{return await createImageBitmap(file)}catch(e2){}}}
+  return await new Promise((res,rej)=>{const u=URL.createObjectURL(file);const im=new Image();im.onload=()=>res(im);im.onerror=()=>rej(new Error("อ่านภาพไม่ได้"));im.src=u})}
+async function decodeQR(file){
+  const img=await loadBitmap(file);
+  if("BarcodeDetector" in window){try{const r=await new BarcodeDetector({formats:["qr_code"]}).detect(img);if(r&&r[0]&&r[0].rawValue)return r[0].rawValue}catch(e){}}
+  await loadScript("https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js",()=>!!window.jsQR);
+  const W=img.width,H=img.height,c=document.createElement("canvas"),ctx=c.getContext("2d",{willReadFrequently:true});
+  for(const [max,inv] of [[1400,"dontInvert"],[900,"dontInvert"],[2200,"attemptBoth"],[700,"attemptBoth"]]){
+    const k=Math.min(1,max/Math.max(W,H));c.width=Math.round(W*k);c.height=Math.round(H*k);ctx.drawImage(img,0,0,c.width,c.height);
+    const d=ctx.getImageData(0,0,c.width,c.height);const r=jsQR(d.data,c.width,c.height,{inversionAttempts:inv});if(r&&r.data)return r.data}
+  return null}
+$("qrBtn").onclick=()=>{$("qrFile").value="";$("qrFile").click()};
+$("qrFile").addEventListener("change",async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;scanMsg("กำลังอ่าน QR…");
+  try{const raw=await decodeQR(f);const sn=snFromQR(raw);
+    if(!sn){scanMsg(raw?"QR นี้ไม่ใช่สติกเกอร์คำรับรอง ("+raw.slice(0,60)+")":"หา QR ในภาพไม่พบ ถ่ายใหม่ให้ QR ชัดและเต็มกรอบขึ้น","err");return}
+    const old=(S.scale.serial||"").trim();S.scale.serial=sn;if(S.sample)S.sample=false;fillAll();save();
+    scanMsg("ได้หมายเลขเครื่อง "+sn+(old&&old!==sn?" (แทนเลขเดิม "+old+")":"")+" — กด “เปิดข้อมูลเครื่องบนเว็บกรมฯ” แคปหน้าจอ แล้วกด “อ่านข้อมูลจากภาพหน้าจอ”","ok")}
+  catch(err){scanMsg("อ่าน QR ไม่สำเร็จ: "+(err&&err.message||err),"err")}});
+
+const SHOT_PROMPT='ภาพที่แนบเป็นภาพหน้าจอจากเว็บ service-cbwm.dit.go.th (กรมการค้าภายใน) แสดงข้อมูลเครื่องชั่งหนึ่งเครื่อง อาจมีหลายภาพของหน้าเดียวกัน '+
+ 'อ่านข้อมูลแล้วตอบเป็น JSON เท่านั้น รูปแบบ {"sn":"","brand":"","model":"","max":"","serial":"","seal":"","clamp":"","expiry":""} โดย '+
+ 'sn = หมายเลขประจำเครื่อง (รวมขีด ไม่เว้นวรรค), brand = ยี่ห้อ/เครื่องหมายการค้า, model = รุ่น, max = พิกัดกำลังเป็นตัวเลขกิโลกรัมไม่มีจุลภาค, serial = Serial number, '+
+ 'seal = หมายเลขซีล, clamp = หมายเลขคีม, expiry = วันสิ้นอายุคำรับรอง แปลงเป็นปีคริสต์ศักราชรูป YYYY-MM-DD (ปี พ.ศ. ลบ 543) '+
+ 'ช่องใดไม่ปรากฏในภาพ หรือแสดงเป็น - ให้เป็นค่าว่าง "" ห้ามเดา';
+let SAMPLE=null,OCR_OK=false,OCRW=null;
+function syncShot(){$("shotBtn").hidden=!(SAMPLE||OCR_OK)}
+(()=>{try{if(!window.claude){OCR_OK=true;syncShot()}}catch(e){}})();
+(async()=>{try{if(window.claude&&typeof window.claude.use==="function"){const sm=await window.claude.use("sample");if(sm){const lim=await sm.limits().catch(()=>null);if(lim&&lim.images){SAMPLE=sm;syncShot()}}}}catch(e){}})();
+const TH_MONTHS=[["มกรา","ม.ค"],["กุมภา","ก.พ"],["มีนา","มี.ค"],["เมษา","เม.ย"],["พฤษภา","พ.ค"],["มิถุนา","มิ.ย"],["กรกฎา","ก.ค"],["สิงหา","ส.ค"],["กันยา","ก.ย"],["ตุลา","ต.ค"],["พฤศจิ","พ.ย"],["ธันวา","ธ.ค"]];
+function monthIdx(tok){tok=tok.replace(/\s/g,"");for(let i=0;i<12;i++){const [a,b]=TH_MONTHS[i];if(tok.includes(a)||tok.startsWith(b))return i}
+  for(let i=0;i<12;i++){if(tok.slice(0,3)===TH_MONTHS[i][0].slice(0,3))return i}return -1}
+function thaiDates(text){const out=[];const re=/(\d{1,2})\s*([ก-๙.]{2,14})\s*(25\d\d)/g;let m;
+  while((m=re.exec(text))){const mi=monthIdx(m[2]);if(mi<0)continue;const d=+m[1];if(d<1||d>31)continue;
+    out.push((+m[3]-543)+"-"+String(mi+1).padStart(2,"0")+"-"+String(d).padStart(2,"0"))}return out}
+async function ocrWorkers(){
+  if(OCRW)return OCRW;
+  await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js",()=>!!window.Tesseract);
+  const log=m=>{if(m&&m.status&&/load|initial/i.test(m.status))scanMsg("กำลังเตรียมตัวอ่านภาษาไทย (ครั้งแรกใช้เวลาสักครู่)… "+Math.round((m.progress||0)*100)+"%")};
+  const th=await Tesseract.createWorker("tha+eng",1,{logger:log});const en=await Tesseract.createWorker("eng",1);
+  OCRW={th,en};return OCRW}
+async function readWithOCR(files){
+  const W=await ocrWorkers();const res={sn:"",brand:"",model:"",max:"",serial:"",seal:"",clamp:"",expiry:""};let alltext="";
+  const LABELS=[["brand",/ยี่?ห้อ|เครื่องหมายการค้า/],["model",/^รุ่น/],["max",/พิกัด/],["serial",/Serial|ซีเรียล/i],["seal",/ซีล/],["clamp",/หมายเลขค[ีิืึ]ม|^ค[ีิืึ]ม/]];
+  const isLabel=c=>/พิกัด|Serial|ทะเบียน|หมายเลข|ข้อมูลเครื่อง|ผลการตรวจ|^รุ่น|ยี่?ห้อ|วันที่|วันสิ้น/i.test(c);
+  for(let fi=0;fi<files.length;fi++){const img=files[fi];scanMsg("กำลังอ่านภาพ "+(fi+1)+"/"+files.length+"…");
+    const r=await W.th.recognize(img,{},{text:true,blocks:true});alltext+="\n"+r.data.text;
+    const lines=[];for(const b of r.data.blocks||[])for(const pa of b.paragraphs||[])for(const l of pa.lines||[]){const tx=(l.text||"").trim();if(tx)lines.push({t:tx,c:tx.replace(/\s+/g,""),b:l.bbox})}
+    for(const [k,re] of LABELS){if(res[k])continue;const i=lines.findIndex(l=>re.test(l.c));if(i<0||!lines[i+1]||isLabel(lines[i+1].c))continue;
+      const v=lines[i+1],pad=6;const rect={left:Math.max(0,v.b.x0-pad),top:Math.max(0,v.b.y0-pad),width:(v.b.x1-v.b.x0)+2*pad,height:(v.b.y1-v.b.y0)+2*pad};
+      let val=v.t;if(k!=="max"&&/[^\x20-\x7E]/.test(val)){try{const e=await W.en.recognize(img,{rectangle:rect});const tx=(e.data.text||"").trim().split("\n")[0].trim();if(tx&&/[A-Za-z0-9]/.test(tx))val=tx}catch(e){}}
+      res[k]=val.replace(/\s{2,}/g," ")}
+    // ป้าย "รุ่น" มักอ่านเพี้ยน: ใช้บรรทัดก่อนป้าย "พิกัดกำลัง" ถ้าไม่ใช่ค่ายี่ห้อ
+    if(!res.model){const im=lines.findIndex(l=>/พิกัด/.test(l.c));const cand=im>1?lines[im-1]:null;
+      if(cand&&!isLabel(cand.c)&&cand.t!==res.brand&&/[A-Za-z0-9]/.test(cand.t)&&lines[im-2]&&lines[im-2].t!==res.brand)res.model=cand.t.replace(/\s{2,}/g," ")}}
+  const compact=alltext.replace(/\s+/g,"");const sm=compact.match(/\d-\d{4,7}-\d-\d{4}-\d{4,7}-\d{2}/);if(sm)res.sn=sm[0];
+  const ds=thaiDates(compact).sort();if(ds.length)res.expiry=ds[ds.length-1];
+  return res}
+function applyInfo(d){
+  const g=k=>{const v=String((d&&d[k])||"").trim();return v==="-"?"":v};const got=[];let warn="";
+  const sn=g("sn").replace(/\s+/g,"");if(sn){const old=(S.scale.serial||"").trim();if(old&&old!==sn)warn=" · แทนเลขเครื่องเดิม ("+old+")";S.scale.serial=sn;got.push("หมายเลขเครื่อง")}
+  if(g("brand")){S.scale.headBrand=g("brand");got.push("ยี่ห้อ")}
+  if(g("model")){S.scale.headModel=g("model");got.push("รุ่น")}
+  if(g("serial")){S.scale.headSn=g("serial");got.push("Serial number")}
+  const mx=num(g("max").replace(/[^\d.,]/g,""));if(isNum(mx)&&mx>0){S.scale.max=String(Math.round(mx));got.push("พิกัดกำลัง")}
+  const sl=[g("seal")?"ซีล "+g("seal"):"",g("clamp")?"คีม "+g("clamp"):""].filter(Boolean).join(" / ");if(sl){S.seal.no=sl;got.push("หมายเลขซีล/คีม")}
+  const ex=g("expiry");if(/^\d{4}-\d{2}-\d{2}$/.test(ex)){const y=+ex.slice(0,4);S.scale.expiry=(y>2400?String(y-543):ex.slice(0,4))+ex.slice(4);got.push("วันสิ้นอายุคำรับรอง")}
+  if(S.sample)S.sample=false;fillAll();save();
+  scanMsg(got.length?"กรอกให้แล้ว: "+got.join(", ")+warn+" — ตรวจทานก่อนบันทึกผล":"ไม่พบข้อมูลที่อ่านได้ในภาพ กรอกเองได้",got.length?"ok":"err")}
+$("shotBtn").onclick=()=>{$("shotFile").value="";$("shotFile").click()};
+$("shotFile").addEventListener("change",async e=>{const files=[...(e.target.files||[])];if(!files.length)return;
+  scanMsg("กำลังอ่านข้อมูลจากภาพหน้าจอ…");
+  try{let d;
+    if(SAMPLE){const lim=await SAMPLE.limits().catch(()=>null);const max=(lim&&lim.images&&lim.images.maxCount)||4;d=await SAMPLE.json(SHOT_PROMPT,{images:files.slice(0,max),modelTier:"default",cache:false})}
+    else d=await readWithOCR(files);
+    applyInfo(d)}
+  catch(err){const c=err&&err.code;scanMsg(c==="not_granted"?"ยังไม่ได้อนุญาตให้ส่งภาพให้ Claude อ่าน":c==="rate_limited"?"ใช้งานถี่เกินไป รอสักครู่แล้วลองใหม่":"อ่านภาพไม่สำเร็จ ("+(c||err&&err.message||"error")+") กรอกเองได้","err")}});
+window.__applyInfo=applyInfo;
 
 /* ---------- หลายเครื่องต่อสถานประกอบการ ---------- */
 function verdictAt(i){const c=S.cur;S.cur=i;try{return verdict()}finally{S.cur=c}}
