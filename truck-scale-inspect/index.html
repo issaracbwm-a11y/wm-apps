@@ -512,11 +512,12 @@ function evRef(){const L=num(S.ref.L),I=num(S.ref.I);
   const E=I-L,lim=mpe(L);return {st:Math.abs(E)<=lim+1e-9?"pass":"fail",E,lim,L,I}}
 function eccLen(){const m=String(S.scale.size||"").replace(/,/g,"").match(/\d+(?:\.\d+)?/g);return m?Math.max(...m.map(Number)):null}
 function eccN(){const L=eccLen();return L===null?3:L<=9?1:L<=12?2:3} // ยาว ≤9 ม. 1 ตำแหน่ง, ≤12 ม. 2, เกิน 12 ม. 3
-function evEccRow(arr,L){const n=eccN();arr=arr.slice(0,n);const v=arr.map(num);if(v.some(Number.isNaN))return {st:"bad",v};
+function eccIdx(){const n=eccN();return n===1?[1]:n===2?[0,2]:[0,1,2]} // 1 จุด = ตำแหน่ง 2, 2 จุด = ตำแหน่ง 1 และ 3
+function evEccRow(arr,L){const idx=eccIdx(),n=idx.length;const v=idx.map(i=>num(arr[i]));if(v.some(Number.isNaN))return {st:"bad",v};
   const f=v.filter(isNum);if(!f.length)return {st:"empty",v};
   // ผลต่างของแถว = ค่าสูงสุด − ค่าต่ำสุดของแถวนั้น (ข้อ 30); ถ้ามีน้ำหนักรถ ตรวจแต่ละตำแหน่งให้อยู่ในอัตราด้วย
-  const hasL=isNum(L),lim=mpe(hasL?L:mean(f));const d=f.length>=2?Math.max(...f)-Math.min(...f):null;
-  const cells=v.map(x=>isNum(x)&&hasL?(Math.abs(x-L)<=lim+1e-9?"p":"f"):"");
+  const hasL=isNum(L),lim=mpe(hasL?L:mean(f));const d=f.length?Math.max(...f)-Math.min(...f):null;
+  const cells=["","",""];v.forEach((x,k)=>{if(isNum(x)&&hasL)cells[idx[k]]=Math.abs(x-L)<=lim+1e-9?"p":"f"});
   const fail=cells.includes("f")||(d!==null&&d>lim+1e-9);
   return {st:fail?"fail":(f.length===n?"pass":"part"),v,diff:d,lim,hasL,cells}}
 function evEcc(){const L=num(S.ref.L);const Lv=isNum(L)?L:null;
@@ -679,9 +680,9 @@ function refresh(){
   const rowTxt=x=>x.st==="empty"?"":x.st==="bad"?"กรอกเป็นตัวเลข":(isNum(x.diff)?"ผลต่าง (สูงสุด − ต่ำสุด) "+fmt(x.diff)+" กก. · ไม่เกิน "+fmt(x.lim):"กรอกให้ครบ 3 ตำแหน่ง")+(x.cells.includes("f")?" · มีตำแหน่งเกินอัตราเมื่อเทียบน้ำหนักรถ":"");
   out("oEccIn",rowTxt(e.a),e.a.st);out("oEccOut",rowTxt(e.b),e.b.st);
   out("oEcc",isNum(e.range)?"ผลต่าง Max − Min รวมทุกตำแหน่ง = <b>"+fmt(e.range)+" กก.</b> · ไม่เกิน "+fmt(e.rlim)+" กก.":"",e.rst);
-  [["in","e_i"],["out","e_o"]].forEach(([k,pre],ri)=>{const row=ri?e.b:e.a;for(let j=0;j<3;j++){const el=$(pre+j);el.hidden=j>=nE;el.classList.toggle("f",!!(row.cells&&row.cells[j]==="f"));el.classList.toggle("p",!!(row.cells&&row.cells[j]==="p"))}});
-  for(let j=0;j<3;j++)$("eh"+j).hidden=j>=nE;$("eccPanel").style.setProperty("--n",nE);
-  {const Ln=eccLen();$("eccNote").innerHTML=(Ln===null?"ยังไม่ได้กรอกขนาดแท่นชั่ง ใช้ <b>3 ตำแหน่ง</b>":"แท่นชั่งยาว <b>"+fmt(Ln)+" ม.</b> → ทดสอบรถเข้า–รถออก <b>"+nE+" ตำแหน่ง</b>")+" (ยาวไม่เกิน 9 ม. = 1, เกิน 9–12 ม. = 2, เกิน 12 ม. = 3)"}
+  [["in","e_i"],["out","e_o"]].forEach(([k,pre],ri)=>{const row=ri?e.b:e.a;const IDX=eccIdx();for(let j=0;j<3;j++){const el=$(pre+j);el.hidden=!IDX.includes(j);el.classList.toggle("f",!!(row.cells&&row.cells[j]==="f"));el.classList.toggle("p",!!(row.cells&&row.cells[j]==="p"))}});
+  {const IDX=eccIdx();for(let j=0;j<3;j++)$("eh"+j).hidden=!IDX.includes(j)}$("eccPanel").style.setProperty("--n",nE);
+  {const Ln=eccLen();$("eccNote").innerHTML=(Ln===null?"ยังไม่ได้กรอกขนาดแท่นชั่ง ใช้ <b>3 ตำแหน่ง</b>":"แท่นชั่งยาว <b>"+fmt(Ln)+" ม.</b> → ทดสอบรถเข้า–รถออก <b>"+nE+" ตำแหน่ง</b>")+" (ยาวไม่เกิน 9 ม. = 1 จุดที่ตำแหน่ง 2, เกิน 9–12 ม. = 2 จุดที่ตำแหน่ง 1 และ 3, เกิน 12 ม. = 3 จุด)"}
   // rep
   const p=X.p;setPill("pRep",p.st);
   out("oRep",isNum(p.range)?"ผลต่าง Max − Min = <b>"+fmt(p.range)+" กก.</b> · ไม่เกิน "+fmt(p.lim)+" กก.":p.st==="bad"?"กรอกเป็นตัวเลข":"",p.st);
@@ -917,7 +918,7 @@ function pdfHTML(){
   R.push('<div class="ln"><span class="k">น้ำหนักรถบรรทุกพร้อมแบบมาตรา</span>'+V_(nf(S.ref.L),"c g")+'<span class="u">กก.</span><span class="k">ผลตรวจ</span>'+V_(res(r.st),"c",46)+'</div>');
   R.push('<div class="ln"><span class="k">เครื่องชั่งแสดงค่า</span>'+V_(nf(S.ref.I),"c g")+'<span class="u">กก.</span><span class="k">ผลต่าง</span>'+V_(isNum(r.E)?sgn(r.E):"","c",56)+'<span class="u">กก.</span></div></div>');
   const e=X.e;
-  const nP=eccN();const eRow=(lab,row,arr)=>'<tr><td>'+lab+'</td>'+arr.map((v,j)=>j<nP?'<td class="r">'+esc(nf(v))+'</td>':'<td>–</td>').join("")+'<td class="r">'+(isNum(row.diff)?fmt(row.diff):"")+'</td><td>'+res(row.st==="part"?"":row.st)+'</td></tr>';
+  const IP=eccIdx();const eRow=(lab,row,arr)=>'<tr><td>'+lab+'</td>'+arr.map((v,j)=>IP.includes(j)?'<td class="r">'+esc(nf(v))+'</td>':'<td>–</td>').join("")+'<td class="r">'+(isNum(row.diff)?fmt(row.diff):"")+'</td><td>'+res(row.st==="part"?"":row.st)+'</td></tr>';
   R.push('<div class="sh al">ทดสอบน้ำหนักที่ตำแหน่งต่างๆ บนแท่นชั่ง Eccentricity Test</div><div class="tw"><table><colgroup><col style="width:15%"><col><col><col><col style="width:15%"><col style="width:14%"></colgroup>'+
     '<tr><th>ทดสอบ</th><th>ตำแหน่ง 1</th><th>ตำแหน่ง 2</th><th>ตำแหน่ง 3</th><th>ผลต่าง</th><th>ผลตรวจ</th></tr>'+
     eRow("รถเข้า",e.a,S.ecc.in)+eRow("รถออก",e.b,S.ecc.out)+'</table>'+
