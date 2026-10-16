@@ -314,7 +314,7 @@ button.btn:disabled{opacity:.55;cursor:default}
       </div>
       <div class="chk" style="margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
         <div class="t">สภาพเครื่องหมายคำรับรองและผนึก<small>ครบ ไม่ถูกถอน ทำลาย หรือมีร่องรอยดัดแปลง</small></div>
-        <div class="seg okng" role="group"><button type="button" data-seg="seal.ok" data-val="ok">สมบูรณ์</button><button type="button" data-seg="seal.ok" data-val="ng">ชำรุด/ถูกทำลาย</button></div>
+        <div class="seg okng" role="group"><button type="button" data-seg="seal.ok" data-val="ok" data-keep="1">สมบูรณ์</button><button type="button" data-seg="seal.ok" data-val="ng" data-keep="1">ชำรุด/ถูกทำลาย</button></div>
       </div>
     </div>
   </section>
@@ -379,7 +379,7 @@ button.btn:disabled{opacity:.55;cursor:default}
     <div class="panel">
       <div class="chk" style="padding:0">
         <div class="t">ทดสอบการตอบสนองที่น้ำหนัก 1.4 d (Discrimination)<small id="discNote"></small></div>
-        <div class="seg okng" role="group"><button type="button" data-seg="disc" data-val="ok">ผ่าน</button><button type="button" data-seg="disc" data-val="ng">ไม่ผ่าน</button></div>
+        <div class="seg okng" role="group"><button type="button" data-seg="disc" data-val="ok" data-keep="1">ผ่าน</button><button type="button" data-seg="disc" data-val="ng" data-keep="1">ไม่ผ่าน</button></div>
       </div>
     </div>
   </section>
@@ -457,10 +457,10 @@ const GEO={"นครศรีธรรมราช":{"เมืองนคร�
 function blankSite(){return {name:"",owner:"",addrNo:"",moo:"",road:"",province:"สุราษฎร์ธานี",amphoe:"",tambon:"",phone:"",biz:"",lat:"",lng:""}}
 function blankMachine(){return {
   scale:{self:"self",disp:"digital",serial:"",mark:"",max:"",d:"",headBrand:"",headModel:"",headSn:"",remBrand:"",remModel:"",remSn:"",software:"",version:"",size:"",platform:"float",cells:"",expiry:""},
-  seal:{head:"",remote:"",jbox:"",other:"",no:"",ok:""},
-  checks:{c1:"",c2:"",c3:"",c4:"",c5:"",printer:""},
+  seal:{head:"",remote:"",jbox:"",other:"",no:"",ok:"ok"},
+  checks:{c1:"ok",c2:"ok",c3:"ok",c4:"ok",c5:"ok",printer:"ok"},
   ref:{L:"",I:""},ecc:{in:["","",""],out:["","",""]},rep:{W:"",r:["","",""]},
-  wt:LOADS.map(l=>({L:String(l),I:String(l)})),disc:"", // ค่าที่แสดงตั้งต้น = น้ำหนักทดสอบ แก้ได้
+  wt:LOADS.map(l=>({L:String(l),I:String(l)})),disc:"ok", // ค่าที่แสดงตั้งต้น = น้ำหนักทดสอบ แก้ได้
   result:{reason:"",action:"",signer:"",role:""}}}
 const MKEYS=["scale","seal","checks","ref","ecc","rep","wt","disc","result"];
 function blankMeta(){return {ins1:0,team:"",date:today(),mode:"use",vehicle:"crane"}}
@@ -485,7 +485,8 @@ function sampleState(){
 function merge(def,v){if(Array.isArray(def))return Array.isArray(v)?v:def;if(def&&typeof def==="object"){const o={};for(const k in def)o[k]=merge(def[k],v&&v[k]);for(const k in (v||{}))if(!(k in o))o[k]=v[k];return o}return v===undefined||v===null?def:v}
 function load(v){
   if(!v.machines&&v.scale){const m={};MKEYS.forEach(k=>m[k]=v[k]);v.machines=[m]}
-  const ms=(v.machines||[]).map(m=>merge(blankMachine(),m));ms.forEach(m=>m.wt.forEach(r=>{if(String(r.I??"").trim()==="")r.I=r.L}));if(!ms.length)ms.push(blankMachine());
+  const ms=(v.machines||[]).map(m=>merge(blankMachine(),m));ms.forEach(m=>{m.wt.forEach(r=>{if(String(r.I??"").trim()==="")r.I=r.L});
+    for(const k in m.checks)if(!m.checks[k])m.checks[k]="ok";if(!m.seal.ok)m.seal.ok="ok";if(!m.disc)m.disc="ok"});if(!ms.length)ms.push(blankMachine());
   const s={meta:merge(blankMeta(),v.meta),site:merge(blankSite(),v.site),machines:ms,cur:Math.min(Math.max(0,+v.cur||0),ms.length-1),sample:!!v.sample};
   delete s.meta.ins2;return attach(s)}
 let S;
@@ -592,7 +593,7 @@ function verdict(){
 /* ---------- static UI build ---------- */
 (function buildChecks(){
   $("checks").innerHTML=CHECKS.map((c,i)=>'<div class="chk"><div class="t">'+(c.k==="printer"?"":(i+1)+". ")+esc(c.t)+(c.s?"<small>"+esc(c.s)+"</small>":"")+'</div>'+
-    '<div class="seg okng" role="group" aria-label="'+esc(c.t)+'"><button type="button" data-seg="checks.'+c.k+'" data-val="ok">ถูกต้อง</button><button type="button" data-seg="checks.'+c.k+'" data-val="ng">ไม่ถูกต้อง</button></div></div>').join("");
+    '<div class="seg okng" role="group" aria-label="'+esc(c.t)+'"><button type="button" data-seg="checks.'+c.k+'" data-val="ok" data-keep="1">ถูกต้อง</button><button type="button" data-seg="checks.'+c.k+'" data-val="ng" data-keep="1">ไม่ถูกต้อง</button></div></div>').join("");
 })();
 function buildWt(){
   $("wtRows").innerHTML='<div class="wr hd"><span>น้ำหนักทดสอบ</span><span>เครื่องชั่งแสดงน้ำหนัก (กก.)</span><span style="text-align:right">ผลต่าง</span><span style="text-align:center">ผล</span></div>'+
