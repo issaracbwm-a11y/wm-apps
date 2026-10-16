@@ -174,7 +174,9 @@ button.btn:disabled{opacity:.55;cursor:default}
     <div class="sec-h"><h2>สถานีบริการ</h2></div>
     <div class="panel">
       <div class="grid">
-        <div class="full placebar"><button type="button" class="btn sm" data-shot id="placeBtn">อ่านชื่อและที่อยู่จากภาพ (capจอหลังจากสแกนQR)</button>
+        <div class="full placebar"><div class="tools" style="margin:0"><button type="button" class="btn sm" id="stQrBtn">สแกน QR สติ๊กเกอร์</button>
+          <a class="ext" id="stInfo" target="_blank" rel="noopener" hidden>เปิดข้อมูลเครื่องบนเว็บกรมฯ ↗</a></div>
+          <button type="button" class="btn sm" data-shot id="placeBtn">อ่านชื่อและที่อยู่จากภาพ (capจอหลังจากสแกนQR)</button>
           <div class="scanmsg" id="placeMsg" hidden></div></div>
         <label class="full">มาตรวัดของ (ชื่อสถานีบริการ)<input id="m_station" placeholder="เช่น บจ.สยามสุขสวัสดิ์ (3110297)"></label>
         <label>เลขประจำตัวผู้เสียภาษี<input id="m_taxId" inputmode="numeric"></label>
@@ -215,6 +217,7 @@ button.btn:disabled{opacity:.55;cursor:default}
 
 <input type="file" id="shotFile" accept="image/*" multiple hidden>
 <input type="file" id="placeFile" accept="image/*" multiple hidden>
+<input type="file" id="qrFile" accept="image/*" capture="environment" hidden>
 <div id="pdfroot" aria-hidden="true"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -350,7 +353,7 @@ function cardHTML(row,i){
     '<div class="err"></div></div>';
   return '<div class="card" data-id="'+row.id+'">'+
     '<div class="c-head"><span class="no">'+(i+1)+'</span><div class="c-id"><div class="oil">'+(esc(row.oil)||"—")+'</div></div><span class="pill">ยังไม่ตรวจ</span></div>'+
-    '<div class="tools"><button type="button" class="btn sm" data-shot>อ่านข้อมูลจากภาพ (capจอหลังจากสแกนQR)</button>'+
+    '<div class="tools"><button type="button" class="btn sm" data-qr>สแกน QR สติ๊กเกอร์</button><button type="button" class="btn sm" data-shot>อ่านข้อมูลจากภาพ (capจอหลังจากสแกนQR)</button>'+
     '<a class="ext" data-ext target="_blank" rel="noopener"'+(row.sn?' href="'+infoURL(row.sn)+'"':' hidden')+'>เปิดข้อมูลเครื่อง ↗</a></div>'+
     '<div class="scanmsg" hidden></div>'+
     '<div class="grid fields">'+
@@ -411,6 +414,7 @@ $("cards").addEventListener("change",ev=>{
 $("cards").addEventListener("click",ev=>{
   const card=ev.target.closest(".card");if(!card)return;const row=rowById(card.dataset.id);if(!row)return;
   if(ev.target.closest("[data-shot]")){shotTarget=row.id;$("shotFile").value="";$("shotFile").click();return}
+  if(ev.target.closest("[data-qr]")){scanTarget=row.id;$("qrFile").value="";$("qrFile").click();return}
   const sg=ev.target.closest("[data-sign]");
   if(sg){const k=sg.dataset.sign;const inp=card.querySelector('input[data-k="'+k+'"]');let v=(inp.value||"").trim().replace(/−/g,"-");
     if(v.startsWith("-"))v="+"+v.slice(1);else if(v.startsWith("+"))v="-"+v.slice(1);else v="-"+v;
@@ -543,9 +547,12 @@ async function loadBitmap(file){
   if(window.createImageBitmap){try{return await createImageBitmap(file,{imageOrientation:"from-image"})}catch(e){try{return await createImageBitmap(file)}catch(e2){}}}
   return await new Promise((res,rej)=>{const u=URL.createObjectURL(file);const im=new Image();im.onload=()=>{res(im)};im.onerror=()=>rej(new Error("อ่านภาพไม่ได้"));im.src=u});
 }
+function loadJsQR(){return new Promise((res,rej)=>{if(window.jsQR)return res();const sc=document.createElement("script");sc.src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";sc.onload=()=>res();sc.onerror=()=>rej(new Error("โหลดตัวอ่าน QR ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต"));document.head.appendChild(sc)})}
 async function decodeQR(file){
-  if(!window.jsQR)throw new Error("โหลดตัวอ่าน QR ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต");
-  const img=await loadBitmap(file);const W=img.width,H=img.height;
+  const img=await loadBitmap(file);
+  if("BarcodeDetector" in window){try{const r=await new BarcodeDetector({formats:["qr_code"]}).detect(img);if(r&&r[0]&&r[0].rawValue)return r[0].rawValue}catch(e){}}
+  await loadJsQR();
+  const W=img.width,H=img.height;
   const c=document.createElement("canvas"),ctx=c.getContext("2d",{willReadFrequently:true});
   for(const [max,inv] of [[1400,"dontInvert"],[900,"dontInvert"],[2200,"attemptBoth"],[700,"attemptBoth"]]){
     const k=Math.min(1,max/Math.max(W,H));c.width=Math.round(W*k);c.height=Math.round(H*k);
@@ -738,6 +745,25 @@ $("gpsBtn").addEventListener("click",()=>{const msg=$("gpsMsg");const inClaude=!
 // วางพิกัดแบบ "lat, lng" (คัดลอกจาก Google Maps) ในช่อง LAT หรือ LNG แล้วแยกให้อัตโนมัติ
 ["m_lat","m_lng"].forEach(id=>$(id).addEventListener("input",e=>{const m=String(e.target.value).match(/(-?\d{1,3}\.\d+)\s*[, ]\s*(-?\d{1,3}\.\d+)/);
   if(!m)return;setLatLng(m[1],m[2]);$("gpsMsg").textContent="แยกพิกัดให้แล้ว"}));
+
+/* ---------- scan QR sticker (แบบ ชว.3010) ---------- */
+$("stQrBtn").onclick=()=>{scanTarget="__station";$("qrFile").value="";$("qrFile").click()};
+$("qrFile").addEventListener("change",async e=>{
+  const f=e.target.files&&e.target.files[0];if(!f)return;
+  const toStation=scanTarget==="__station";const row=toStation?null:rowById(scanTarget);
+  const msg=(t,err)=>toStation?placeMsg(t,err):row&&cardMsg(row.id,t,err);
+  msg("กำลังอ่าน QR…");
+  try{
+    const raw=await decodeQR(f);const sn=snFromQR(raw);
+    if(!sn){msg(raw?"QR นี้ไม่ใช่สติ๊กเกอร์คำรับรอง":"หา QR ในภาพไม่พบ ถ่ายใหม่ให้ QR ชัดและเต็มกรอบขึ้น",true);return}
+    if(toStation){const a=$("stInfo");a.href=infoURL(sn);a.hidden=false;
+      msg("ได้หมายเลขเครื่อง "+sn+" — กด “เปิดข้อมูลเครื่องบนเว็บกรมฯ” เลื่อนลงล่างสุด แคปหน้าจอช่องสถานที่ติดตั้ง แล้วกด “อ่านชื่อและที่อยู่จากภาพ”");return}
+    const dup=S.rows.findIndex(r=>r.sn===sn&&r!==row);const old=row.sn;
+    row.sn=sn;S.sample=false;rerenderCard(row);save();
+    cardMsg(row.id,"ได้หมายเลขเครื่อง "+sn+(old&&old!==sn?" (แทนเลขเดิม "+old+")":"")+(dup>=0?" · เลขนี้ซ้ำกับหัวที่ "+(dup+1):"")+
+      " — กด “เปิดข้อมูลเครื่อง” แคปหน้าจอ แล้วกด “อ่านข้อมูลจากภาพ”",dup>=0);
+  }catch(err){msg("อ่าน QR ไม่สำเร็จ: "+(err&&err.message||err),true)}
+});
 
 fillMeta();renderCards();
 })();
