@@ -37,6 +37,13 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .tally .vd{font-family:var(--f-ui);font-size:17px}
 .tally .vd.pass{background:var(--pass-soft);border-color:var(--pass)} .tally .vd.pass b{color:var(--pass)}
 .tally .vd.fail{background:var(--fail-soft);border-color:var(--fail)} .tally .vd.fail b{color:var(--fail)}
+.mbar{display:flex;gap:6px;margin-top:10px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin}
+.mbar button{flex:none;font:inherit;font-size:13.5px;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer;display:flex;align-items:center;gap:6px;max-width:180px}
+.mbar button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mbar button .d{width:8px;height:8px;border-radius:50%;background:var(--line);flex:none}
+.mbar button .d.pass{background:var(--pass)} .mbar button .d.fail{background:var(--fail)}
+.mbar button[aria-current="true"]{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.mbar button.add{color:var(--accent);border-style:dashed}
 .banner{margin-top:14px;background:var(--warn-soft);border-radius:var(--r);padding:10px 12px;font-size:14px}
 .banner b{color:var(--warn)}
 section{margin-top:20px}
@@ -189,6 +196,7 @@ button.btn:disabled{opacity:.55;cursor:default}
       <div class="f"><b id="tFail">0</b><span>ไม่ผ่าน</span></div>
       <div><b id="tPend">0</b><span>ยังไม่ตรวจ</span></div>
     </div>
+    <div class="mbar" id="mbar" role="tablist" aria-label="เครื่องชั่งในสถานประกอบการนี้"></div>
   </header>
 
   <div class="banner" id="sampleBanner" hidden><b>ข้อมูลตัวอย่าง</b> แสดงวิธีใช้แอป กด “ล้างข้อมูล” ด้านล่างเพื่อเริ่มกรอกจริง</div>
@@ -247,7 +255,7 @@ button.btn:disabled{opacity:.55;cursor:default}
 
   <!-- 3 คุณลักษณะ -->
   <section>
-    <div class="sec-h"><h2>คุณลักษณะของเครื่องชั่ง</h2></div>
+    <div class="sec-h" id="machineTop"><h2 id="mHead">คุณลักษณะของเครื่องชั่ง</h2><button class="btn sm danger" type="button" id="delBtn" hidden>ลบเครื่องนี้</button></div>
     <div class="panel">
       <div class="grid">
         <div class="full"><label>เครื่องชั่งชนิดไม่อัตโนมัติ</label>
@@ -386,9 +394,8 @@ button.btn:disabled{opacity:.55;cursor:default}
     <button class="btn primary" type="button" id="pdfBtn">ส่งออก PDF รายงาน</button>
   </div>
   <div class="rs" id="resetBox" hidden>
-    <span>ล้างข้อมูลแบบไหน</span>
-    <button class="btn sm" type="button" id="rsNext">เครื่องถัดไป (สถานที่เดิม)</button>
-    <button class="btn sm danger" type="button" id="rsAll">เริ่มใหม่ทั้งหมด</button>
+    <span>ล้างข้อมูลทั้งหมดของสถานประกอบการนี้?</span>
+    <button class="btn sm danger" type="button" id="rsAll">เริ่มสถานประกอบการใหม่ (ล้างทุกเครื่อง)</button>
     <button class="btn sm" type="button" id="rsCancel">ยกเลิก</button>
   </div>
   <div class="msg" id="msg" role="status"></div>
@@ -438,7 +445,10 @@ function blankMachine(){return {
   ref:{L:"",I:""},ecc:{in:["","",""],out:["","",""]},rep:{W:"",r:["","",""]},
   wt:LOADS.map(l=>({L:String(l),I:""})),disc:"",
   result:{reason:"",action:"",signer:"",role:""}}}
-function blankState(meta,site){return Object.assign({meta:Object.assign({ins1:0,team:"",date:today(),mode:"use",vehicle:"crane"},meta||{}),site:Object.assign(blankSite(),site||{}),sample:false},blankMachine())}
+const MKEYS=["scale","seal","checks","ref","ecc","rep","wt","disc","result"];
+function blankMeta(){return {ins1:0,team:"",date:today(),mode:"use",vehicle:"crane"}}
+function attach(s){MKEYS.forEach(k=>Object.defineProperty(s,k,{get(){return s.machines[s.cur][k]},set(v){s.machines[s.cur][k]=v},enumerable:false,configurable:true}));return s}
+function blankState(meta,site){return attach({meta:Object.assign(blankMeta(),meta||{}),site:Object.assign(blankSite(),site||{}),machines:[blankMachine()],cur:0,sample:false})}
 function sampleState(){
   const s=blankState({team:"นายสุภชัย สืบน้อย"},{name:"ลานเทปาล์มตัวอย่าง (ข้อมูลสาธิต)",owner:"นายสมชาย ตัวอย่าง",addrNo:"99/9",moo:"4",amphoe:"พุนพิน",tambon:"ท่าข้าม",phone:"081-000-0000",biz:"ลานเทปาล์ม",lat:"9.10520",lng:"99.21460"});
   Object.assign(s.scale,{serial:"TS60-2301-0815",mark:"ตัวอย่าง",max:"60000",d:"20",headBrand:"ยี่ห้อตัวอย่าง",headModel:"X-100",headSn:"A12345",remBrand:"ยี่ห้อตัวอย่าง",remModel:"RD-5",remSn:"R5678",software:"โปรแกรมตัวอย่าง",version:"2.1",size:"3 x 18",cells:"8",expiry:"2027-05-20"});
@@ -448,11 +458,21 @@ function sampleState(){
   s.rep={W:"10000",r:["10000","10000","10020"]};
   s.wt=LOADS.map(l=>({L:String(l),I:String(l===7000?7020:l===10000?10020:l)}));s.disc="ok";
   s.result.signer="นายสมชาย ตัวอย่าง";s.result.role="เจ้าของ";
+  // เครื่องที่ 2: ตัวอย่างเครื่องที่ผิด
+  const m2=blankMachine();Object.assign(m2.scale,{serial:"TS40-1907-0233",max:"40000",d:"20",headBrand:"ยี่ห้อตัวอย่าง B",size:"3 x 12",cells:"6",expiry:"2027-01-10"});
+  Object.assign(m2.seal,{head:"2",jbox:"1",ok:"ok"});Object.assign(m2.checks,{c1:"ok",c2:"ng",c3:"ok",c4:"ok",c5:"ok",printer:"ok"});
+  m2.ref={L:"18540",I:"18600"};m2.ecc={in:["18600","18620","18580"],out:["","",""]};m2.result.signer="นายสมชาย ตัวอย่าง";m2.result.role="เจ้าของ";
+  s.machines.push(m2);
   s.sample=true;return s;
 }
 function merge(def,v){if(Array.isArray(def))return Array.isArray(v)?v:def;if(def&&typeof def==="object"){const o={};for(const k in def)o[k]=merge(def[k],v&&v[k]);for(const k in (v||{}))if(!(k in o))o[k]=v[k];return o}return v===undefined||v===null?def:v}
+function load(v){
+  if(!v.machines&&v.scale){const m={};MKEYS.forEach(k=>m[k]=v[k]);v.machines=[m]}
+  const ms=(v.machines||[]).map(m=>merge(blankMachine(),m));if(!ms.length)ms.push(blankMachine());
+  const s={meta:merge(blankMeta(),v.meta),site:merge(blankSite(),v.site),machines:ms,cur:Math.min(Math.max(0,+v.cur||0),ms.length-1),sample:!!v.sample};
+  delete s.meta.ins2;return attach(s)}
 let S;
-try{const raw=localStorage.getItem(KEY);if(raw){const v=JSON.parse(raw);S=merge(blankState(),v)}}catch(e){S=null}
+try{const raw=localStorage.getItem(KEY);if(raw)S=load(JSON.parse(raw))}catch(e){S=null}
 if(!S)S=sampleState();
 let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}},300)}
 const getP=p=>p.split(".").reduce((o,k)=>o==null?o:o[k],S);
@@ -653,7 +673,8 @@ function refresh(){
   const c=s=>V.L.filter(i=>i.st===s).length;
   $("tPass").textContent=c("pass");$("tFail").textContent=c("fail");$("tPend").textContent=c("pend");
   $("tVd").textContent=V.st==="pass"?"ถูก":V.st==="fail"?"ผิด":"—";$("tVerdict").className="vd "+(V.st==="pass"?"pass":V.st==="fail"?"fail":"");
-  $("topSub").textContent=(S.site.name||"ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)")+(S.scale.serial?" · เครื่อง "+S.scale.serial:"");
+  $("topSub").textContent=(S.site.name||"ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)")+" · เครื่องที่ "+(S.cur+1)+"/"+S.machines.length+(S.scale.serial?" ("+S.scale.serial+")":"");
+  renderBar();
   $("sampleBanner").hidden=!S.sample;
 }
 
@@ -669,12 +690,31 @@ $("gpsBtn").addEventListener("click",()=>{const msg=$("gpsMsg");
 ["s_lat","s_lng"].forEach(id=>$(id).addEventListener("input",e=>{const m=String(e.target.value).match(/(-?\d{1,3}\.\d+)\s*[, ]\s*(-?\d{1,3}\.\d+)/);
   if(!m)return;S.site.lat=Number(m[1]).toFixed(5);S.site.lng=Number(m[2]).toFixed(5);$("s_lat").value=S.site.lat;$("s_lng").value=S.site.lng;$("gpsMsg").textContent="แยกพิกัดให้แล้ว";changed()}));
 
+/* ---------- หลายเครื่องต่อสถานประกอบการ ---------- */
+function verdictAt(i){const c=S.cur;S.cur=i;try{return verdict()}finally{S.cur=c}}
+function renderBar(){
+  const n=S.machines.length;
+  $("mbar").innerHTML=S.machines.map((m,i)=>{const v=verdictAt(i);const sn=(m.scale.serial||"").trim();
+    return '<button type="button" role="tab" data-m="'+i+'" aria-current="'+(i===S.cur)+'"><i class="d '+(v.st==="pass"?"pass":v.st==="fail"?"fail":"")+'"></i><span>เครื่อง '+(i+1)+(sn&&i===S.cur?" · "+esc(sn):"")+'</span></button>'}).join("")+
+    '<button type="button" class="add" id="addM">+ เพิ่มเครื่อง</button>';
+  $("mHead").textContent="คุณลักษณะของเครื่องชั่ง"+(n>1?" · เครื่องที่ "+(S.cur+1)+"/"+n:"");
+  $("delBtn").hidden=n<2;
+}
+function goMachine(i){S.cur=i;resetDel();fillAll();save();const el=$("machineTop");if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-$("mbar").closest(".top").offsetHeight-8})}
+$("mbar").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.id==="addM"){const prev=S.machines[S.cur];const m=blankMachine();
+    m.ref.L=prev.ref.L;m.wt=prev.wt.map(r=>({L:r.L,I:""}));m.rep.W=prev.rep.W;m.result.signer=prev.result.signer;m.result.role=prev.result.role;
+    S.machines.push(m);if(S.sample)S.sample=false;goMachine(S.machines.length-1);setMsg("เพิ่มเครื่องที่ "+S.machines.length+" แล้ว (คัดลอกน้ำหนักรถและน้ำหนักทดสอบจากเครื่องก่อนหน้า)","ok");return}
+  const i=+b.dataset.m;if(i!==S.cur)goMachine(i)});
+let delT=0;function resetDel(){clearTimeout(delT);delT=0;$("delBtn").textContent="ลบเครื่องนี้"}
+$("delBtn").onclick=()=>{if(S.machines.length<2)return;
+  if(!delT){$("delBtn").textContent="กดอีกครั้งเพื่อลบเครื่องที่ "+(S.cur+1);delT=setTimeout(resetDel,4000);return}
+  const k=S.cur+1;S.machines.splice(S.cur,1);S.cur=Math.max(0,S.cur-1);goMachine(S.cur);setMsg("ลบเครื่องที่ "+k+" แล้ว","ok")};
+
 /* ---------- reset ---------- */
 $("resetBtn").onclick=()=>{$("resetBox").hidden=!$("resetBox").hidden};
 $("rsCancel").onclick=()=>{$("resetBox").hidden=true};
-$("rsNext").onclick=()=>{const keepSite=S.sample?blankSite():S.site;S=blankState({ins1:S.meta.ins1,team:S.meta.team,date:S.meta.date,mode:S.meta.mode,vehicle:S.meta.vehicle},keepSite);
-  S.result.signer="";buildWt();fillAll();save();$("resetBox").hidden=true;setMsg("พร้อมกรอกเครื่องถัดไป ข้อมูลสถานที่ยังอยู่","ok");window.scrollTo(0,0)};
-$("rsAll").onclick=()=>{S=blankState({ins1:S.meta.ins1,team:S.meta.team,mode:S.meta.mode,vehicle:S.meta.vehicle});buildWt();fillAll();save();$("resetBox").hidden=true;setMsg("ล้างข้อมูลแล้ว","ok");window.scrollTo(0,0)};
+$("rsAll").onclick=()=>{S=blankState({ins1:S.meta.ins1,team:S.meta.team,mode:S.meta.mode,vehicle:S.meta.vehicle});resetDel();fillAll();save();$("resetBox").hidden=true;setMsg("ล้างข้อมูลแล้ว","ok");window.scrollTo(0,0)};
 function setMsg(t,c){const m=$("msg");m.textContent=t||"";m.className="msg"+(c?" "+c:"")}
 
 /* ---------- PDF ---------- */
@@ -757,7 +797,7 @@ function pdfHTML(){
   R.push('<div class="note">น้ำหนักที่ใช้ทดสอบ: '+(crane?"รถเครนบรรทุกตุ้มน้ำหนักแบบมาตรา":"รถกระบะ (ทดสอบขาเข้า–ขาออก)")+' · ผลต่าง = ค่าที่เครื่องชั่งแสดง − น้ำหนักทดสอบ · อ้างอิงประกาศกระทรวงพาณิชย์ เรื่อง กำหนดชนิดและลักษณะของเครื่องชั่ง ฯ พ.ศ. 2560 และที่แก้ไขเพิ่มเติม ข้อ 10, 22, 26, 28–31</div>');
 
   return '<div class="pg"><div class="hdr"><img src="'+LOGO+'" alt=""><div class="o"><div class="o1">'+esc(ORG.th)+'</div><div class="o2">'+esc(ORG.en)+'</div><div class="o3">'+esc(ORG.addr)+'</div></div></div>'+
-    '<div class="bx"><div class="ttl"><span>รายงานการตรวจสอบเครื่องชั่งไม่อัตโนมัติ (เครื่องชั่งรถยนต์)</span><span>วันที่ '+esc(thaiDate(m.date))+'</span></div>'+
+    '<div class="bx"><div class="ttl"><span>รายงานการตรวจสอบเครื่องชั่งไม่อัตโนมัติ (เครื่องชั่งรถยนต์)</span><span>วันที่ '+esc(thaiDate(m.date))+'</span>'+(S.machines.length>1?'<span>เครื่องที่ '+(S.cur+1)+'/'+S.machines.length+'</span>':"")+'</div>'+
     '<div class="cols"><div class="col l">'+L.join("")+'</div><div class="col r">'+R.join("")+'</div></div></div></div>';
 }
 function fitPage(pg){ // shrink font until both columns fit
@@ -774,16 +814,18 @@ $("pdfBtn").addEventListener("click",async()=>{
   btn.disabled=true;btn.textContent="กำลังสร้าง PDF…";setMsg("");
   try{
     try{await document.fonts.load('400 12px "Sarabun"');await document.fonts.load('700 12px "Sarabun"');await document.fonts.ready}catch(e){}
-    const root=$("pdfroot");root.innerHTML=pdfHTML();const pg=root.firstElementChild;fitPage(pg);
-    const c=await html2canvas(pg,{scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false,onclone:d=>{const r=d.getElementById("pdfroot");if(r)r.style.left="0px"}});
+    const root=$("pdfroot"),cur=S.cur,n=S.machines.length;
     const pdf=new window.jspdf.jsPDF({unit:"mm",format:"a4",orientation:"portrait",compress:true});
-    pdf.addImage(c.toDataURL("image/jpeg",0.92),"JPEG",0,0,210,297);
-    root.innerHTML="";
-    const name=("รายงานตรวจเครื่องชั่งรถยนต์_"+S.site.name+(S.scale.serial?"_"+S.scale.serial:"")+"_"+shortDate(S.meta.date).replace(/\//g,"-")).replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g," ").trim()+".pdf";
+    try{for(let i=0;i<n;i++){S.cur=i;btn.textContent="กำลังสร้าง PDF… เครื่อง "+(i+1)+"/"+n;
+      root.innerHTML=pdfHTML();const pg=root.firstElementChild;fitPage(pg);
+      const c=await html2canvas(pg,{scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false,onclone:d=>{const r=d.getElementById("pdfroot");if(r)r.style.left="0px"}});
+      if(i)pdf.addPage();pdf.addImage(c.toDataURL("image/jpeg",0.92),"JPEG",0,0,210,297)}}
+    finally{S.cur=cur;root.innerHTML=""}
+    const name=("รายงานตรวจเครื่องชั่งรถยนต์_"+S.site.name+(n>1?"_"+n+" เครื่อง":(S.scale.serial?"_"+S.scale.serial:""))+"_"+shortDate(S.meta.date).replace(/\//g,"-")).replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g," ").trim()+".pdf";
     const dl=await getDownloads();
-    if(dl===undefined){pdf.save(name);setMsg("บันทึก "+name+" แล้ว","ok")}
+    if(dl===undefined){pdf.save(name);setMsg("บันทึก "+name+" แล้ว ("+n+" หน้า)","ok")}
     else if(dl===null){setMsg("หน้านี้บันทึกไฟล์ไม่ได้ในมุมมองนี้ ลองเปิดแอปผ่านลิงก์ใน Claude","err")}
-    else{try{await dl.save({filename:name,data:pdf.output("blob")});setMsg("ส่งออก "+name+" แล้ว เปิดใน PDF Expert ให้ผู้ประกอบการลงนาม","ok")}
+    else{try{await dl.save({filename:name,data:pdf.output("blob")});setMsg("ส่งออก "+name+" แล้ว ("+n+" หน้า) เปิดใน PDF Expert ให้ผู้ประกอบการลงนาม","ok")}
       catch(e){const k=e&&e.code;setMsg(k==="declined"?"ยกเลิกการบันทึกไฟล์":k==="rate_limited"?"มีหน้าต่างบันทึกเปิดอยู่ ลองอีกครั้งสักครู่":"บันทึกไฟล์ไม่สำเร็จ ("+(k||"unknown")+")",k==="declined"?"":"err")}}
   }catch(e){setMsg("สร้าง PDF ไม่สำเร็จ: "+(e&&e.message||e),"err")}
   finally{btn.disabled=false;btn.textContent="ส่งออก PDF รายงาน"}
