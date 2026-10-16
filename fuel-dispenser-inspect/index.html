@@ -186,6 +186,7 @@ button.btn:disabled{opacity:.55;cursor:default}
         <label>โทรศัพท์<input id="m_phone" inputmode="tel"></label>
         <label>LAT<input id="m_lat" inputmode="decimal"></label>
         <label>LNG<input id="m_lng" inputmode="decimal"></label>
+        <div class="full placebar"><button type="button" class="btn sm" id="gpsBtn">ใช้ตำแหน่งปัจจุบัน</button><div class="crit" id="gpsMsg" role="status" style="margin:0"></div></div>
       </div>
     </div>
   </section>
@@ -725,6 +726,18 @@ function sendToSheet(){
 }
 window.addEventListener("online",flushQ);
 setTimeout(flushQ,1500);
+
+/* ---------- current location → LAT / LNG ---------- */
+function setLatLng(lat,lng){S.meta.lat=Number(lat).toFixed(5);S.meta.lng=Number(lng).toFixed(5);$("m_lat").value=S.meta.lat;$("m_lng").value=S.meta.lng;save()}
+$("gpsBtn").addEventListener("click",()=>{const msg=$("gpsMsg");const inClaude=!!window.claude;
+  if(inClaude||!navigator.geolocation){msg.textContent=inClaude?"แอปที่เปิดใน Claude อ่านตำแหน่งไม่ได้ เปิดแอปจากลิงก์เว็บของศูนย์ฯ หรือคัดลอกพิกัดจาก Google Maps (เช่น 9.11365, 99.15877) มาวางในช่อง LAT":"อุปกรณ์นี้อ่านตำแหน่งไม่ได้ คัดลอกพิกัดจาก Google Maps มาวางในช่อง LAT";return}
+  msg.textContent="กำลังอ่านตำแหน่ง…";
+  navigator.geolocation.getCurrentPosition(pos=>{setLatLng(pos.coords.latitude,pos.coords.longitude);msg.textContent="ได้พิกัดแล้ว (±"+Math.round(pos.coords.accuracy)+" ม.)"},
+    err=>{msg.textContent=err&&err.code===1?"ไม่ได้อนุญาตให้เข้าถึงตำแหน่ง เปิดสิทธิ์ตำแหน่งให้เบราว์เซอร์ในการตั้งค่าโทรศัพท์ แล้วลองใหม่":"อ่านตำแหน่งไม่ได้ ลองใหม่ในที่โล่ง หรือกรอกพิกัดเอง"},
+    {enableHighAccuracy:true,timeout:15000,maximumAge:0})});
+// วางพิกัดแบบ "lat, lng" (คัดลอกจาก Google Maps) ในช่อง LAT หรือ LNG แล้วแยกให้อัตโนมัติ
+["m_lat","m_lng"].forEach(id=>$(id).addEventListener("input",e=>{const m=String(e.target.value).match(/(-?\d{1,3}\.\d+)\s*[, ]\s*(-?\d{1,3}\.\d+)/);
+  if(!m)return;setLatLng(m[1],m[2]);$("gpsMsg").textContent="แยกพิกัดให้แล้ว"}));
 
 fillMeta();renderCards();
 })();
