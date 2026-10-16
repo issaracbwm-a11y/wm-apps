@@ -198,8 +198,8 @@ button.btn:disabled{opacity:.55;cursor:default}
     <div class="sec-h"><h2>ผู้ตรวจและประเภทการตรวจ</h2></div>
     <div class="panel">
       <div class="grid">
-        <label>นายตรวจชั่งตวงวัด (คนที่ 1)<select id="m_ins1"></select><span class="pos" id="pos1"></span></label>
-        <label>นายตรวจชั่งตวงวัด (คนที่ 2)<select id="m_ins2"></select><span class="pos" id="pos2"></span></label>
+        <label class="full">นายตรวจชั่งตวงวัด<select id="m_ins1"></select><span class="pos" id="pos1"></span></label>
+        <label class="full">พร้อมด้วย (ชื่อผู้ร่วมตรวจ)<input id="m_team" data-bind="meta.team" placeholder="เช่น นาย ก, นาย ข"></label>
         <label>วันที่ตรวจ<input id="m_date" type="date" data-bind="meta.date"></label>
         <div></div>
         <div class="full">
@@ -438,9 +438,9 @@ function blankMachine(){return {
   ref:{L:"",I:""},ecc:{in:["","",""],out:["","",""]},rep:{W:"",r:["","",""]},
   wt:LOADS.map(l=>({L:String(l),I:""})),disc:"",
   result:{reason:"",action:"",signer:"",role:""}}}
-function blankState(meta,site){return Object.assign({meta:Object.assign({ins1:0,ins2:-1,date:today(),mode:"use",vehicle:"crane"},meta||{}),site:Object.assign(blankSite(),site||{}),sample:false},blankMachine())}
+function blankState(meta,site){return Object.assign({meta:Object.assign({ins1:0,team:"",date:today(),mode:"use",vehicle:"crane"},meta||{}),site:Object.assign(blankSite(),site||{}),sample:false},blankMachine())}
 function sampleState(){
-  const s=blankState({ins2:4},{name:"ลานเทปาล์มตัวอย่าง (ข้อมูลสาธิต)",owner:"นายสมชาย ตัวอย่าง",addrNo:"99/9",moo:"4",amphoe:"พุนพิน",tambon:"ท่าข้าม",phone:"081-000-0000",biz:"ลานเทปาล์ม",lat:"9.10520",lng:"99.21460"});
+  const s=blankState({team:"นายสุภชัย สืบน้อย"},{name:"ลานเทปาล์มตัวอย่าง (ข้อมูลสาธิต)",owner:"นายสมชาย ตัวอย่าง",addrNo:"99/9",moo:"4",amphoe:"พุนพิน",tambon:"ท่าข้าม",phone:"081-000-0000",biz:"ลานเทปาล์ม",lat:"9.10520",lng:"99.21460"});
   Object.assign(s.scale,{serial:"TS60-2301-0815",mark:"ตัวอย่าง",max:"60000",d:"20",headBrand:"ยี่ห้อตัวอย่าง",headModel:"X-100",headSn:"A12345",remBrand:"ยี่ห้อตัวอย่าง",remModel:"RD-5",remSn:"R5678",software:"โปรแกรมตัวอย่าง",version:"2.1",size:"3 x 18",cells:"8",expiry:"2027-05-20"});
   Object.assign(s.seal,{head:"2",remote:"1",jbox:"2",other:"",no:"สฎ 0412",ok:"ok"});
   Object.assign(s.checks,{c1:"ok",c2:"ok",c3:"ok",c4:"ok",c5:"ok",printer:"ok"});
@@ -565,7 +565,6 @@ function buildWt(){
 }
 buildWt();
 $("m_ins1").innerHTML=INSPECTORS.map((x,i)=>'<option value="'+i+'">'+esc(x.n)+'</option>').join("");
-$("m_ins2").innerHTML='<option value="-1">— ไม่ระบุ —</option>'+INSPECTORS.map((x,i)=>'<option value="'+i+'">'+esc(x.n)+'</option>').join("");
 
 /* geo */
 function opts(list,val,ph){const has=!val||list.includes(val);
@@ -580,8 +579,7 @@ $("s_province").addEventListener("change",e=>{S.site.province=e.target.value;S.s
 $("s_amphoe").addEventListener("change",e=>{S.site.amphoe=e.target.value;S.site.tambon="";fillGeo();changed()});
 $("s_tambon").addEventListener("change",e=>{S.site.tambon=e.target.value;changed()});
 $("m_ins1").addEventListener("change",e=>{S.meta.ins1=+e.target.value;posUpd();changed()});
-$("m_ins2").addEventListener("change",e=>{S.meta.ins2=+e.target.value;posUpd();changed()});
-function posUpd(){const a=INSPECTORS[+S.meta.ins1],b=INSPECTORS[+S.meta.ins2];$("pos1").textContent=a?a.p:"";$("pos2").textContent=b?b.p:""}
+function posUpd(){const a=INSPECTORS[+S.meta.ins1];$("pos1").textContent=a?"ตำแหน่ง "+a.p:""}
 
 /* generic binding */
 document.addEventListener("input",e=>{const el=e.target;const p=el.dataset&&el.dataset.bind;if(!p)return;setP(p,el.value);
@@ -591,7 +589,7 @@ document.addEventListener("click",e=>{const b=e.target.closest("[data-seg]");if(
 function syncSegs(){document.querySelectorAll("[data-seg]").forEach(b=>b.setAttribute("aria-pressed",String(getP(b.dataset.seg)===b.dataset.val)))}
 function fillAll(){
   document.querySelectorAll("[data-bind]").forEach(el=>{const v=getP(el.dataset.bind);el.value=v==null?"":v});
-  $("m_ins1").value=String(S.meta.ins1);$("m_ins2").value=String(S.meta.ins2);
+  $("m_ins1").value=String(S.meta.ins1);
   fillGeo();posUpd();syncSegs();refresh();
 }
 function changed(){refresh();save()}
@@ -674,9 +672,9 @@ $("gpsBtn").addEventListener("click",()=>{const msg=$("gpsMsg");
 /* ---------- reset ---------- */
 $("resetBtn").onclick=()=>{$("resetBox").hidden=!$("resetBox").hidden};
 $("rsCancel").onclick=()=>{$("resetBox").hidden=true};
-$("rsNext").onclick=()=>{const keepSite=S.sample?blankSite():S.site;S=blankState({ins1:S.meta.ins1,ins2:S.meta.ins2,date:S.meta.date,mode:S.meta.mode,vehicle:S.meta.vehicle},keepSite);
+$("rsNext").onclick=()=>{const keepSite=S.sample?blankSite():S.site;S=blankState({ins1:S.meta.ins1,team:S.meta.team,date:S.meta.date,mode:S.meta.mode,vehicle:S.meta.vehicle},keepSite);
   S.result.signer="";buildWt();fillAll();save();$("resetBox").hidden=true;setMsg("พร้อมกรอกเครื่องถัดไป ข้อมูลสถานที่ยังอยู่","ok");window.scrollTo(0,0)};
-$("rsAll").onclick=()=>{S=blankState({ins1:S.meta.ins1,ins2:S.meta.ins2,mode:S.meta.mode,vehicle:S.meta.vehicle});buildWt();fillAll();save();$("resetBox").hidden=true;setMsg("ล้างข้อมูลแล้ว","ok");window.scrollTo(0,0)};
+$("rsAll").onclick=()=>{S=blankState({ins1:S.meta.ins1,team:S.meta.team,mode:S.meta.mode,vehicle:S.meta.vehicle});buildWt();fillAll();save();$("resetBox").hidden=true;setMsg("ล้างข้อมูลแล้ว","ok");window.scrollTo(0,0)};
 function setMsg(t,c){const m=$("msg");m.textContent=t||"";m.className="msg"+(c?" "+c:"")}
 
 /* ---------- PDF ---------- */
@@ -687,7 +685,8 @@ const V_=(v,cls,w)=>'<span class="v'+(cls?" "+cls:"")+'"'+(w?' style="width:'+w+
 const nf=v=>{const x=num(v);return isNum(x)?fmt(x):(v||"")};
 function pdfHTML(){
   const V=verdict(),X=V.X,s=S.site,c=S.scale,z=S.seal,m=S.meta;
-  const i1=INSPECTORS[+m.ins1],i2=INSPECTORS[+m.ins2];
+  const i1=INSPECTORS[+m.ins1];
+  const team=String(m.team||"").split(/[,،\n]+/).map(x=>x.trim()).filter(Boolean);
   const res=st=>st==="pass"?"ผ่าน":st==="fail"?"ไม่ผ่าน":"";
   const sealTot=["head","remote","jbox","other"].reduce((a,k)=>a+(num(z[k])||0),0);
   const L=[];
@@ -724,7 +723,8 @@ function pdfHTML(){
   L.push('<div class="sh al" style="font-weight:400">ขอรับรองว่าผลการตรวจของนายตรวจชั่งตวงวัดตามรายงานข้างต้นนี้เป็นความจริงทุกประการ</div>');
   const sg=(role,name,pos)=>'<div class="row"><span>ลงชื่อ</span><span class="sl"></span><span>'+role+'</span></div><div class="nm">( '+esc(name||"……………………………………………")+' )</div>'+(pos?'<div class="ps">'+esc(pos)+'</div>':"");
   L.push('<div class="sig">'+sg("เจ้าของเครื่อง/ผู้แทน",S.result.signer,S.result.role?"ฐานะ "+S.result.role:"")+'<div style="height:6px"></div>'+
-    sg("นายตรวจชั่งตวงวัด",i1&&i1.n,i1&&i1.p)+'<div style="height:6px"></div>'+sg("นายตรวจชั่งตวงวัด",i2&&i2.n,i2&&i2.p)+'</div>');
+    sg("นายตรวจชั่งตวงวัด",i1&&i1.n,i1&&i1.p)+
+    (team.length?team.slice(0,3).map(n=>'<div style="height:6px"></div>'+sg("ผู้ร่วมตรวจ",n,"")).join(""):'<div style="height:6px"></div>'+sg("ผู้ร่วมตรวจ","",""))+'</div>');
 
   const R=[];
   R.push('<div class="sh">การตรวจสอบ</div><div class="sh al">การตรวจสอบลักษณะทั่วไป</div>');
