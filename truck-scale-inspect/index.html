@@ -86,7 +86,7 @@ button.btn:disabled{opacity:.55;cursor:default}
 .warn{margin-top:8px;font-size:13px;color:var(--warn);background:var(--warn-soft);border-radius:6px;padding:4px 8px}
 .err-t{margin-top:8px;font-size:13px;color:var(--fail);background:var(--fail-soft);border-radius:6px;padding:4px 8px}
 /* readings matrix */
-.mx{display:grid;grid-template-columns:64px repeat(3,minmax(0,1fr));gap:6px;align-items:center}
+.mx{display:grid;grid-template-columns:var(--lab,64px) repeat(var(--n,3),minmax(0,1fr));gap:6px;align-items:center}
 .mx .h{font-size:12px;color:var(--muted);text-align:center}
 .mx .rl{font-size:14px;font-weight:600}
 .mx input{padding:8px 8px;font-size:17px}
@@ -140,7 +140,7 @@ button.btn:disabled{opacity:.55;cursor:default}
   .items{grid-template-columns:minmax(0,1fr)}
   .mpe .ecol{display:none}
   .wr{grid-template-columns:76px minmax(0,1fr) 70px 54px;gap:6px}
-  .mx{grid-template-columns:52px repeat(3,minmax(0,1fr))} .mxo{grid-template-columns:52px minmax(0,1fr)}
+  .mx{--lab:52px} .mxo{grid-template-columns:52px minmax(0,1fr)}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
@@ -337,10 +337,11 @@ button.btn:disabled{opacity:.55;cursor:default}
       <div class="out" id="oRef"></div>
     </div>
 
-    <div class="panel">
+    <div class="panel" id="eccPanel">
       <h3>ทดสอบน้ำหนักที่ตำแหน่งต่างๆ (Eccentricity) <span class="pill" id="pEcc">—</span></h3>
+      <div class="hint" id="eccNote" style="margin:-4px 0 10px"></div>
       <div class="mx">
-        <span></span><span class="h">ตำแหน่งที่ 1</span><span class="h">ตำแหน่งที่ 2</span><span class="h">ตำแหน่งที่ 3</span>
+        <span></span><span class="h" id="eh0">ตำแหน่งที่ 1</span><span class="h" id="eh1">ตำแหน่งที่ 2</span><span class="h" id="eh2">ตำแหน่งที่ 3</span>
         <span class="rl">รถเข้า</span>
         <input id="e_i0" data-bind="ecc.in.0" inputmode="numeric" class="num" aria-label="รถเข้า ตำแหน่งที่ 1">
         <input id="e_i1" data-bind="ecc.in.1" inputmode="numeric" class="num" aria-label="รถเข้า ตำแหน่งที่ 2">
@@ -355,7 +356,7 @@ button.btn:disabled{opacity:.55;cursor:default}
       </div>
       <div class="mxo"><span></span><div class="out" id="oEccOut"></div></div>
       <div class="out" id="oEcc"></div>
-      <div class="hint">ตำแหน่ง 1–3 เช่น หัวแท่น–กลางแท่น–ท้ายแท่น · ผลต่างของแต่ละแถว = ค่าสูงสุด − ต่ำสุดของแถวนั้น · ผลต่าง Max − Min = ค่ามากสุดของทุกจุดทุกแถว − ค่าน้อยสุดของทุกจุดทุกแถว ต้องไม่เกินอัตรา และแต่ละตำแหน่งต้องอยู่ในอัตราเมื่อเทียบน้ำหนักรถ (ข้อ 30)</div>
+      <div class="hint">ค่าในช่องตั้งต้นเท่ากับน้ำหนักจริงของรถ แก้เฉพาะตำแหน่งที่เครื่องแสดงต่างไป · ผลต่างของแต่ละแถว = ค่าสูงสุด − ต่ำสุดของแถวนั้น · ผลต่าง Max − Min = ค่ามากสุดของทุกจุดทุกแถว − ค่าน้อยสุดของทุกจุดทุกแถว ต้องไม่เกินอัตรา และแต่ละตำแหน่งต้องอยู่ในอัตราเมื่อเทียบน้ำหนักรถ (ข้อ 30)</div>
     </div>
 
     <div class="panel">
@@ -509,13 +510,15 @@ function evRef(){const L=num(S.ref.L),I=num(S.ref.I);
   if(Number.isNaN(L)||Number.isNaN(I))return {st:"bad"};
   if(L===null||I===null)return {st:"pend",part:true};
   const E=I-L,lim=mpe(L);return {st:Math.abs(E)<=lim+1e-9?"pass":"fail",E,lim,L,I}}
-function evEccRow(arr,L){const v=arr.map(num);if(v.some(Number.isNaN))return {st:"bad",v};
+function eccLen(){const m=String(S.scale.size||"").replace(/,/g,"").match(/\d+(?:\.\d+)?/g);return m?Math.max(...m.map(Number)):null}
+function eccN(){const L=eccLen();return L===null?3:L<=9?1:L<=12?2:3} // ยาว ≤9 ม. 1 ตำแหน่ง, ≤12 ม. 2, เกิน 12 ม. 3
+function evEccRow(arr,L){const n=eccN();arr=arr.slice(0,n);const v=arr.map(num);if(v.some(Number.isNaN))return {st:"bad",v};
   const f=v.filter(isNum);if(!f.length)return {st:"empty",v};
   // ผลต่างของแถว = ค่าสูงสุด − ค่าต่ำสุดของแถวนั้น (ข้อ 30); ถ้ามีน้ำหนักรถ ตรวจแต่ละตำแหน่งให้อยู่ในอัตราด้วย
   const hasL=isNum(L),lim=mpe(hasL?L:mean(f));const d=f.length>=2?Math.max(...f)-Math.min(...f):null;
   const cells=v.map(x=>isNum(x)&&hasL?(Math.abs(x-L)<=lim+1e-9?"p":"f"):"");
   const fail=cells.includes("f")||(d!==null&&d>lim+1e-9);
-  return {st:fail?"fail":(f.length===3?"pass":"part"),v,diff:d,lim,hasL,cells}}
+  return {st:fail?"fail":(f.length===n?"pass":"part"),v,diff:d,lim,hasL,cells}}
 function evEcc(){const L=num(S.ref.L);const Lv=isNum(L)?L:null;
   const a=evEccRow(S.ecc.in,Lv),b=evEccRow(S.ecc.out,Lv);
   if(a.st==="bad"||b.st==="bad")return {st:"bad",a,b};
@@ -621,6 +624,8 @@ function posUpd(){const a=INSPECTORS[+S.meta.ins1];$("pos1").textContent=a?"ต�
 
 /* generic binding */
 document.addEventListener("input",e=>{const el=e.target;const p=el.dataset&&el.dataset.bind;if(!p)return;
+  const FOLLOW={"ref.L":["ref.I","ecc.in.0","ecc.in.1","ecc.in.2","ecc.out.0","ecc.out.1","ecc.out.2"],"rep.W":["rep.r.0","rep.r.1","rep.r.2"]};
+  if(FOLLOW[p]){const old=String(getP(p)??"");FOLLOW[p].forEach(q=>{const cur=String(getP(q)??"").trim();if(cur===""||cur===old.trim()){setP(q,el.value);const ie=document.querySelector('[data-bind="'+q+'"]');if(ie)ie.value=el.value}})}
   const wm=p.match(/^wt\.(\d+)\.L$/);if(wm){const r=S.wt[+wm[1]];if(r&&(String(r.I).trim()===""||r.I===r.L)){r.I=el.value;const ii=$("w_I"+wm[1]);if(ii)ii.value=el.value}}
   setP(p,el.value);
   if(S.sample){S.sample=false}changed()});
@@ -670,11 +675,13 @@ function refresh(){
   const r=X.r;setPill("pRef",r.st);
   out("oRef",isNum(r.E)?"ผลต่าง <b>"+sgn(r.E)+" กก.</b> · อัตรา ±"+fmt(r.lim)+" กก.":r.st==="bad"?"กรอกเป็นตัวเลข (กก.)":"",r.st);
   // ecc
-  const e=X.e;setPill("pEcc",e.st);
+  const e=X.e,nE=eccN();setPill("pEcc",e.st);
   const rowTxt=x=>x.st==="empty"?"":x.st==="bad"?"กรอกเป็นตัวเลข":(isNum(x.diff)?"ผลต่าง (สูงสุด − ต่ำสุด) "+fmt(x.diff)+" กก. · ไม่เกิน "+fmt(x.lim):"กรอกให้ครบ 3 ตำแหน่ง")+(x.cells.includes("f")?" · มีตำแหน่งเกินอัตราเมื่อเทียบน้ำหนักรถ":"");
   out("oEccIn",rowTxt(e.a),e.a.st);out("oEccOut",rowTxt(e.b),e.b.st);
   out("oEcc",isNum(e.range)?"ผลต่าง Max − Min รวมทุกตำแหน่ง = <b>"+fmt(e.range)+" กก.</b> · ไม่เกิน "+fmt(e.rlim)+" กก.":"",e.rst);
-  [["in","e_i"],["out","e_o"]].forEach(([k,pre],ri)=>{const row=ri?e.b:e.a;for(let j=0;j<3;j++){const el=$(pre+j);el.classList.toggle("f",row.cells&&row.cells[j]==="f");el.classList.toggle("p",row.cells&&row.cells[j]==="p")}});
+  [["in","e_i"],["out","e_o"]].forEach(([k,pre],ri)=>{const row=ri?e.b:e.a;for(let j=0;j<3;j++){const el=$(pre+j);el.hidden=j>=nE;el.classList.toggle("f",!!(row.cells&&row.cells[j]==="f"));el.classList.toggle("p",!!(row.cells&&row.cells[j]==="p"))}});
+  for(let j=0;j<3;j++)$("eh"+j).hidden=j>=nE;$("eccPanel").style.setProperty("--n",nE);
+  {const Ln=eccLen();$("eccNote").innerHTML=(Ln===null?"ยังไม่ได้กรอกขนาดแท่นชั่ง ใช้ <b>3 ตำแหน่ง</b>":"แท่นชั่งยาว <b>"+fmt(Ln)+" ม.</b> → ทดสอบรถเข้า–รถออก <b>"+nE+" ตำแหน่ง</b>")+" (ยาวไม่เกิน 9 ม. = 1, เกิน 9–12 ม. = 2, เกิน 12 ม. = 3)"}
   // rep
   const p=X.p;setPill("pRep",p.st);
   out("oRep",isNum(p.range)?"ผลต่าง Max − Min = <b>"+fmt(p.range)+" กก.</b> · ไม่เกิน "+fmt(p.lim)+" กก.":p.st==="bad"?"กรอกเป็นตัวเลข":"",p.st);
@@ -838,7 +845,7 @@ function renderBar(){
 function goMachine(i){S.cur=i;resetDel();fillAll();save();const el=$("machineTop");if(el)window.scrollTo({top:el.getBoundingClientRect().top+window.scrollY-$("mbar").closest(".top").offsetHeight-8})}
 $("mbar").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
   if(b.id==="addM"){const prev=S.machines[S.cur];const m=blankMachine();
-    m.ref.L=prev.ref.L;m.wt=prev.wt.map(r=>({L:r.L,I:r.L}));m.rep.W=prev.rep.W;m.result.signer=prev.result.signer;m.result.role=prev.result.role;
+    m.ref.L=prev.ref.L;m.ref.I=prev.ref.L;m.ecc={in:[0,1,2].map(()=>prev.ref.L),out:[0,1,2].map(()=>prev.ref.L)};m.wt=prev.wt.map(r=>({L:r.L,I:r.L}));m.rep.W=prev.rep.W;m.rep.r=[0,1,2].map(()=>prev.rep.W);m.result.signer=prev.result.signer;m.result.role=prev.result.role;
     S.machines.push(m);if(S.sample)S.sample=false;goMachine(S.machines.length-1);setMsg("เพิ่มเครื่องที่ "+S.machines.length+" แล้ว (คัดลอกน้ำหนักรถและน้ำหนักทดสอบจากเครื่องก่อนหน้า)","ok");return}
   const i=+b.dataset.m;if(i!==S.cur)goMachine(i)});
 let delT=0;function resetDel(){clearTimeout(delT);delT=0;$("delBtn").textContent="ลบเครื่องนี้"}
@@ -910,7 +917,7 @@ function pdfHTML(){
   R.push('<div class="ln"><span class="k">น้ำหนักรถบรรทุกพร้อมแบบมาตรา</span>'+V_(nf(S.ref.L),"c g")+'<span class="u">กก.</span><span class="k">ผลตรวจ</span>'+V_(res(r.st),"c",46)+'</div>');
   R.push('<div class="ln"><span class="k">เครื่องชั่งแสดงค่า</span>'+V_(nf(S.ref.I),"c g")+'<span class="u">กก.</span><span class="k">ผลต่าง</span>'+V_(isNum(r.E)?sgn(r.E):"","c",56)+'<span class="u">กก.</span></div></div>');
   const e=X.e;
-  const eRow=(lab,row,arr)=>'<tr><td>'+lab+'</td>'+arr.map(v=>'<td class="r">'+esc(nf(v))+'</td>').join("")+'<td class="r">'+(isNum(row.diff)?fmt(row.diff):"")+'</td><td>'+res(row.st==="part"?"":row.st)+'</td></tr>';
+  const nP=eccN();const eRow=(lab,row,arr)=>'<tr><td>'+lab+'</td>'+arr.map((v,j)=>j<nP?'<td class="r">'+esc(nf(v))+'</td>':'<td>–</td>').join("")+'<td class="r">'+(isNum(row.diff)?fmt(row.diff):"")+'</td><td>'+res(row.st==="part"?"":row.st)+'</td></tr>';
   R.push('<div class="sh al">ทดสอบน้ำหนักที่ตำแหน่งต่างๆ บนแท่นชั่ง Eccentricity Test</div><div class="tw"><table><colgroup><col style="width:15%"><col><col><col><col style="width:15%"><col style="width:14%"></colgroup>'+
     '<tr><th>ทดสอบ</th><th>ตำแหน่ง 1</th><th>ตำแหน่ง 2</th><th>ตำแหน่ง 3</th><th>ผลต่าง</th><th>ผลตรวจ</th></tr>'+
     eRow("รถเข้า",e.a,S.ecc.in)+eRow("รถออก",e.b,S.ecc.out)+'</table>'+
