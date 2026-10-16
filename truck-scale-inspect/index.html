@@ -170,10 +170,10 @@ button.btn:disabled{opacity:.55;cursor:default}
 .pg .tw{padding:0 6px 3px}
 .pg .tw table{border-left:1px solid #000}
 .pg .sig{display:flex;flex-direction:column;gap:2px;padding:4px 6px}
-.pg .sig .row{display:flex;align-items:baseline;gap:6px}
-.pg .sig .sl{display:inline-block;width:160px;border-bottom:1px dotted #000;height:1.3em}
-.pg .sig .nm{padding-left:28px}
-.pg .sig .ps{padding-left:28px;font-size:calc(var(--fs) - 1px)}
+.pg .sig .sg{display:grid;grid-template-columns:auto 190px auto;column-gap:6px;align-items:baseline;justify-content:start}
+.pg .sig .sl{border-bottom:1px dotted #000;height:1.3em}
+.pg .sig .nm,.pg .sig .ps{grid-column:2;justify-self:center;text-align:center;white-space:nowrap}
+.pg .sig .ps{font-size:calc(var(--fs) - 1px)}
 .pg .note{font-size:calc(var(--fs) - 1.5px);padding:3px 6px;line-height:1.3}
 .pg .vd{font-weight:700}
 .pg .fl{color:#000;font-weight:700}
@@ -721,7 +721,7 @@ function pdfHTML(){
   L.push('<div class="ln">'+V_(V.st==="pass"?"":V.reason,"g wrap")+'</div>');
   L.push('<div class="ln"><span class="k">ดำเนินการ</span>'+V_(V.action,"g wrap")+'</div></div>');
   L.push('<div class="sh al" style="font-weight:400">ขอรับรองว่าผลการตรวจของนายตรวจชั่งตวงวัดตามรายงานข้างต้นนี้เป็นความจริงทุกประการ</div>');
-  const sg=(role,name,pos)=>'<div class="row"><span>ลงชื่อ</span><span class="sl"></span><span>'+role+'</span></div><div class="nm">( '+esc(name||"……………………………………………")+' )</div>'+(pos?'<div class="ps">'+esc(pos)+'</div>':"");
+  const sg=(role,name,pos)=>'<div class="sg"><span>ลงชื่อ</span><span class="sl"></span><span>'+role+'</span><span class="nm">( '+esc(name||"……………………………………………")+' )</span>'+(pos?'<span class="ps">'+esc(pos)+'</span>':"")+'</div>';
   L.push('<div class="sig">'+sg("เจ้าของเครื่อง/ผู้แทน",S.result.signer,S.result.role?"ฐานะ "+S.result.role:"")+'<div style="height:6px"></div>'+
     sg("นายตรวจชั่งตวงวัด",i1&&i1.n,i1&&i1.p)+
     (team.length?team.slice(0,3).map(n=>'<div style="height:6px"></div>'+sg("ผู้ร่วมตรวจ",n,"")).join(""):'<div style="height:6px"></div>'+sg("ผู้ร่วมตรวจ","",""))+'</div>');
