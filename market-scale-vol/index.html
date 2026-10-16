@@ -378,19 +378,36 @@ function buildSummary(){
     actionText:parts.length?parts.join(", "):"-",seized,tagged,notified};
 }
 function sheetMsg(t,k){const el=$("sheetMsg");el.textContent=t;el.className="msg "+(k||"")}
+let flushing=false,retryTimer=null;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function postItem(item){
+  // ลองส่งสูงสุด 3 ครั้ง · keepalive ให้คำขอส่งต่อได้แม้หน้าเว็บถูกขัดจังหวะตอนบันทึก PDF
+  for(let i=0;i<3;i++){
+    try{await fetch(SHEET_URL,{method:"POST",mode:"no-cors",keepalive:true,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(item)});return true}
+    catch(e){await sleep(1500*(i+1))}
+  }
+  return false;
+}
 async function flushQ(){
-  if(!SHEET_URL)return;
+  if(!SHEET_URL||flushing)return;
   let q=readQ();if(!q.length)return;
   if(navigator.onLine===false){sheetMsg(`ยังไม่มีสัญญาณ รอส่งเข้า Google Sheet ${q.length} รายการ จะส่งให้อัตโนมัติเมื่อออนไลน์`,"err");return}
-  const left=[];
-  for(const item of q){
-    try{await fetch(SHEET_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(item)})}
-    catch(e){left.push(item)}
-  }
-  writeQ(left);
-  if(left.length)sheetMsg(`ส่งเข้า Google Sheet ไม่สำเร็จ ${left.length} รายการ จะลองใหม่อัตโนมัติ`,"err");
+  flushing=true;sheetMsg("กำลังส่งข้อมูลสรุปเข้า Google Sheet…","");
+  let failed=0;
+  try{
+    for(const item of q){
+      const sent=JSON.stringify(item);
+      // ลบออกจากคิวเฉพาะฉบับที่ส่งไปจริง ถ้าระหว่างนั้นมีการกดส่งออกใหม่ ฉบับใหม่ยังอยู่ในคิว
+      if(await postItem(item))writeQ(readQ().filter(x=>JSON.stringify(x)!==sent));else failed++;
+    }
+  }finally{flushing=false}
+  const left=readQ().length;
+  clearTimeout(retryTimer);
+  if(left>failed){return flushQ()}   // มีรายการใหม่เข้าคิวระหว่างส่ง
+  if(left){sheetMsg(`รอส่งเข้า Google Sheet อีก ${left} รายการ ระบบจะลองส่งให้เองอัตโนมัติ`,"err");retryTimer=setTimeout(flushQ,30000)}
   else sheetMsg("ส่งข้อมูลสรุปเข้า Google Sheet แล้ว","ok");
 }
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")flushQ()});
 function sendSummary(){
   if(!SHEET_URL)return;
   if(!state.sessionId){state.sessionId=newId();save()}
