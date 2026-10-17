@@ -399,7 +399,7 @@ button.btn:disabled{opacity:.55;cursor:default}
       <div class="grid">
         <label class="full">เนื่องจาก<textarea id="x_reason" data-bind="result.reason" placeholder=""></textarea></label>
         <label class="full">ดำเนินการ<textarea id="x_action" data-bind="result.action" placeholder=""></textarea></label>
-        <div class="full hint" style="margin-top:0">ช่องว่าง = ใช้ข้อความอัตโนมัติที่แสดงจางในช่อง</div>
+        <div class="full hint" style="margin-top:0">ช่องว่าง = ใช้ข้อความอัตโนมัติที่แสดงจางในช่อง (ชื่อผู้ลงนามว่าง = ใช้ชื่อเจ้าของ/ผู้ครอบครองจากข้อมูลทั่วไป)</div>
         <label>ชื่อเจ้าของเครื่อง/ผู้แทน (ผู้ลงนาม)<input id="x_signer" data-bind="result.signer"></label>
         <label>ฐานะ<input id="x_role" data-bind="result.role" placeholder="เช่น เจ้าของ, ผู้จัดการ"></label>
       </div>
@@ -651,6 +651,8 @@ $("s_bizSel").innerHTML='<option value="">— เลือกประเภท�
 $("s_bizSel").addEventListener("change",e=>{if(!e.target.value)return;S.site.biz=e.target.value;$("s_biz").value=e.target.value;if(S.sample)S.sample=false;changed()});
 function syncBiz(){const v=(S.site.biz||"").trim();$("s_bizSel").value=BIZ.includes(v)?v:""}
 
+function signerName(){return (S.result.signer||"").trim()||(S.site.owner||"").trim()} // ว่าง = ใช้ชื่อเจ้าของ/ผู้ครอบครอง
+
 /* ---------- live refresh ---------- */
 function setPill(id,st,extra){const el=$(id);el.className="pill"+(st==="pass"?" pass":st==="fail"||st==="bad"?" fail":"");
   el.textContent=st==="pass"?"ผ่าน":st==="fail"?"ไม่ผ่าน":st==="bad"?"ตัวเลขผิด":(extra||"ยังไม่ครบ")}
@@ -713,7 +715,7 @@ function refresh(){
   $("tPass").textContent=c("pass");$("tFail").textContent=c("fail");$("tPend").textContent=c("pend");
   $("tVd").textContent=V.st==="pass"?"ถูก":V.st==="fail"?"ผิด":"—";$("tVerdict").className="vd "+(V.st==="pass"?"pass":V.st==="fail"?"fail":"");
   $("topSub").textContent=(S.site.name||"ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)")+" · เครื่องที่ "+(S.cur+1)+"/"+S.machines.length+(S.scale.serial?" ("+S.scale.serial+")":"");
-  renderBar();syncBiz();
+  renderBar();syncBiz();$("x_signer").placeholder=(S.site.owner||"").trim()||"ว่างไว้ = ใช้ชื่อเจ้าของ/ผู้ครอบครอง";
   const sn=(S.scale.serial||"").trim();const il=$("infoLink");il.hidden=!CERT_RE.test(sn);if(!il.hidden)il.href=infoURL(sn);
   $("sampleBanner").hidden=!S.sample;
 }
@@ -915,7 +917,7 @@ function pdfHTML(){
   L.push('<div class="ln"><span class="k">ดำเนินการ</span>'+V_(V.action,"g wrap")+'</div></div>');
   L.push('<div class="sh al" style="font-weight:400">ขอรับรองว่าผลการตรวจของนายตรวจชั่งตวงวัดตามรายงานข้างต้นนี้เป็นความจริงทุกประการ</div>');
   const sg=(role,name,pos)=>'<div class="sg"><span>ลงชื่อ</span><span class="sl"></span><span>'+role+'</span><span class="nm">( '+esc(name||"……………………………………………")+' )</span>'+(pos?'<span class="ps">'+esc(pos)+'</span>':"")+'</div>';
-  L.push('<div class="sig">'+sg("เจ้าของเครื่อง/ผู้แทน",S.result.signer,S.result.role?"ฐานะ "+S.result.role:"")+
+  L.push('<div class="sig">'+sg("เจ้าของเครื่อง/ผู้แทน",signerName(),S.result.role?"ฐานะ "+S.result.role:"")+
     sg("นายตรวจชั่งตวงวัด",i1&&i1.n,i1&&i1.p)+
     (team.length?team.slice(0,3).map(n=>sg("ผู้ร่วมตรวจ",n,"")).join(""):sg("ผู้ร่วมตรวจ","",""))+'</div>');
 
