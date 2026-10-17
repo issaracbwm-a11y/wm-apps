@@ -125,6 +125,7 @@ button.btn:disabled{opacity:.55;cursor:default}
 .foot .rs{max-width:760px;margin:8px auto 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:14px}
 .msg{max-width:760px;margin:6px auto 0;font-size:13px;color:var(--muted)}
 .msg.err{color:var(--fail)} .msg.ok{color:var(--pass)}
+.vh{position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden}
 .scan{background:var(--accent-soft);border-radius:8px;padding:10px 12px;margin-bottom:14px}
 .scan .t{font-size:13px;color:var(--muted);margin-bottom:8px}
 .scan .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -264,7 +265,7 @@ button.btn:disabled{opacity:.55;cursor:default}
     <div class="sec-h" id="machineTop"><h2 id="mHead">คุณลักษณะของเครื่องชั่ง</h2><button class="btn sm danger" type="button" id="delBtn" hidden>ลบเครื่องนี้</button></div>
     <div class="panel">
       <div class="scan">
-        <div class="t">จากสติกเกอร์คำรับรอง (แบบ ชว.3010) — สแกน QR แล้วเปิดข้อมูลเครื่องบนเว็บกรมฯ แคปหน้าจอ แล้วให้แอปอ่านมากรอก</div>
+        <div class="t">จากสติกเกอร์คำรับรอง (แบบ ชว.3010) — กด “สแกน QR สติกเกอร์” แล้วถ่ายรูปหรือเลือกรูปสติกเกอร์ จากนั้นเปิดข้อมูลเครื่องบนเว็บกรมฯ แคปหน้าจอ แล้วให้แอปอ่านมากรอก</div>
         <div class="tools">
           <button class="btn sm" type="button" id="qrBtn">สแกน QR สติกเกอร์</button>
           <button class="btn sm" type="button" id="shotBtn" hidden>อ่านข้อมูลจากภาพหน้าจอ</button>
@@ -418,8 +419,8 @@ button.btn:disabled{opacity:.55;cursor:default}
 </div>
 
 <div id="pdfroot" aria-hidden="true"></div>
-<input type="file" id="qrFile" accept="image/*" capture="environment" hidden>
-<input type="file" id="shotFile" accept="image/*" multiple hidden>
+<input type="file" id="qrFile" class="vh" accept="image/*" tabindex="-1" aria-hidden="true">
+<input type="file" id="shotFile" class="vh" accept="image/*" multiple tabindex="-1" aria-hidden="true">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -741,7 +742,7 @@ async function decodeQR(file){
     const d=ctx.getImageData(0,0,c.width,c.height);const r=jsQR(d.data,c.width,c.height,{inversionAttempts:inv});if(r&&r.data)return r.data}
   return null}
 $("qrBtn").onclick=()=>{$("qrFile").value="";$("qrFile").click()};
-$("qrFile").addEventListener("change",async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;scanMsg("กำลังอ่าน QR…");
+$("qrFile").addEventListener("change",async e=>{const f=e.target.files&&e.target.files[0];if(!f){scanMsg("ยังไม่ได้เลือกภาพ","err");return}scanMsg("กำลังอ่าน QR จากภาพ…");
   try{const raw=await decodeQR(f);const sn=snFromQR(raw);
     if(!sn){scanMsg(raw?"QR นี้ไม่ใช่สติกเกอร์คำรับรอง ("+raw.slice(0,60)+")":"หา QR ในภาพไม่พบ ถ่ายใหม่ให้ QR ชัดและเต็มกรอบขึ้น","err");return}
     const old=(S.scale.serial||"").trim();S.scale.serial=sn;if(S.sample)S.sample=false;fillAll();save();
