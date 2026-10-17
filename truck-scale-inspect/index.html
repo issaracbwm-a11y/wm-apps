@@ -125,6 +125,15 @@ button.btn:disabled{opacity:.55;cursor:default}
 .foot .rs{max-width:760px;margin:8px auto 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:14px}
 .msg{max-width:760px;margin:6px auto 0;font-size:13px;color:var(--muted)}
 .msg.err{color:var(--fail)} .msg.ok{color:var(--pass)}
+.linkbtn{font:inherit;font-size:13px;background:none;border:0;color:var(--fail);padding:6px 4px;cursor:pointer}
+.sigs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.sp{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sp .who{font-size:13px;color:var(--muted);display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.sp .who b{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp canvas{width:100%;height:150px;background:#fff;border:1px dashed var(--line);border-radius:8px;touch-action:none;display:block;cursor:crosshair}
+.sp.done canvas{border-style:solid;border-color:var(--pass)}
+.sp .row{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted)}
+@media (max-width:480px){.sigs{grid-template-columns:minmax(0,1fr)}}
 .vh{position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden}
 .scan{background:var(--accent-soft);border-radius:8px;padding:10px 12px;margin-bottom:14px}
 .scan .t{font-size:13px;color:var(--muted);margin-bottom:8px}
@@ -185,7 +194,9 @@ button.btn:disabled{opacity:.55;cursor:default}
 .pg .tw table{border-left:1px solid #000}
 .pg .sig{display:flex;flex-direction:column;justify-content:space-evenly;flex:1 1 auto;gap:6px;padding:4px 6px 10px}
 .pg .sig .sg{display:grid;grid-template-columns:auto 200px auto;column-gap:6px;align-items:end;justify-content:start}
-.pg .sig .sl{border-bottom:1px dotted #000;height:3.2em;margin-bottom:.3em}
+.pg .sig .sl{border-bottom:1px dotted #000;height:3.2em;margin-bottom:.3em;position:relative}
+.pg .sig .sl .si{position:absolute;left:0;right:0;bottom:-.35em;height:3.6em;display:flex;align-items:flex-end;justify-content:center}
+.pg .sig .sl .si img{max-width:100%;max-height:100%;display:block}
 .pg .sig .nm,.pg .sig .ps{grid-column:2;justify-self:center;text-align:center;white-space:nowrap}
 .pg .sig .ps{font-size:calc(var(--fs) - 1px)}
 .pg .note{font-size:calc(var(--fs) - 1.5px);padding:3px 6px;line-height:1.3}
@@ -405,6 +416,12 @@ button.btn:disabled{opacity:.55;cursor:default}
       </div>
     </div>
   </section>
+
+  <section>
+    <div class="sec-h"><h2>ลงนาม</h2><span class="ref">เซ็นในกรอบด้วยนิ้วหรือปากกา · ลายเซ็นจะอยู่บนเส้นลงชื่อใน PDF ทุกหน้า</span></div>
+    <div class="panel"><div class="sigs" id="sigs"></div>
+      <div class="hint">ไม่เซ็นในแอปก็ได้ เส้นลงชื่อใน PDF จะว่างไว้ให้เซ็นใน PDF Expert หรือเซ็นบนกระดาษ</div></div>
+  </section>
 </div>
 
 <div class="foot">
@@ -469,7 +486,7 @@ function blankMachine(){return {
 const MKEYS=["scale","seal","checks","ref","ecc","rep","wt","disc","result"];
 function blankMeta(){return {ins1:0,team:"",date:today(),mode:"use",vehicle:"crane"}}
 function attach(s){MKEYS.forEach(k=>Object.defineProperty(s,k,{get(){return s.machines[s.cur][k]},set(v){s.machines[s.cur][k]=v},enumerable:false,configurable:true}));return s}
-function blankState(meta,site){return attach({meta:Object.assign(blankMeta(),meta||{}),site:Object.assign(blankSite(),site||{}),machines:[blankMachine()],cur:0,sample:false})}
+function blankState(meta,site){return attach({meta:Object.assign(blankMeta(),meta||{}),site:Object.assign(blankSite(),site||{}),machines:[blankMachine()],cur:0,sample:false,sigs:{}})}
 function sampleState(){
   const s=blankState({team:"นายสุภชัย สืบน้อย"},{name:"ลานเทปาล์มตัวอย่าง (ข้อมูลสาธิต)",owner:"นายสมชาย ตัวอย่าง",addrNo:"99/9",moo:"4",amphoe:"พุนพิน",tambon:"ท่าข้าม",phone:"081-000-0000",biz:"ลานเทปาล์ม",lat:"9.10520",lng:"99.21460"});
   Object.assign(s.scale,{serial:"TS60-2301-0815",mark:"ตัวอย่าง",max:"60000",d:"20",headBrand:"ยี่ห้อตัวอย่าง",headModel:"X-100",headSn:"A12345",remBrand:"ยี่ห้อตัวอย่าง",remModel:"RD-5",remSn:"R5678",software:"โปรแกรมตัวอย่าง",version:"2.1",width:"3",length:"18",cells:"8",expiry:"2027-05-20"});
@@ -491,11 +508,12 @@ function load(v){
   if(!v.machines&&v.scale){const m={};MKEYS.forEach(k=>m[k]=v[k]);v.machines=[m]}
   const ms=(v.machines||[]).map(m=>merge(blankMachine(),m));ms.forEach(m=>{if(m.scale.size&&!m.scale.width&&!m.scale.length){const n=String(m.scale.size).replace(/,/g,"").match(/\d+(?:\.\d+)?/g)||[];if(n.length>=2){m.scale.width=n[0];m.scale.length=n[1]}else if(n.length)m.scale.length=n[0]}delete m.scale.size;m.wt.forEach(r=>{if(String(r.I??"").trim()==="")r.I=r.L});
     for(const k in m.checks)if(!m.checks[k])m.checks[k]="ok";if(!m.seal.ok)m.seal.ok="ok";if(!m.disc)m.disc="ok"});if(!ms.length)ms.push(blankMachine());
-  const s={meta:merge(blankMeta(),v.meta),site:merge(blankSite(),v.site),machines:ms,cur:Math.min(Math.max(0,+v.cur||0),ms.length-1),sample:!!v.sample};
+  const s={meta:merge(blankMeta(),v.meta),site:merge(blankSite(),v.site),machines:ms,cur:Math.min(Math.max(0,+v.cur||0),ms.length-1),sample:!!v.sample,sigs:(v.sigs&&typeof v.sigs==="object")?v.sigs:{}};
   delete s.meta.ins2;return attach(s)}
 let S;
 try{const raw=localStorage.getItem(KEY);if(raw)S=load(JSON.parse(raw))}catch(e){S=null}
 if(!S)S=sampleState();
+function saveNow(){clearTimeout(saveT);try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){setMsg("บันทึกในเครื่องไม่สำเร็จ (พื้นที่เต็ม) ลายเซ็นยังอยู่จนกว่าจะปิดแอป","err")}}
 let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}},300)}
 const getP=p=>p.split(".").reduce((o,k)=>o==null?o:o[k],S);
 function setP(p,v){const ks=p.split(".");let o=S;for(let i=0;i<ks.length-1;i++)o=o[ks[i]];o[ks[ks.length-1]]=v}
@@ -651,6 +669,31 @@ $("s_bizSel").innerHTML='<option value="">— เลือกประเภท�
 $("s_bizSel").addEventListener("change",e=>{if(!e.target.value)return;S.site.biz=e.target.value;$("s_biz").value=e.target.value;if(S.sample)S.sample=false;changed()});
 function syncBiz(){const v=(S.site.biz||"").trim();$("s_bizSel").value=BIZ.includes(v)?v:""}
 
+/* ---------- ลงนามในแอป ---------- */
+function signers(){const i1=INSPECTORS[+S.meta.ins1];const team=String(S.meta.team||"").split(/[,،\n]+/).map(x=>x.trim()).filter(Boolean).slice(0,3);
+  return [{k:"owner",r:"เจ้าของเครื่อง/ผู้แทน",n:signerName()},{k:"ins",r:"นายตรวจชั่งตวงวัด",n:i1?i1.n:""}].concat((team.length?team:[""]).map((n,i)=>({k:"team"+i,r:"ผู้ร่วมตรวจ",n})))}
+let sigKey="";
+function renderSigs(){const L=signers();const key=L.map(x=>x.k+":"+x.n).join("|");if(key===sigKey)return;sigKey=key;
+  const box=$("sigs");box.innerHTML=L.map(x=>'<div class="sp" data-k="'+x.k+'"><div class="who"><span>'+esc(x.r)+'</span><b>'+esc(x.n||"(ยังไม่ระบุชื่อ)")+'</b></div><canvas aria-label="ช่องลงนาม '+esc(x.r)+'"></canvas><div class="row"><span class="st"></span><button type="button" class="linkbtn" data-clr>ล้างลายเซ็น</button></div></div>').join("");
+  box.querySelectorAll(".sp").forEach(setupPad)}
+function trimSig(c){const ctx=c.getContext("2d"),w=c.width,h=c.height,d=ctx.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(d[(y*w+x)*4+3]>10){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}
+  if(x1<0)return "";const pad=6;x0=Math.max(0,x0-pad);y0=Math.max(0,y0-pad);x1=Math.min(w-1,x1+pad);y1=Math.min(h-1,y1+pad);
+  const o=document.createElement("canvas");o.width=x1-x0+1;o.height=y1-y0+1;o.getContext("2d").drawImage(c,x0,y0,o.width,o.height,0,0,o.width,o.height);return o.toDataURL("image/png")}
+function setupPad(sp){const k=sp.dataset.k,c=sp.querySelector("canvas"),st=sp.querySelector(".st");
+  const dpr=Math.max(1,window.devicePixelRatio||1),r=c.getBoundingClientRect();c.width=Math.round((r.width||300)*dpr);c.height=Math.round((r.height||150)*dpr);
+  const ctx=c.getContext("2d");ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle="#0b2a6b";ctx.lineWidth=2.6*dpr;
+  const mark=()=>{const has=!!S.sigs[k];sp.classList.toggle("done",has);st.textContent=has?"เซ็นแล้ว":"ยังไม่ได้เซ็น"};
+  if(S.sigs[k]){const im=new Image();im.onload=()=>{const s=Math.min(c.width*0.9/im.width,c.height*0.85/im.height,1);const w=im.width*s,h=im.height*s;ctx.drawImage(im,(c.width-w)/2,(c.height-h)/2,w,h)};im.src=S.sigs[k]}
+  mark();let drawing=false,last=null;
+  const pt=e=>{const b=c.getBoundingClientRect();return {x:(e.clientX-b.left)*c.width/b.width,y:(e.clientY-b.top)*c.height/b.height}};
+  c.addEventListener("pointerdown",e=>{e.preventDefault();drawing=true;try{c.setPointerCapture(e.pointerId)}catch(_){}last=pt(e);ctx.beginPath();ctx.arc(last.x,last.y,ctx.lineWidth/2,0,Math.PI*2);ctx.fillStyle=ctx.strokeStyle;ctx.fill()});
+  c.addEventListener("pointermove",e=>{if(!drawing)return;e.preventDefault();const evs=e.getCoalescedEvents?e.getCoalescedEvents():[e];for(const ev of evs){const p=pt(ev);ctx.beginPath();ctx.moveTo(last.x,last.y);ctx.lineTo(p.x,p.y);ctx.stroke();last=p}});
+  const end=()=>{if(!drawing)return;drawing=false;const url=trimSig(c);if(url){S.sigs[k]=url}else delete S.sigs[k];mark();saveNow()};
+  c.addEventListener("pointerup",end);c.addEventListener("pointercancel",end);c.addEventListener("pointerleave",end);
+  sp.querySelector("[data-clr]").onclick=()=>{ctx.clearRect(0,0,c.width,c.height);delete S.sigs[k];mark();saveNow()}}
+let sigW=window.innerWidth;window.addEventListener("resize",()=>{if(Math.abs(window.innerWidth-sigW)<2)return;sigW=window.innerWidth;sigKey="";renderSigs()});
+
 function signerName(){return (S.result.signer||"").trim()||(S.site.owner||"").trim()} // ว่าง = ใช้ชื่อเจ้าของ/ผู้ครอบครอง
 
 /* ---------- live refresh ---------- */
@@ -715,7 +758,7 @@ function refresh(){
   $("tPass").textContent=c("pass");$("tFail").textContent=c("fail");$("tPend").textContent=c("pend");
   $("tVd").textContent=V.st==="pass"?"ถูก":V.st==="fail"?"ผิด":"—";$("tVerdict").className="vd "+(V.st==="pass"?"pass":V.st==="fail"?"fail":"");
   $("topSub").textContent=(S.site.name||"ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)")+" · เครื่องที่ "+(S.cur+1)+"/"+S.machines.length+(S.scale.serial?" ("+S.scale.serial+")":"");
-  renderBar();syncBiz();$("x_signer").placeholder=(S.site.owner||"").trim()||"ว่างไว้ = ใช้ชื่อเจ้าของ/ผู้ครอบครอง";
+  renderBar();syncBiz();renderSigs();$("x_signer").placeholder=(S.site.owner||"").trim()||"ว่างไว้ = ใช้ชื่อเจ้าของ/ผู้ครอบครอง";
   const sn=(S.scale.serial||"").trim();const il=$("infoLink");il.hidden=!CERT_RE.test(sn);if(!il.hidden)il.href=infoURL(sn);
   $("sampleBanner").hidden=!S.sample;
 }
@@ -869,7 +912,7 @@ $("delBtn").onclick=()=>{if(S.machines.length<2)return;
 /* ---------- reset ---------- */
 $("resetBtn").onclick=()=>{$("resetBox").hidden=!$("resetBox").hidden};
 $("rsCancel").onclick=()=>{$("resetBox").hidden=true};
-$("rsAll").onclick=()=>{S=blankState({ins1:S.meta.ins1,team:S.meta.team,mode:S.meta.mode,vehicle:S.meta.vehicle});resetDel();fillAll();save();$("resetBox").hidden=true;setMsg("ล้างข้อมูลแล้ว","ok");window.scrollTo(0,0)};
+$("rsAll").onclick=()=>{sigKey="";S=blankState({ins1:S.meta.ins1,team:S.meta.team,mode:S.meta.mode,vehicle:S.meta.vehicle});resetDel();fillAll();save();$("resetBox").hidden=true;setMsg("ล้างข้อมูลแล้ว","ok");window.scrollTo(0,0)};
 function setMsg(t,c){const m=$("msg");m.textContent=t||"";m.className="msg"+(c?" "+c:"")}
 
 /* ---------- PDF ---------- */
@@ -916,10 +959,10 @@ function pdfHTML(){
   L.push('<div class="ln">'+V_(V.st==="pass"?"":V.reason,"g wrap")+'</div>');
   L.push('<div class="ln"><span class="k">ดำเนินการ</span>'+V_(V.action,"g wrap")+'</div></div>');
   L.push('<div class="sh al" style="font-weight:400">ขอรับรองว่าผลการตรวจของนายตรวจชั่งตวงวัดตามรายงานข้างต้นนี้เป็นความจริงทุกประการ</div>');
-  const sg=(role,name,pos)=>'<div class="sg"><span>ลงชื่อ</span><span class="sl"></span><span>'+role+'</span><span class="nm">( '+esc(name||"……………………………………………")+' )</span>'+(pos?'<span class="ps">'+esc(pos)+'</span>':"")+'</div>';
-  L.push('<div class="sig">'+sg("เจ้าของเครื่อง/ผู้แทน",signerName(),S.result.role?"ฐานะ "+S.result.role:"")+
-    sg("นายตรวจชั่งตวงวัด",i1&&i1.n,i1&&i1.p)+
-    (team.length?team.slice(0,3).map(n=>sg("ผู้ร่วมตรวจ",n,"")).join(""):sg("ผู้ร่วมตรวจ","",""))+'</div>');
+  const sg=(role,name,pos,key)=>'<div class="sg"><span>ลงชื่อ</span><span class="sl">'+(key&&S.sigs[key]?'<span class="si"><img src="'+S.sigs[key]+'" alt=""></span>':"")+'</span><span>'+role+'</span><span class="nm">( '+esc(name||"……………………………………………")+' )</span>'+(pos?'<span class="ps">'+esc(pos)+'</span>':"")+'</div>';
+  L.push('<div class="sig">'+sg("เจ้าของเครื่อง/ผู้แทน",signerName(),S.result.role?"ฐานะ "+S.result.role:"","owner")+
+    sg("นายตรวจชั่งตวงวัด",i1&&i1.n,i1&&i1.p,"ins")+
+    (team.length?team.slice(0,3).map((n,i)=>sg("ผู้ร่วมตรวจ",n,"","team"+i)).join(""):sg("ผู้ร่วมตรวจ","","","team0"))+'</div>');
 
   const R=[];
   R.push('<div class="sh">การตรวจสอบ</div><div class="sh al">การตรวจสอบลักษณะทั่วไป</div>');
