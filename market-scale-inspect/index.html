@@ -187,6 +187,16 @@ footer{font-size:12px;color:var(--muted);line-height:1.6}
       <label class="f full">หมายเลขลำดับประจำเครื่อง
         <input id="serial" placeholder="ตามที่ปรากฏบนตัวเครื่อง" autocomplete="off" autocapitalize="characters">
       </label>
+      <label class="f">ยี่ห้อ/รุ่น
+        <input id="brand" placeholder="เช่น ตราชั่งพาณิชย์ / KS-3" autocomplete="off" list="brandList">
+      </label>
+      <datalist id="brandList"></datalist>
+      <label class="f">เลขคีม/ซีล
+        <input id="seal" placeholder="ตามที่ปรากฏบนคีม/ซีล" autocomplete="off" autocapitalize="characters">
+      </label>
+      <label class="f full">อื่นๆ <small>หมายเหตุเพิ่มเติม (ถ้ามี)</small>
+        <input id="note" placeholder="เช่น ผู้ค้าแจ้งว่าเพิ่งซื้อมา" autocomplete="off">
+      </label>
       <label class="f full">6. พิกัดกำลังที่พบบ่อย <small>เลือกแล้วแก้ตัวเลขด้านล่างได้</small>
         <select id="preset"></select>
       </label>
@@ -259,7 +269,7 @@ footer{font-size:12px;color:var(--muted);line-height:1.6}
     <h2 id="h-d"><span class="n">ง</span>ตารางรายงานผลการตรวจ</h2>
     <div class="sum" id="sum"></div>
     <div class="tbl"><table>
-      <thead><tr><th>ที่</th><th>ร้าน/แผง</th><th>ชนิด</th><th>หมายเลขเครื่อง</th><th>Max/e</th><th>ลักษณะ</th><th>ตุ้ม (กก.)</th><th>แสดงค่า (กก.)</th><th>ผิดสูงสุด (ก.)</th><th>อัตรา ± (ก.)</th><th>ผล</th><th>ดำเนินการ</th><th></th></tr></thead>
+      <thead><tr><th>ที่</th><th>ร้าน/แผง</th><th>ชนิด</th><th>หมายเลขเครื่อง</th><th>ยี่ห้อ/รุ่น</th><th>เลขคีม/ซีล</th><th>Max/e</th><th>ลักษณะ</th><th>ตุ้ม (กก.)</th><th>แสดงค่า (กก.)</th><th>ผิดสูงสุด (ก.)</th><th>อัตรา ± (ก.)</th><th>ผล</th><th>ดำเนินการ</th><th>อื่นๆ</th><th></th></tr></thead>
       <tbody id="tbody"></tbody>
     </table></div>
     <div class="totals" aria-labelledby="h-tot">
@@ -386,7 +396,11 @@ function buildSummary(){
   return{token:SHEET_TOKEN,submitId:state.sessionId,date:$("date").value,market:$("market").value.trim(),
     officerType:o.typeLabel,officerName:o.name,team:$("team").value.trim(),
     shops:getShops(),springPass:t.sp,springFail:t.sf,digitalPass:t.dp,digitalFail:t.df,
-    actionText:parts.length?parts.join(", "):"-",seized,tagged,notified};
+    actionText:parts.length?parts.join(", "):"-",seized,tagged,notified,
+    // รายละเอียดรายเครื่อง สำหรับแท็บ "รายละเอียดรายเครื่อง"
+    scales:state.records.map(r=>({no:r.no,shop:r.shop,unit:r.unit,type:r.type==="spring"?"สปริง":"ดิจิทัล",serial:r.serial||"",brand:r.brand||"",seal:r.seal||"",
+      max:r.max,e:r.e,legal:r.legal==="ok"?"ถูกต้อง":"ไม่ถูกต้อง"+((r.legalNotes||[]).length?" ("+r.legalNotes.join(", ")+")":""),
+      load:r.load,errMax:r.reads&&r.reads.length?r.errMax:"",mpe:r.mpe==null?"":r.mpe,result:r.result,action:r.action,note:r.note||""}))};
 }
 function sheetMsg(t,k){const el=$("sheetMsg");el.textContent=t;el.className="msg "+(k||"")}
 let flushing=false,retryTimer=null;
@@ -394,7 +408,10 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function postItem(item){
   // ลองส่งสูงสุด 3 ครั้ง · keepalive ให้คำขอส่งต่อได้แม้หน้าเว็บถูกขัดจังหวะตอนบันทึก PDF
   for(let i=0;i<3;i++){
-    try{await fetch(SHEET_URL,{method:"POST",mode:"no-cors",keepalive:true,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(item)});return true}
+    const body=JSON.stringify(item);
+    // keepalive รับข้อมูลได้ไม่เกิน 64 KB ถ้าเกิน (ตรวจหลายสิบเครื่อง) ส่งแบบปกติ
+    const keep=new Blob([body]).size<60000;
+    try{await fetch(SHEET_URL,{method:"POST",mode:"no-cors",keepalive:keep,headers:{"Content-Type":"text/plain;charset=utf-8"},body});return true}
     catch(e){await sleep(1500*(i+1))}
   }
   return false;
@@ -535,7 +552,8 @@ function renumberUnits(){const seen={};state.records.forEach((r,i)=>{r.no=i+1;co
 function shopLabel(r){return shopCount(r.shop)>1?`${r.shop} (เครื่องที่ ${r.unit})`:r.shop}
 function updateShopHint(){const n=shopCount($("shop").value);
   $("shopHint").textContent=$("shop").value.trim()&&n?`ร้านนี้บันทึกแล้ว ${n} เครื่อง · เครื่องนี้จะเป็นเครื่องที่ ${n+1} ของร้าน`:"";
-  const dl=$("shopList");dl.innerHTML="";[...new Set(state.records.map(r=>r.shop))].forEach(n=>{const o=document.createElement("option");o.value=n;dl.appendChild(o)})}
+  const dl=$("shopList");dl.innerHTML="";[...new Set(state.records.map(r=>r.shop))].forEach(n=>{const o=document.createElement("option");o.value=n;dl.appendChild(o)});
+  const bl=$("brandList");bl.innerHTML="";[...new Set(state.records.map(r=>r.brand).filter(Boolean))].forEach(n=>{const o=document.createElement("option");o.value=n;bl.appendChild(o)})}
 $("shop").addEventListener("input",updateShopHint);
 
 /* ---------- save record ---------- */
@@ -548,7 +566,7 @@ function saveRecord(keepShop){
     return flash($("msg"),"ระบุลักษณะที่ไม่เป็นไปตามกฎหมายในช่อง อื่น ๆ","err");
   if(!ev.ready)return flash($("msg"),"กรอกน้ำหนักตุ้มและค่าที่แสดงให้ครบทุกจุด","err");
   if($("otype").value==="vol"&&!$("volName").value.trim())return flash($("msg"),"กรอกชื่อ อส.ชว.ตลาดสด ในส่วน ก","err");
-  const rec={no:state.records.length+1,shop:$("shop").value.trim(),serial:$("serial").value.trim(),type:state.type,max:mx,e,cls:scaleClass(state.type,mx,e),
+  const rec={no:state.records.length+1,shop:$("shop").value.trim(),serial:$("serial").value.trim(),brand:$("brand").value.trim(),seal:$("seal").value.trim(),note:$("note").value.trim(),type:state.type,max:mx,e,cls:scaleClass(state.type,mx,e),
     legal:state.legal,legalNotes:legalNotes(),load:L,mpe:ev.mpe,
     reads:ev.errs.map(x=>({k:x.k,lab:x.lab,v:x.v,err:x.err,st:x.st,kh:x.kh,base:x.base})),errMax:ev.errMax,
     result:ev.result,css:ev.cssKey,action:ev.act,unit:shopCount($("shop").value)+1};
@@ -560,7 +578,7 @@ function saveRecord(keepShop){
 }
 $("saveBtn").addEventListener("click",()=>saveRecord(false));
 $("saveSameBtn").addEventListener("click",()=>saveRecord(true));
-function clearShop(){$("shop").value="";$("serial").value="";$("load").value="";document.querySelectorAll(".rd").forEach(i=>i.value="");
+function clearShop(){$("shop").value="";["serial","brand","seal","note"].forEach(k=>$(k).value="");$("load").value="";document.querySelectorAll(".rd").forEach(i=>i.value="");
   buildLegalChips();setLegal("ok");
   $("seq").value=state.records.length+1;updateShopHint();evaluate();}
 
@@ -570,11 +588,11 @@ function springText(x){if(!x)return"";if(x.kh==null||x.kh===0)return fmtKg(x.v);
   return `${fmtKg(x.base)} ${x.kh>0?"+":"−"}${Math.abs(x.kh)} ขีด (= ${fmtKg(x.v)})`}
 function readsText(r){return r.type==="spring"?springText(r.reads[0]):r.reads.map(x=>`${x.lab} ${fmtKg(x.v)}`).join(", ")}
 function renderTable(){const tb=$("tbody");tb.innerHTML="";
-  if(!state.records.length){tb.innerHTML=`<tr><td colspan="13" class="empty">ยังไม่มีผลที่บันทึก กดปุ่มบันทึกหลังตรวจแต่ละเครื่อง</td></tr>`}
+  if(!state.records.length){tb.innerHTML=`<tr><td colspan="16" class="empty">ยังไม่มีผลที่บันทึก กดปุ่มบันทึกหลังตรวจแต่ละเครื่อง</td></tr>`}
   state.records.forEach((r,i)=>{const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${r.no}</td><td>${esc(r.shop)}${shopCount(r.shop)>1?` <span class="unit">เครื่องที่ ${r.unit}</span>`:""}</td><td>${typeTH(r.type)}</td><td>${esc(r.serial||"-")}</td><td>${r.max} กก./${r.e} ก.</td>
+    tr.innerHTML=`<td>${r.no}</td><td>${esc(r.shop)}${shopCount(r.shop)>1?` <span class="unit">เครื่องที่ ${r.unit}</span>`:""}</td><td>${typeTH(r.type)}</td><td>${esc(r.serial||"-")}</td><td>${esc(r.brand||"-")}</td><td>${esc(r.seal||"-")}</td><td>${r.max} กก./${r.e} ก.</td>
       <td>${r.legal==="ok"?"ถูกต้อง":"ไม่ถูกต้อง"}</td><td>${fmtKg(r.load)}</td><td>${readsText(r)}</td>
-      <td>${r.reads.length?sgn(r.errMax):"-"}</td><td>${r.mpe==null?"-":fmtG(r.mpe)}</td><td class="res-${r.css}">${r.result}</td><td>${r.action}</td>
+      <td>${r.reads.length?sgn(r.errMax):"-"}</td><td>${r.mpe==null?"-":fmtG(r.mpe)}</td><td class="res-${r.css}">${r.result}</td><td>${r.action}</td><td>${esc(r.note||"-")}</td>
       <td><button class="del" data-i="${i}" aria-label="ลบรายการที่ ${r.no}">ลบ</button></td>`;tb.appendChild(tr)});
   const p=state.records.filter(r=>r.result==="ผ่าน").length, f=state.records.length-p;
   const nShops=new Set(state.records.map(r=>shopKey(r.shop))).size;
@@ -591,24 +609,24 @@ $("clearBtn").addEventListener("click",e=>{const b=e.currentTarget;
 
 /* ---------- PDF ---------- */
 function buildPages(){
-  const o=officer(), recs=state.records, PER=11;
+  const o=officer(), recs=state.records, PER=8;
   const chunks=[];for(let i=0;i<recs.length;i+=PER)chunks.push(recs.slice(i,i+PER));
-  if(!chunks.length||chunks[chunks.length-1].length>7)chunks.push([]);
+  if(!chunks.length||chunks[chunks.length-1].length>4)chunks.push([]);
   const T=getTotals(), tAll=T.sp+T.sf+T.dp+T.df;
   const head=`<h3>แบบรายงานผลการตรวจสอบเครื่องชั่งในตลาดสด</h3>
     <div class="org">ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี) กองชั่งตวงวัด กรมการค้าภายใน</div>
     <div class="meta"><span><b>ตลาด</b> ${esc($("market").value||"-")}</span><span><b>วันที่ตรวจ</b> ${thDate($("date").value)}</span>
     <span><b>ผู้ตรวจ</b> ${esc(o.name||"-")} (${o.typeLabel})</span>
     ${$("team").value.trim()?`<span><b>พร้อมด้วย</b> ${esc($("team").value.trim())}</span>`:""}</div>`;
-  const thead=`<tr><th style="width:34px">ที่</th><th>ชื่อร้าน/แผง</th><th style="width:62px">ชนิด</th><th style="width:90px">หมายเลขเครื่อง</th><th style="width:72px">พิกัดกำลัง</th><th style="width:44px">e (ก.)</th>
+  const thead=`<tr><th style="width:34px">ที่</th><th>ชื่อร้าน/แผง</th><th style="width:62px">ชนิด</th><th style="width:118px">หมายเลขเครื่อง<br><span style="font-weight:400;font-size:12px">ยี่ห้อ/รุ่น · คีม/ซีล</span></th><th style="width:72px">พิกัดกำลัง</th><th style="width:44px">e (ก.)</th>
     <th style="width:72px">ลักษณะตามกฎหมาย</th><th style="width:62px">ตุ้ม (กก.)</th><th>เครื่องชั่งแสดงค่า (กก.)</th><th style="width:64px">ค่าผิดสูงสุด (ก.)</th>
-    <th style="width:62px">อัตรา ± (ก.)</th><th style="width:52px">ผล</th><th style="width:118px">ดำเนินการ</th></tr>`;
+    <th style="width:62px">อัตรา ± (ก.)</th><th style="width:52px">ผล</th><th style="width:110px">ดำเนินการ</th><th style="width:96px">อื่นๆ</th></tr>`;
   return chunks.map((rows,pi)=>{
     const last=pi===chunks.length-1;
-    const body=rows.map(r=>`<tr><td>${r.no}</td><td class="l">${esc(shopLabel(r))}</td><td>${typeTH(r.type)}</td><td style="word-break:break-all">${esc(r.serial||"-")}</td><td>${r.max} กก.</td><td>${r.e}</td>
+    const body=rows.map(r=>`<tr><td>${r.no}</td><td class="l">${esc(shopLabel(r))}</td><td>${typeTH(r.type)}</td><td style="word-break:break-all">${esc(r.serial||"-")}${r.brand||r.seal?`<br><span style="font-size:12px">${esc([r.brand,r.seal?"คีม/ซีล "+r.seal:""].filter(Boolean).join(" · "))}</span>`:""}</td><td>${r.max} กก.</td><td>${r.e}</td>
       <td>${r.legal==="ok"?"ถูกต้อง":"ไม่ถูกต้อง"+(r.legalNotes.length?`<br><span style="font-size:12px">${esc(r.legalNotes.join(", "))}</span>`:"")}</td>
       <td>${fmtKg(r.load)}</td><td class="l" style="font-size:13px">${readsText(r)}</td><td>${r.reads.length?sgn(r.errMax):"-"}</td><td>${r.mpe==null?"-":fmtG(r.mpe)}</td>
-      <td class="pf">${r.result}</td><td>${r.action}</td></tr>`).join("");
+      <td class="pf">${r.result}</td><td>${r.action}</td><td class="l" style="font-size:12px">${esc(r.note||"")}</td></tr>`).join("");
     const sig2=o.type==="vol"?`<div>ลงชื่อ ..................................................<br>(..................................................)<br>นายตรวจชั่งตวงวัด ผู้รับรายงาน</div>`:"";
     const foot=last?`<div class="note" style="font-size:15px"><b>ตรวจร้านค้า ${getShops()} ร้าน · เครื่องชั่งทั้งหมด ${tAll} เครื่อง</b> · เครื่องชั่งสปริง ถูก ${T.sp} ผิด ${T.sf} (รวม ${T.sp+T.sf}) · เครื่องชั่งดิจิทัล ถูก ${T.dp} ผิด ${T.df} (รวม ${T.dp+T.df})${recs.length&&recs.length<tAll?` · บันทึกผลรายเครื่องในตาราง ${recs.length} เครื่อง`:""}</div>
       <div class="note">อัตราเผื่อเหลือเผื่อขาดสำหรับเครื่องที่ใช้งานแล้ว (2 เท่า) ตามประกาศกระทรวงพาณิชย์ ลว. 19 มิ.ย. 2560 · ค่าผิด = ค่าที่แสดง − น้ำหนักตุ้ม</div>
