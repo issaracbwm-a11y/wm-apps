@@ -248,15 +248,12 @@ button.btn:disabled{opacity:.55;cursor:default}
         <label>อำเภอ<select id="s_amphoe"></select></label>
         <label>ตำบล<select id="s_tambon"></select></label>
         <label>โทรศัพท์<input id="s_phone" data-bind="site.phone" inputmode="tel"></label>
-        <label class="full">ประเภทกิจการ<input id="s_biz" data-bind="site.biz" list="bizList" placeholder="เลือกหรือพิมพ์"></label>
+        <div class="full"><label for="s_bizSel">ประเภทกิจการ</label>
+          <div class="grid" style="gap:8px;margin-top:4px"><select id="s_bizSel" aria-label="เลือกประเภทกิจการ"></select><input id="s_biz" data-bind="site.biz" placeholder="แก้ไขหรือพิมพ์เองได้" aria-label="ประเภทกิจการ"></div></div>
         <label>LAT<input id="s_lat" data-bind="site.lat" inputmode="decimal" class="num"></label>
         <label>LNG<input id="s_lng" data-bind="site.lng" inputmode="decimal" class="num"></label>
         <div class="full"><button class="btn sm" type="button" id="gpsBtn">ใช้ตำแหน่งปัจจุบัน</button><div class="hint" id="gpsMsg" role="status"></div></div>
       </div>
-      <datalist id="bizList">
-        <option value="ลานเทปาล์ม"><option value="จุดรับซื้อยางพารา"><option value="โรงสกัดน้ำมันปาล์ม"><option value="ลานรับซื้อข้าว / โรงสี">
-        <option value="ลานรับซื้อมันสำปะหลัง"><option value="ลานรับซื้อผลไม้"><option value="รับซื้อของเก่า / เศษวัสดุ"><option value="ขนส่ง / วัสดุก่อสร้าง">
-      </datalist>
     </div>
   </section>
 
@@ -642,6 +639,12 @@ function fillAll(){
 }
 function changed(){refresh();save()}
 
+/* ---------- ประเภทกิจการ: เลือกจากรายการแล้วแก้ในช่องได้ ---------- */
+const BIZ=["ลานเทปาล์ม","ลานรับซื้อน้ำยางสด","ลานรับซื้อยางแผ่น, เศษยาง","โรงงานสกัดน้ำมันปาล์ม","โรงงานแปรรูปยางพารา","รับซื้อสินค้าเกษตร"];
+$("s_bizSel").innerHTML='<option value="">— เลือกประเภทกิจการ —</option>'+BIZ.map(x=>'<option>'+esc(x)+'</option>').join("");
+$("s_bizSel").addEventListener("change",e=>{if(!e.target.value)return;S.site.biz=e.target.value;$("s_biz").value=e.target.value;if(S.sample)S.sample=false;changed()});
+function syncBiz(){const v=(S.site.biz||"").trim();$("s_bizSel").value=BIZ.includes(v)?v:""}
+
 /* ---------- live refresh ---------- */
 function setPill(id,st,extra){const el=$(id);el.className="pill"+(st==="pass"?" pass":st==="fail"||st==="bad"?" fail":"");
   el.textContent=st==="pass"?"ผ่าน":st==="fail"?"ไม่ผ่าน":st==="bad"?"ตัวเลขผิด":(extra||"ยังไม่ครบ")}
@@ -704,7 +707,7 @@ function refresh(){
   $("tPass").textContent=c("pass");$("tFail").textContent=c("fail");$("tPend").textContent=c("pend");
   $("tVd").textContent=V.st==="pass"?"ถูก":V.st==="fail"?"ผิด":"—";$("tVerdict").className="vd "+(V.st==="pass"?"pass":V.st==="fail"?"fail":"");
   $("topSub").textContent=(S.site.name||"ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)")+" · เครื่องที่ "+(S.cur+1)+"/"+S.machines.length+(S.scale.serial?" ("+S.scale.serial+")":"");
-  renderBar();
+  renderBar();syncBiz();
   const sn=(S.scale.serial||"").trim();const il=$("infoLink");il.hidden=!CERT_RE.test(sn);if(!il.hidden)il.href=infoURL(sn);
   $("sampleBanner").hidden=!S.sample;
 }
