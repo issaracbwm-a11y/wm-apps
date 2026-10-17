@@ -7,7 +7,7 @@
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif;-webkit-text-size-adjust:100%}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
-<title>ตรวจเครื่องชั่งตลาดสด</title>
+<title>ตรวจเครื่องชั่งตลาดสด/นัด และร้านค้า</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=Sarabun:wght@400;600;700&display=swap">
 <style>
@@ -134,7 +134,7 @@ footer{font-size:12px;color:var(--muted);line-height:1.6}
 <div class="wrap">
   <header class="top">
     <div class="eyebrow">ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)</div>
-    <h1>ตรวจสอบเครื่องชั่งในตลาดสด</h1>
+    <h1>ตรวจสอบเครื่องชั่งในตลาดสด/นัด และเครื่องชั่งร้านค้า</h1>
     <p class="sub">เครื่องชั่งสปริงและเครื่องชั่งดิจิทัล · สำหรับนายตรวจชั่งตวงวัดและ อส.ชว.ตลาดสด</p>
   </header>
 
@@ -142,7 +142,7 @@ footer{font-size:12px;color:var(--muted);line-height:1.6}
   <section class="card" aria-labelledby="h-a">
     <h2 id="h-a"><span class="n">ก</span>ข้อมูลการตรวจ</h2>
     <div class="grid">
-      <label class="f full">ชื่อตลาด
+      <label class="f full">ชื่อตลาดสด/นัด หรือ ชื่อร้านค้า
         <input id="market" placeholder="เช่น ตลาดสดเทศบาลนครสุราษฎร์ธานี" autocomplete="off">
       </label>
       <label class="f">1. ประเภทเจ้าหน้าที่
@@ -613,9 +613,9 @@ function buildPages(){
   const chunks=[];for(let i=0;i<recs.length;i+=PER)chunks.push(recs.slice(i,i+PER));
   if(!chunks.length||chunks[chunks.length-1].length>4)chunks.push([]);
   const T=getTotals(), tAll=T.sp+T.sf+T.dp+T.df;
-  const head=`<h3>แบบรายงานผลการตรวจสอบเครื่องชั่งในตลาดสด</h3>
+  const head=`<h3>แบบรายงานผลการตรวจสอบเครื่องชั่งในตลาดสด/นัด และเครื่องชั่งร้านค้า</h3>
     <div class="org">ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี) กองชั่งตวงวัด กรมการค้าภายใน</div>
-    <div class="meta"><span><b>ตลาด</b> ${esc($("market").value||"-")}</span><span><b>วันที่ตรวจ</b> ${thDate($("date").value)}</span>
+    <div class="meta"><span><b>ตลาดสด/นัด หรือร้านค้า</b> ${esc($("market").value||"-")}</span><span><b>วันที่ตรวจ</b> ${thDate($("date").value)}</span>
     <span><b>ผู้ตรวจ</b> ${esc(o.name||"-")} (${o.typeLabel})</span>
     ${$("team").value.trim()?`<span><b>พร้อมด้วย</b> ${esc($("team").value.trim())}</span>`:""}</div>`;
   const thead=`<tr><th style="width:34px">ที่</th><th>ชื่อร้าน/แผง</th><th style="width:62px">ชนิด</th><th style="width:118px">หมายเลขเครื่อง<br><span style="font-weight:400;font-size:12px">ยี่ห้อ/รุ่น · คีม/ซีล</span></th><th style="width:72px">พิกัดกำลัง</th><th style="width:44px">e (ก.)</th>
@@ -637,7 +637,7 @@ function buildPages(){
 $("pdfBtn").addEventListener("click",async()=>{
   const T0=getTotals();
   if(!state.records.length&&!(T0.sp+T0.sf+T0.dp+T0.df))return flash($("msg2"),"ยังไม่มีผลการตรวจ บันทึกรายเครื่องหรือกรอกจำนวนเครื่องชั่งก่อน","err");
-  if(!$("market").value.trim())return flash($("msg2"),"กรอกชื่อตลาดในส่วน ก ก่อนส่งออก","err");
+  if(!$("market").value.trim())return flash($("msg2"),"กรอกชื่อตลาดสด/นัด หรือชื่อร้านค้าในส่วน ก ก่อนส่งออก","err");
   if(!getShops())return flash($("msg2"),"กรอกจำนวนร้านค้าที่ตรวจในครั้งนี้ก่อนส่งออก","err");
   sendSummary();
   if(!window.jspdf||!window.html2canvas)return flash($("msg2"),"โหลดตัวสร้าง PDF ไม่สำเร็จ ตรวจการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่","err");
