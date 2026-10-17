@@ -243,7 +243,7 @@ button.btn:disabled{opacity:.55;cursor:default}
   <section>
     <div class="sec-h"><h2>ลงลายมือชื่อ</h2></div>
     <div class="panel sigpanel">
-      <div class="crit" style="margin:0">เซ็นในแอปแล้วลายเซ็นจะไปอยู่บนช่องลงชื่อใน PDF ทันที หรือเว้นไว้แล้วเซ็นใน PDF Expert ภายหลังก็ได้ · ผู้ร่วมตรวจดึงชื่อจากช่อง "พร้อมด้วย" (คั่นด้วยจุลภาค)</div>
+      <div class="crit" style="margin:0">เซ็นในแอปแล้วลายเซ็นจะไปอยู่บนช่องลงชื่อใน PDF ทันที หรือเว้นไว้แล้วเซ็นใน PDF Expert ภายหลังก็ได้</div>
       <label>ชื่อเจ้าของ / ผู้จัดการ / ผู้แทนสถานี<input id="m_ownerName" placeholder="ชื่อ-นามสกุล ที่จะพิมพ์ใต้ลายเซ็น"></label>
       <div id="sigList" class="siglist"></div>
     </div>
@@ -537,7 +537,6 @@ function footHTML(){
   '<div class="sig"><div><div>ข้าพเจ้า <span class="sl" style="width:230px">'+sigTxt(m.ownerName)+'</span></div><div>เป็นเจ้าของ / ผู้จัดการ / ผู้แทน ของสถานที่จำหน่ายน้ำมันเชื้อเพลิงแห่งนี้ ขอรับรองว่าผลการตรวจของนายตรวจตามรายงานข้างต้นนี้เป็นความจริง</div>'+
   '<div class="c" style="margin-top:22px">ลงชื่อ <span class="sl">'+sigImg("owner")+'</span></div><div class="c">( <span class="sl">'+sigTxt(m.ownerName)+'</span> )</div><div class="c">วันที่ <span class="sl" style="width:150px">'+(sigGet("owner")?sigTxt(shortDate(m.date)):"")+'</span></div></div>'+
   '<div class="c" style="padding-top:62px"><div>ลงชื่อ <span class="sl">'+sigImg("insp")+'</span></div><div>( '+esc(ins.n)+' )</div><div>ตำแหน่ง '+esc(ins.p)+'</div><div>นายตรวจชั่งตวงวัด</div></div></div>'+
-  (coNames().length?'<div class="sig co">'+coNames().map(n=>'<div class="c"><div>ลงชื่อ <span class="sl">'+sigImg("co:"+n)+'</span> ผู้ร่วมตรวจ</div><div>( '+esc(n)+' )</div></div>').join("")+'</div>':'')+
   '</div>';
 }
 function newPage(first,no){
@@ -975,8 +974,8 @@ function sigGet(k){return S.sigs&&S.sigs[k]||""}
 function sigImg(k){const d=sigGet(k);return d?'<img src="'+d+'" alt="">':""}
 function sigTxt(t){return t?'<span style="position:absolute;left:0;right:0;bottom:0;text-align:center;white-space:nowrap">'+esc(t)+'</span>':""}
 function sigPeople(){const ins=INSPECTORS[+S.meta.inspector]||INSPECTORS[0];
-  return [{k:"owner",role:"เจ้าของ / ผู้แทนสถานี",name:S.meta.ownerName||"(ยังไม่ได้กรอกชื่อ)"},{k:"insp",role:"นายตรวจชั่งตวงวัด",name:ins.n}]
-    .concat(coNames().map(n=>({k:"co:"+n,role:"ผู้ร่วมตรวจ",name:n})))}
+  return [{k:"owner",role:"เจ้าของ / ผู้แทนสถานี",name:S.meta.ownerName||"(ยังไม่ได้กรอกชื่อ)"},{k:"insp",role:"นายตรวจชั่งตวงวัด",name:ins.n}];
+}
 function renderSigs(){const el=$("sigList");if(!el)return;
   el.innerHTML=sigPeople().map(p=>{const d=sigGet(p.k);return '<div class="sigrow" data-sk="'+esc(p.k)+'"><div class="who"><b>'+esc(p.name)+'</b><span>'+esc(p.role)+'</span></div>'+
     '<div class="thumb">'+(d?'<img src="'+d+'" alt="ลายเซ็น">':'ยังไม่ได้เซ็น')+'</div><div class="acts"><button type="button" class="btn sm'+(d?'':' primary')+'" data-sign-k>'+(d?'เซ็นใหม่':'เซ็น')+'</button>'+
@@ -1004,7 +1003,7 @@ $("sigSave").onclick=()=>{if(!sigKey)return;const d=sigDirty?trimmedSig():"";if(
 $("sigList").addEventListener("click",e=>{const row=e.target.closest("[data-sk]");if(!row)return;const k=row.dataset.sk;
   if(e.target.closest("[data-sign-k]"))openPad(k);
   if(e.target.closest("[data-sign-del]")){if(S.sigs)delete S.sigs[k];save();renderSigs()}});
-["m_team","m_ownerName"].forEach(id=>$(id).addEventListener("input",renderSigs));
+$("m_ownerName").addEventListener("input",renderSigs);
 $("m_inspector").addEventListener("change",()=>{if(S.sigs)delete S.sigs.insp;save();renderSigs()});
 window.addEventListener("resize",()=>{if(!$("sigModal").hidden&&!sigDirty)padSize()});
 
