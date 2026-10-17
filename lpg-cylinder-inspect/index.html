@@ -266,6 +266,8 @@ function render(items,S,mk,FAM){
   function font(sz,b){ctx.font=(b?'700 ':'400 ')+sz+'px '+FAM;}
   function toks(s){return seg?Array.from(seg.segment(s),x=>x.segment):(s.match(MARKS)||[]);}
   function W(s){return ctx.measureText(s).width;}
+  /* Draw left-aligned and compute the offset ourselves: iOS Safari ignores canvas textAlign for this text. */
+  function put(s,x,yy,align){ctx.textAlign='left';const w=W(s);ctx.fillText(s,align==='center'?x-w/2:align==='right'?x-w:x,yy);}
   function wrap(s,w){
     const out=[];
     String(s==null?'':s).split('\n').forEach(par=>{
@@ -285,7 +287,7 @@ function render(items,S,mk,FAM){
     o=o||{};const sz=o.size||12,lh=sz*1.5;y+=o.before||0;font(sz,o.bold);
     const ind=o.indent||0;const lines=wrap(s,CW-ind);
     lines.forEach(l=>{ensure(lh);font(sz,o.bold);ctx.fillStyle=o.color||'#000000';
-      if(o.align==='center'){ctx.textAlign='center';ctx.fillText(l,ML+CW/2,y+sz*1.12);}else{ctx.textAlign='left';ctx.fillText(l,ML+ind,y+sz*1.12);}
+      put(l,o.align==='center'?ML+CW/2:ML+ind,y+sz*1.12,o.align);
       y+=lh;});
     y+=o.after||0;
   }
@@ -301,9 +303,7 @@ function render(items,S,mk,FAM){
         font(sz,c.b);const ls=wrap(c.t,w-2*pad);let ty=y+(h-ls.length*lh)/2;
         ctx.fillStyle=c.color||'#000000';
         ls.forEach(l=>{
-          if(c.align==='center'){ctx.textAlign='center';ctx.fillText(l,x+w/2,ty+sz*1.08);}
-          else if(c.align==='right'){ctx.textAlign='right';ctx.fillText(l,x+w-pad,ty+sz*1.08);}
-          else{ctx.textAlign='left';ctx.fillText(l,x+pad,ty+sz*1.08);}
+          put(l,c.align==='center'?x+w/2:c.align==='right'?x+w-pad:x+pad,ty+sz*1.08,c.align);
           ty+=lh;});
         if(!o.noBorder){ctx.strokeStyle='#333333';ctx.lineWidth=0.6;ctx.strokeRect(x,y,w,h);}
         x+=w;
@@ -337,7 +337,7 @@ function render(items,S,mk,FAM){
 
   heading('3. สรุปผลรายล็อต');
   const sw=[30,104,46,54,66,40,40];sw.push(CW-sw.reduce((a,b)=>a+b,0));
-  const srows=[[hd('ล็อต'),hd('ขนาดถัง / ยี่ห้อ'),hd('ในล็อต (ถัง)'),hd('ตรวจ (ถัง)'),hd('ค่าเฉลี่ย (กก.)'),hd('เกิน T1'),hd('เกิน T2'),hd('ผล')]];
+  const srows=[[hd('ล็อต'),hd('ขนาดถัง / ยี่ห้อ'),hd('ในล็อต\n(ถัง)'),hd('ตรวจ\n(ถัง)'),hd('ค่าเฉลี่ย\n(กก.)'),hd('เกิน\nT1'),hd('เกิน\nT2'),hd('ผล')]];
   items.forEach((it,k)=>{const R=it.R;
     srows.push([{t:String(k+1),align:'center'},{t:R.sizeTxt+(it.L.brand?'\n'+it.L.brand:'')},{t:R.p.N.toLocaleString('th-TH'),align:'center'},{t:String(R.n),align:'center'},
       {t:R.n?kg(R.mean):'-',align:'center'},{t:String(R.nWarn),align:'center'},{t:String(R.nBad),align:'center'},{t:R.vt,b:true,align:'center',fill:vFill(R.v)}]);});
@@ -351,7 +351,7 @@ function render(items,S,mk,FAM){
     text('4.'+(k+1)+' '+lotName(it,k),{size:12,bold:true});
     text('จำนวนในล็อต '+p.N.toLocaleString('th-TH')+' ถัง · '+(p.all?'ตรวจทุกถัง':'สุ่มตัวอย่าง 20 ถัง')+' · T1 = '+String(Math.round(R.T1*100)/100)+' กรัม · T2 = '+String(Math.round(R.T2*100)/100)+' กรัม',{indent:18,size:11,after:3});
     const w6=[38,78,80,80,76];w6.push(CW-w6.reduce((a,b)=>a+b,0));
-    const rows=[[hd('ลำดับ'),hd('น้ำหนักรวม (กก.)'),hd('น้ำหนักถังเปล่า (กก.)'),hd('ปริมาณสุทธิ (กก.)'),hd('ผลต่าง (กรัม)'),hd('ผล')]];
+    const rows=[[hd('ลำดับ'),hd('น้ำหนักรวม\n(กก.)'),hd('น้ำหนักถังเปล่า\n(กก.)'),hd('ปริมาณสุทธิ\n(กก.)'),hd('ผลต่าง\n(กรัม)'),hd('ผล')]];
     const add=(x,j,extra)=>{const r=L.rows[x.i]||{};
       rows.push([{t:String(j),align:'center'},{t:gt?String(r.g||'-'):'-',align:'center'},{t:gt?String(r.t||'-'):'-',align:'center'},
         {t:kg(x.net),align:'center',b:true},{t:gtxt(x.net-R.Q),align:'center'},
@@ -389,8 +389,8 @@ function render(items,S,mk,FAM){
   table([half,half],[[sig(S.inspector,'ตำแหน่ง '+(insp?insp[1]:DOTS),'นายตรวจชั่งตวงวัด'),sig('','ผู้ประกอบการ / ผู้แทน','วันที่ '+DOTS)]],{noBorder:true,size:12,pad:0});
 
   const n=pages.length;
-  pages.forEach((pg,i)=>{const c=pg.ctx;c.font='400 9px '+FAM;c.fillStyle='#666666';c.textAlign='center';
-    c.fillText('หน้า '+(i+1)+' / '+n,PW/2,PH-30);});
+  pages.forEach((pg,i)=>{const c=pg.ctx;c.font='400 9px '+FAM;c.fillStyle='#666666';c.textAlign='left';
+    const t='หน้า '+(i+1)+' / '+n;c.fillText(t,PW/2-c.measureText(t).width/2,PH-30);});
   return pages.map(pg=>pg.c);
 }
 
