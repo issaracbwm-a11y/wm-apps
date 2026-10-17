@@ -805,8 +805,9 @@ const IMP_PROMPT='ภาพที่แนบเป็นหน้าของ�
  'อ่านแล้วตอบเป็น JSON เท่านั้น รูปแบบ {"station":{"name":"","address":"","tambon":"","amphoe":"","province":"","zip":"","phone":""},"rows":[{"sn":"","oil":"","brand":"","model":"","e5":"","e20":"","expiry":"","clamp":"","seal":""}]} โดย '+
  'station มาจากช่อง ชื่อสถานีบริการ (หรือ ชื่อสถานประกอบการ) และช่อง ตั้งอยู่เลขที่/หมู่/ถนน/ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์/โทร ของสถานประกอบการ (ไม่ใช่ที่อยู่ของผู้ยื่นคำขอหรือผู้ติดตั้ง และไม่ใช่ที่อยู่ของกองชั่งตวงวัดที่หัวกระดาษ); '+
  'address = เลขที่ หมู่ ถนน รวมกัน เช่น "54/9 ถ.พัฒนาการคูขวาง"; rows มาจากตารางรายงานผล หนึ่งแถวต่อหนึ่งเครื่องตามลำดับในตาราง: sn = หมายเลขประจำเครื่อง (W&M No.) รวมขีด ไม่เว้นวรรค, '+
- 'oil = ชนิดน้ำมัน, brand = เครื่องหมายการค้า, model = รุ่น (ตัดส่วน (S/N ...) ออก), e5 = ค่าความคลาดเคลื่อนช่อง 5 L, e20 = ค่าความคลาดเคลื่อนช่อง 20 L (ตัวเลขพร้อมเครื่องหมายตามที่แสดง หน่วยมิลลิลิตร), '+
- 'expiry = วันสิ้นอายุคำรับรอง แปลงเป็นปีคริสต์ศักราชรูป YYYY-MM-DD (ปี พ.ศ. ลบ 543), clamp = คีม, seal = ซีล ถ้ามี; ช่องใดว่างหรือไม่มีในเอกสารให้เป็น "" ห้ามเดา';
+ 'oil = ชนิดน้ำมัน, brand = เครื่องหมายการค้า, model = ข้อความในช่อง รุ่น (Model) คัดลอกตามที่เห็นแม้ตัวอักษรจะเล็กหรือถูกตัดขอบไม่ครบ (ตัดส่วน "(S/N ..." ท้ายข้อความออก) ห้ามปล่อยว่างถ้าช่องมีข้อความ, e5 = ค่าความคลาดเคลื่อนช่อง 5 L, e20 = ค่าความคลาดเคลื่อนช่อง 20 L (ตัวเลขพร้อมเครื่องหมายตามที่แสดง หน่วยมิลลิลิตร), '+
+ 'expiry = วันสิ้นอายุคำรับรอง แปลงเป็นปีคริสต์ศักราชรูป YYYY-MM-DD (ปี พ.ศ. ลบ 543), clamp = คีม, seal = ซีล ถ้ามี; ช่องใดว่างหรือไม่มีในเอกสารให้เป็น "" ห้ามเดา. '+
+ 'ถ้ามีภาพที่เป็นภาพขยายเฉพาะส่วนซ้ายของตาราง (คอลัมน์หมายเลขประจำเครื่องถึงหมายเลขการผลิต) ให้ใช้ภาพนั้นอ่านรุ่นและหมายเลขเครื่องให้แม่นยำ';
 function similar(a,b){a=String(a||"");b=String(b||"");if(!a||!b)return 0;const m=[...a];let hit=0;const pool=[...b];for(const ch of m){const k=pool.indexOf(ch);if(k>=0){hit++;pool.splice(k,1)}}return 2*hit/(a.length+b.length)}
 function bestGeo(list,v){if(!v)return "";let best="",sc=0;for(const x of list){const s=x===v?2:similar(x,v);if(s>sc){sc=s;best=x}}return sc>=0.8?best:v}
 function normNum(t){t=String(t||"").replace(/[−–—]/g,"-").replace(/\s+/g,"").replace(/[oO]/g,"0");const m=t.match(/^[+-]?\d{1,4}(?:\.\d+)?$/);return m?m[0]:""}
@@ -825,6 +826,16 @@ function gridDetect(img){
   const vs=[];for(let x=0;x<W;x++){let c=0;for(let y=top;y<=bot;y++)if(dark((y*W+x)*4))c++;if(c>(bot-top)*0.8)vs.push(x)}
   return {rows,cols:merge(vs)};
 }
+function tableZoom(c){
+  try{const ctx=c.getContext("2d",{willReadFrequently:true});const g=gridDetect(ctx.getImageData(0,0,c.width,c.height));
+    if(!g||g.cols.length<12||g.rows.length<3)return null;
+    // หาแถวสุดท้ายที่มีข้อมูล (ช่องหมายเลขเครื่องมีหมึก)
+    const D=ctx.getImageData(0,0,c.width,c.height).data,W=c.width,C=g.cols;let last=1;
+    for(let i=1;i<g.rows.length-1;i++){let n=0;for(let y=g.rows[i]+4;y<g.rows[i+1]-3;y++)for(let x=C[1]+4;x<C[2]-4;x+=2){const k=(y*W+x)*4;if(D[k]+D[k+1]+D[k+2]<300)n++}if(n>20)last=i+1}
+    const x0=C[0],x1=C[Math.min(6,C.length-1)],y0=g.rows[0],y1=g.rows[last];
+    const sc=Math.min(3,2400/(x1-x0));const z=document.createElement("canvas");z.width=Math.round((x1-x0)*sc);z.height=Math.round((y1-y0)*sc);
+    if(z.height>6000)return null;const zx=z.getContext("2d");zx.imageSmoothingQuality="high";zx.drawImage(c,x0,y0,x1-x0,y1-y0,0,0,z.width,z.height);return z}
+  catch(e){return null}}
 async function importOCR(canvases,msg){
   OCR_OK=true;const W=await ocrWorkers(null,msg);
   const res={station:{},rows:[]};let stationText="";
@@ -879,7 +890,7 @@ function applyImport(d,mode){
     const TB=(GEO[P]&&GEO[P][m.amphoe]||[]).map(x=>x[0]);m.tambon=bestGeo(TB,String(st.tambon||"").replace(/^ต(\.|ำบล)\s*/,""))}
   if(st.phone){m.phone=String(st.phone).trim();got.push("เบอร์โทร")}
   const rows=(d.rows||[]).filter(r=>r&&(r.sn||r.brand||r.e5||r.e20)).map(r=>{const x=blankRow();
-    x.sn=String(r.sn||"").replace(/\s+/g,"");x.brand=[r.brand,r.model].map(v=>String(v||"").trim()).filter(Boolean).join(" / ");
+    x.sn=String(r.sn||"").replace(/\s+/g,"");x.brand=[r.brand,cleanModel(r.model)].map(v=>String(v||"").trim()).filter(Boolean).join(" / ");
     x.oil=matchOil(r.oil);x.clamp=String(r.clamp||"").trim();x.seal=String(r.seal||"").trim();
     const ex=String(r.expiry||"");if(/^\d{4}-\d{2}-\d{2}$/.test(ex)){const y=+ex.slice(0,4);x.expiry=(y>2400?String(y-543):ex.slice(0,4))+ex.slice(4)}
     x.r5=normNum(r.e5);x.r20=normNum(r.e20);return x});
@@ -896,6 +907,7 @@ async function handleImport(file){
     let d;
     if(SAMPLE){impMsg("กำลังให้ Claude อ่านไฟล์ "+cv.length+" หน้า…");const lim=await SAMPLE.limits().catch(()=>null);const max=(lim&&lim.images&&lim.images.maxCount)||4;
       const blobs=[];for(const c of cv.slice(0,max))blobs.push(await canvasBlob(c));
+      for(const c of cv){if(blobs.length>=max)break;const z=tableZoom(c);if(z)blobs.push(await canvasBlob(z))}
       d=await SAMPLE.json(IMP_PROMPT,{images:blobs,modelTier:"default",cache:false})}
     else d=await importOCR(cv,t=>impMsg(t));
     const n=(d&&d.rows||[]).filter(r=>r&&r.sn).length;
