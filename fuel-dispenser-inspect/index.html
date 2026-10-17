@@ -265,7 +265,7 @@ let uid=1;const nid=()=>"r"+(Date.now().toString(36))+(uid++);
 
 function blankMeta(keep){return Object.assign({inspector:0,zone:"เขต 3-1 สุราษฎร์ธานี",team:"",helpers:"",date:today(),writeAt:"",tStart:"",tEnd:"",mode:"use",mmq:"5",
   station:"",taxId:"",company:"",address:"",tambon:"",amphoe:"",province:"สุราษฎร์ธานี",phone:"",lat:"",lng:""},keep||{})}
-function blankRow(){return {id:nid(),sn:"",brand:"",oil:"",clamp:"",seal:"",expiry:"",r5:"",r20:"",action:""}}
+function blankRow(){return {id:nid(),sn:"",brand:"",oil:"",clamp:"",seal:"",expiry:"",r5:"0",r20:"0",action:""}}
 function sampleState(){
   const m=blankMeta({team:"ว่าที่ ร.ต.ธรรมรัตน์ สายสวัสดิ์, นายอดิเทพ คุ้มจันทร์, นายธีระยุธ คงเกษตร",helpers:"3",
     station:"บจ.สยามสุขสวัสดิ์ (3110297)",taxId:"0115555015410",address:"82/2 หมู่ที่ 3 ถนนสายเอเชีย 41 (ขาขึ้น)",tambon:"หัวเตย",amphoe:"พุนพิน",phone:"084-4391521",lat:"9.11365",lng:"99.15877",tStart:"09:30"});
@@ -423,6 +423,7 @@ $("cards").addEventListener("input",ev=>{
   const t=ev.target,k=t.dataset.k;if(!k)return;const card=t.closest(".card");const row=rowById(card.dataset.id);if(!row)return;
   row[k]=t.value;refreshCard(row);tally();save();
 });
+$("cards").addEventListener("focusin",ev=>{const t=ev.target;if(t.matches&&t.matches('input[data-k="r5"],input[data-k="r20"]')){if(t.dataset.nosel){delete t.dataset.nosel;return}setTimeout(()=>{try{t.select()}catch(e){}},0)}});
 $("cards").addEventListener("change",ev=>{
   const t=ev.target;if(!t.matches("[data-oilsel]"))return;const card=t.closest(".card");const row=rowById(card.dataset.id);if(!row)return;
   const inp=card.querySelector('input[data-k="oil"]');
@@ -435,8 +436,9 @@ $("cards").addEventListener("click",ev=>{
   if(ev.target.closest("[data-qr]")){scanTarget=row.id;$("qrFile").value="";$("qrFile").click();return}
   const sg=ev.target.closest("[data-sign]");
   if(sg){const k=sg.dataset.sign;const inp=card.querySelector('input[data-k="'+k+'"]');let v=(inp.value||"").trim().replace(/−/g,"-");
-    if(v.startsWith("-"))v="+"+v.slice(1);else if(v.startsWith("+"))v="-"+v.slice(1);else v="-"+v;
-    inp.value=v;row[k]=v;refreshCard(row);tally();save();inp.focus();return}
+    if(/^[+-]?0?$/.test(v))v=v.startsWith("-")?"+":"-"; // ค่าเริ่มต้น 0: ใส่เครื่องหมายแล้วพิมพ์ตัวเลขต่อได้เลย
+    else if(v.startsWith("-"))v="+"+v.slice(1);else if(v.startsWith("+"))v="-"+v.slice(1);else v="-"+v;
+    inp.value=v;row[k]=v;refreshCard(row);tally();save();inp.dataset.nosel="1";inp.focus();try{inp.setSelectionRange(v.length,v.length)}catch(e){}return}
   const del=ev.target.closest("[data-del]");
   if(del){if(del.dataset.armed){S.rows=S.rows.filter(r=>r!==row);renderCards();save();return}
     del.dataset.armed="1";del.textContent="แตะอีกครั้งเพื่อยืนยันการลบ";setTimeout(()=>{if(del.isConnected){delete del.dataset.armed;del.textContent="ลบหัวจ่ายนี้"}},3000)}
