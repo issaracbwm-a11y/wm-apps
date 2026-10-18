@@ -231,8 +231,32 @@ function onAckEdit_(e) {
   const c = r.getColumn();
   if (c !== 6 && c !== 8) return;
   const cell = sh.getRange(r.getRow(), c + 1);
-  if (r.getValue() === true) cell.setValue(stamp_(e));
+  const on = r.getValue() === true;
+  if (on) cell.setValue(stamp_(e));
   else cell.clearContent();
+  // ลงระบบงานชั่งตวงวัดแล้ว ไม่ต้องเก็บ PDF ของวันนั้นต่อ ย้ายลงถังขยะ (กู้คืนได้ใน 30 วันถ้ายกเลิกติ๊ก)
+  if (c === 8) setDayPdfsTrashed_(toISO_(sh.getRange(r.getRow(), 1).getValue()), on);
+}
+
+const PDF_TRASHED = 'ลบไฟล์แล้วหลังลงระบบ';
+
+function setDayPdfsTrashed_(date, trash) {
+  if (!date) return;
+  const sh = SpreadsheetApp.getActive().getSheetByName(LOG);
+  const last = sh.getLastRow();
+  if (last < 2) return;
+  const folder = folder_();
+  const rows = sh.getRange(2, 1, last - 1, COL.id).getValues();
+  rows.forEach((v, i) => {
+    const id = String(v[COL.id - 1] || '').replace(/'/g, '');
+    if (toISO_(v[0]) !== date || !id) return;
+    const it = folder.searchFiles("title contains '" + id + "' and trashed = " + !trash);
+    let url = '';
+    while (it.hasNext()) { const f = it.next(); f.setTrashed(trash); url = f.getUrl(); }
+    const link = sh.getRange(i + 2, COL.link);
+    if (trash && url) link.setValue(PDF_TRASHED);
+    if (!trash && url) link.setValue(url);
+  });
 }
 
 // แก้ไขหรือเพิ่มแถวในแท็บ รายการตรวจ: บันทึกผู้แก้ไข เพิ่มวันที่ในแท็บ รับทราบ
