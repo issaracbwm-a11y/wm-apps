@@ -23,7 +23,14 @@ const TZ = 'Asia/Bangkok';
 const LOG = 'รายการตรวจ';
 const ACK = 'รับทราบ';
 const CFG = 'ตั้งค่า';
+const HIST = 'ประวัติ';
 const COL = { date: 1, total: 11, link: 14, id: 17, edited: 18 };
+// แท็บ รับทราบ: F ผอ.รับทราบ, G เมื่อ, H ลงระบบแล้ว, I เมื่อ/โดย, J หมายเหตุ, K ยอดที่ ผอ.รับทราบ, L ยอดที่ลงระบบ, M สถานะ
+const A = { ack: 6, ackAt: 7, done: 8, doneAt: 9, ackSnap: 11, doneSnap: 12 };
+const STATUS_F = '={"สถานะ";ARRAYFORMULA(IF(LEN(A2:A)=0,,LET(cur,B2:B&" แห่ง · "&C2:C&" ราย · "&D2:D&" เครื่อง · ผิด "&E2:E,'
+  + 'k,(K2:K<>"")*(K2:K<>cur),l,(L2:L<>"")*(L2:L<>cur),'
+  + 'IF(k*l,"มีข้อมูลเปลี่ยนแปลง รอ ผอ.รับทราบใหม่ และต้องปรับปรุงยอดในระบบงาน",IF(l,"ต้องตรวจสอบและปรับปรุงยอดในระบบงาน",'
+  + 'IF(k,"มีข้อมูลเปลี่ยนแปลง รอรับทราบใหม่",IF(H2:H=TRUE,"ลงระบบแล้ว",IF(F2:F=TRUE,"รับทราบแล้ว รอลงระบบ","รอ ผอ.รับทราบ"))))))))}';
 const JOBS = ['เครื่องชั่งในตลาด', 'เครื่องชั่ง', 'เครื่องตวง', 'มาตรวัดน้ำมันเชื้อเพลิง', 'ก๊าซหุงต้มบรรจุถัง', 'เครื่องชั่งรถยนต์', 'สินค้าหีบห่อ'];
 const PLACES = ['ตลาดสด', 'ตลาดนัด', 'ร้านค้า', 'สถานที่รับซื้อสินค้าเกษตร', 'สถานีบริการน้ำมัน', 'โรงงาน'];
 
@@ -63,9 +70,14 @@ function setup() {
     p.removeEditors(p.getEditors());
     p.addEditor(c.director);
   }
-  // ช่องเวลาที่ระบบลงให้ ห้ามแก้ด้วยมือ
-  const p2 = ack.getRange('I2:I').protect().setDescription('เวลาลงระบบ (อัตโนมัติ)');
-  p2.removeEditors(p2.getEditors());
+  // ช่องเวลาและยอดที่ระบบบันทึกให้ ห้ามแก้ด้วยมือ
+  ack.getRange('K1:M1').setValues([['ยอดที่ ผอ.รับทราบ', 'ยอดที่ลงระบบ', '']]).setFontWeight('bold');
+  ack.getRange('M1').setFormula(STATUS_F);
+  ['I2:I', 'K2:L'].forEach(a => {
+    const p2 = ack.getRange(a).protect().setDescription('บันทึกอัตโนมัติ');
+    p2.removeEditors(p2.getEditors());
+  });
+  hist_();
   // แท็บ รายการตรวจ แก้ไขได้ทั้งสามฝ่าย (ข้อมูลจากแอปอาจไม่ครบ) และเพิ่มแถวเองได้
   const log = ss.getSheetByName(LOG);
   log.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(p => p.remove());
@@ -83,6 +95,7 @@ function setup() {
   // ทริกเกอร์: บันทึกผู้แก้ไขและเวลาที่ติ๊ก และส่งอีเมลสรุปทุกวัน
   ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('onSheetEdit').forSpreadsheet(ss).onEdit().create();
+  ScriptApp.newTrigger('onSheetChange').forSpreadsheet(ss).onChange().create();
   ScriptApp.newTrigger('dailyEmail').timeBased().atHour(c.hour).everyDays(1).inTimezone(TZ).create();
   Logger.log('ตั้งค่าเรียบร้อย ' + ss.getUrl());
 }
@@ -135,7 +148,7 @@ function findRow_(sh, id) {
 }
 
 // หนึ่งแถวต่อสถานที่ที่ตรวจ ส่งซ้ำด้วยรหัสเดิมให้แทนที่แถวเดิม
-function upsert_(d) {
+function upsert_(d, noSync) {
   const sh = SpreadsheetApp.getActive().getSheetByName(LOG);
   const date = toISO_(d.date);
   if (!date) throw new Error('bad date');
@@ -160,6 +173,7 @@ function upsert_(d) {
   ]]);
   sh.getRange(r, 1).setNumberFormat('dd/mm/yyyy');
   ensureAckDate_(date);
+  if (!noSync) syncAck_('แอป ' + (d.app || ''));
 }
 
 /* ---------- ไฟล์รายงาน PDF ---------- */
@@ -224,68 +238,93 @@ function onSheetEdit(e) {
   else if (sh.getName() === LOG) onLogEdit_(e);
 }
 
-// ติ๊กช่อง ผอ.รับทราบ (F) หรือ ลงระบบแล้ว (H) แล้วลงเวลาและผู้กดในช่องถัดไป
+// ติ๊กช่อง ผอ.รับทราบ (F) หรือ ลงระบบแล้ว (H): ลงเวลาและผู้กด และเก็บยอดของวันนั้นไว้ (K หรือ L)
+// เพื่อให้รู้ภายหลังว่ารับทราบหรือลงระบบยอดใดไป ไฟล์ PDF เก็บไว้ตามเดิม ไม่ลบ
 function onAckEdit_(e) {
   const r = e.range, sh = r.getSheet();
   if (r.getRow() < 2 || r.getNumRows() > 1) return;
   const c = r.getColumn();
-  if (c !== 6 && c !== 8) return;
-  const cell = sh.getRange(r.getRow(), c + 1);
-  const on = r.getValue() === true;
-  if (on) cell.setValue(stamp_(e));
-  else cell.clearContent();
-  // ลงระบบงานชั่งตวงวัดแล้ว ไม่ต้องเก็บ PDF ของวันนั้นต่อ ย้ายลงถังขยะ (กู้คืนได้ใน 30 วันถ้ายกเลิกติ๊ก)
-  if (c === 8) setDayPdfsTrashed_(toISO_(sh.getRange(r.getRow(), 1).getValue()), on);
+  if (c !== A.ack && c !== A.done) return;
+  const row = r.getRow(), on = r.getValue() === true, st = stamp_(e);
+  SpreadsheetApp.flush();
+  const v = sh.getRange(row, 1, 1, 5).getValues()[0];
+  const snap = snap_(v);
+  if (on) {
+    sh.getRange(row, c + 1).setValue(st);
+    sh.getRange(row, c === A.ack ? A.ackSnap : A.doneSnap).setValue(snap);
+  } else {
+    sh.getRange(row, c + 1).clearContent();
+  }
+  const what = c === A.ack ? (on ? 'ผอ.รับทราบ' : 'ยกเลิก ผอ.รับทราบ') : (on ? 'ลงระบบงานแล้ว' : 'ยกเลิกลงระบบงาน');
+  logHist_(v[0], what, snap, st);
 }
 
-const PDF_TRASHED = 'ลบไฟล์แล้วหลังลงระบบ';
+function snap_(v) {
+  return v[1] + ' แห่ง · ' + v[2] + ' ราย · ' + v[3] + ' เครื่อง · ผิด ' + v[4];
+}
 
-function setDayPdfsTrashed_(date, trash) {
-  if (!date) return;
-  const sh = SpreadsheetApp.getActive().getSheetByName(LOG);
-  const last = sh.getLastRow();
-  if (last < 2) return;
-  const folder = folder_();
-  const rows = sh.getRange(2, 1, last - 1, COL.id).getValues();
+// ตรวจทุกวันที่เคยรับทราบหรือลงระบบไว้ ถ้ายอดปัจจุบันไม่ตรงกับยอดที่เก็บไว้ ให้เอาติ๊กออก
+// และบันทึกประวัติ (ยอดเดิมยังอยู่ใน K/L และแท็บ ประวัติ) สถานะในคอลัมน์ M จะบอกว่าต้องทำอะไรต่อ
+// เรียกจากการรับข้อมูลจากแอป การแก้ไข/ลบแถวในชีต และการนำเข้าข้อมูลเก่า
+// จึงครอบคลุมกรณีเปลี่ยนวันที่ตรวจ ทั้งวันเดิมและวันใหม่
+function syncAck_(by) {
+  SpreadsheetApp.flush();
+  const sh = SpreadsheetApp.getActive().getSheetByName(ACK);
+  const n = sh.getLastRow();
+  if (n < 2) return;
+  const rows = sh.getRange(2, 1, n - 1, A.doneSnap).getValues();
+  const now = Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm') + (by ? ' · ' + by : '');
   rows.forEach((v, i) => {
-    const id = String(v[COL.id - 1] || '').replace(/'/g, '');
-    if (toISO_(v[0]) !== date || !id) return;
-    const it = folder.searchFiles("title contains '" + id + "' and trashed = " + !trash);
-    let url = '';
-    while (it.hasNext()) { const f = it.next(); f.setTrashed(trash); url = f.getUrl(); }
-    const link = sh.getRange(i + 2, COL.link);
-    if (trash && url) link.setValue(PDF_TRASHED);
-    if (!trash && url) link.setValue(url);
+    if (!v[0]) return;
+    const cur = snap_(v), row = i + 2;
+    if (v[A.ack - 1] === true && v[A.ackSnap - 1] && v[A.ackSnap - 1] !== cur) {
+      sh.getRange(row, A.ack, 1, 2).setValues([[false, '']]);
+      logHist_(v[0], 'มีข้อมูลเปลี่ยนแปลงหลัง ผอ.รับทราบ (ยอดที่รับทราบ ' + v[A.ackSnap - 1] + ')', cur, now);
+    }
+    if (v[A.done - 1] === true && v[A.doneSnap - 1] && v[A.doneSnap - 1] !== cur) {
+      sh.getRange(row, A.done, 1, 2).setValues([[false, '']]);
+      logHist_(v[0], 'มีข้อมูลเปลี่ยนแปลงหลังลงระบบงาน (ยอดที่ลงระบบ ' + v[A.doneSnap - 1] + ')', cur, now);
+    }
   });
 }
 
-// แก้ไขหรือเพิ่มแถวในแท็บ รายการตรวจ: บันทึกผู้แก้ไข เพิ่มวันที่ในแท็บ รับทราบ
-// และถ้าวันนั้น ผอ. รับทราบหรือลงระบบไปแล้ว ให้หมายเหตุไว้ว่ามีการแก้ไขภายหลัง
+function hist_() {
+  const ss = SpreadsheetApp.getActive();
+  let h = ss.getSheetByName(HIST);
+  if (!h) {
+    h = ss.insertSheet(HIST);
+    h.appendRow(['เวลา · โดย', 'วันที่ตรวจ', 'เหตุการณ์', 'ยอด ณ ตอนนั้น']);
+    h.getRange('A1:D1').setFontWeight('bold');
+    h.setFrozenRows(1);
+    h.protect().setDescription('ประวัติ บันทึกอัตโนมัติ').setWarningOnly(true);
+  }
+  return h;
+}
+
+function logHist_(date, what, snap, st) {
+  const iso = toISO_(date);
+  hist_().appendRow([st, iso, what, snap]);
+}
+
+// แก้ไขหรือเพิ่มแถวในแท็บ รายการตรวจ: บันทึกผู้แก้ไข เพิ่มวันที่ในแท็บ รับทราบ แล้วตรวจยอดที่รับทราบไว้
 function onLogEdit_(e) {
   const r = e.range, sh = r.getSheet();
   const first = Math.max(2, r.getRow()), last = r.getLastRow();
   if (last < first || r.getColumn() > COL.id) return;
   const st = stamp_(e);
-  const ack = SpreadsheetApp.getActive().getSheetByName(ACK);
   for (let row = first; row <= last; row++) {
     const vals = sh.getRange(row, 1, 1, COL.id).getValues()[0];
     if (vals.every(v => v === '' || v === null)) { sh.getRange(row, COL.edited).clearContent(); continue; }
     sh.getRange(row, COL.edited).setValue(st);
     const date = toISO_(vals[0]);
-    if (!date) continue;
-    ensureAckDate_(date);
-    const n = ack.getLastRow();
-    const ds = ack.getRange(2, 1, n - 1, 1).getValues();
-    for (let i = 0; i < ds.length; i++) {
-      if (toISO_(ds[i][0]) !== date) continue;
-      const a = ack.getRange(i + 2, 6, 1, 5).getValues()[0]; // F:J
-      if (a[0] === true || a[2] === true) {
-        const note = 'แก้ไขข้อมูลหลังรับทราบ/ลงระบบ ' + st;
-        ack.getRange(i + 2, 10).setValue(a[4] ? a[4] + '\n' + note : note);
-      }
-      break;
-    }
+    if (date) ensureAckDate_(date);
   }
+  syncAck_(st.split(' · ')[1] || '');
+}
+
+// ลบแถวในแท็บ รายการตรวจ ไม่ทำให้เกิด onEdit จึงตรวจยอดจากทริกเกอร์ onChange ด้วย
+function onSheetChange(e) {
+  if (e && /REMOVE|INSERT_ROW|OTHER/.test(e.changeType)) syncAck_((e.user && e.user.getEmail && e.user.getEmail()) || '');
 }
 
 /* ---------- อีเมลสรุปถึง ผอ. ทุกวัน ---------- */
@@ -296,20 +335,26 @@ function dailyEmail() {
   const today = toISO_(new Date());
   const rows = ss.getSheetByName(LOG).getDataRange().getValues().slice(1)
     .filter(r => toISO_(r[0]) === today);
-  if (!rows.length) return;
+  const ack = ss.getSheetByName(ACK);
+  const redo = ack.getLastRow() < 2 ? [] : ack.getRange(2, 1, ack.getLastRow() - 1, 13).getValues()
+    .filter(r => r[0] && toISO_(r[0]) !== today && /รอ ผอ.รับทราบใหม่|รอรับทราบใหม่/.test(r[12]))
+    .map(r => '• ' + thai_(toISO_(r[0])) + ' ' + r[12] + ' (ยอดใหม่ ' + snap_(r) + ')');
+  if (!rows.length && !redo.length) return;
   const sum = (i) => rows.reduce((a, r) => a + (Number(r[i]) || 0), 0);
   const lines = rows.map(r => '• ' + r[3] + ' (' + r[2] + ') ' + r[7] + ' ราย ' + r[10] + ' เครื่อง ผิด ' + r[9] + ' เครื่อง');
-  const ack = ss.getSheetByName(ACK);
   const url = ss.getUrl() + '#gid=' + ack.getSheetId();
-  const [y, mo, da] = today.split('-');
-  const d = da + '/' + mo + '/' + (+y + 543);
-  MailApp.sendEmail({
-    to: c.director,
-    subject: 'สรุปผลตรวจสอบเครื่องชั่งตวงวัด วันที่ ' + d,
-    body: 'ผลการตรวจสอบวันที่ ' + d + '\n'
+  const d = thai_(today);
+  const body = (rows.length ? 'ผลการตรวจสอบวันที่ ' + d + '\n'
       + rows.length + ' แห่ง · ' + sum(7) + ' ราย · ' + sum(10) + ' เครื่อง (ถูก ' + sum(8) + ' ผิด ' + sum(9) + ')\n\n'
-      + lines.join('\n') + '\n\nเปิดชีตเพื่อดูรายงานและกดรับทราบ: ' + url
-  });
+      + lines.join('\n') + '\n\n' : '')
+    + (redo.length ? 'วันที่มีข้อมูลเปลี่ยนแปลงหลังรับทราบ กรุณารับทราบใหม่\n' + redo.join('\n') + '\n\n' : '')
+    + 'เปิดชีตเพื่อดูรายงานและกดรับทราบ: ' + url;
+  MailApp.sendEmail({ to: c.director, subject: 'สรุปผลตรวจสอบเครื่องชั่งตวงวัด วันที่ ' + d, body: body });
+}
+
+function thai_(iso) {
+  const [y, mo, da] = iso.split('-');
+  return da + '/' + mo + '/' + (+y + 543);
 }
 
 /* ---------- นำเข้าข้อมูลเก่าจากชีตตลาดสดเดิม (เรียกครั้งเดียว) ---------- */
@@ -329,8 +374,9 @@ function importMarketHistory() {
       officerName: r[13], team: r[14], units: r[4], pass: sp + dp, fail: sf + df,
       detail: 'สปริง ถูก ' + sp + ' ผิด ' + sf + ' · ดิจิทัล ถูก ' + dp + ' ผิด ' + df,
       actionText: r[12], sentAt: r[18] instanceof Date ? Utilities.formatDate(r[18], TZ, 'dd/MM/yyyy HH:mm') : r[18]
-    });
+    }, true);
     n++;
   });
+  syncAck_('นำเข้าข้อมูลเก่า');
   Logger.log('นำเข้า ' + n + ' รายการ');
 }
