@@ -166,8 +166,8 @@ table.sum td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
   </section>
 
   <section class="card" aria-labelledby="h-lot">
-    <div class="card-h"><h2 id="h-lot"><span class="step">2</span>ล็อตที่ตรวจ (1 ล็อต = 1 ขนาดถัง)</h2></div>
-    <div class="tabs" id="lotTabs" role="group" aria-label="เลือกล็อต"></div>
+    <div class="card-h"><h2 id="h-lot"><span class="step">2</span>กองที่ตรวจ (1 กอง = 1 ขนาดถัง)</h2></div>
+    <div class="tabs" id="lotTabs" role="group" aria-label="เลือกกอง"></div>
     <div class="lot-body">
       <label class="field">ยี่ห้อก๊าซ / ผู้บรรจุ<input id="brand" type="text" autocomplete="off"></label>
       <div class="field" style="display:grid;gap:6px">
@@ -175,12 +175,12 @@ table.sum td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
         <div class="chips" id="sizeChips"></div>
         <label class="field" id="customWrap" hidden>ระบุปริมาณสุทธิ (กก.)<input id="customSize" inputmode="decimal" placeholder="1 – 50"></label>
       </div>
-      <label class="field">จำนวนถังขนาดนี้ทั้งหมดในล็อต (ถัง)
+      <label class="field">จำนวนถังขนาดนี้ทั้งหมดในกอง (ถัง)
         <input id="lotN" inputmode="numeric" placeholder="นับถังที่มีอยู่จริง ณ จุดตรวจ">
       </label>
       <p class="hint">ถ้ามีถังขนาดนี้ไม่เกิน 20 ถัง ให้กรอกจำนวนจริง แอปจะตั้งเป็นตรวจทุกถัง</p>
       <div class="plan" id="plan"></div>
-      <div class="row-actions"><button class="btn danger" type="button" id="delLot">ลบล็อตนี้</button></div>
+      <div class="row-actions"><button class="btn danger" type="button" id="delLot">ลบกองนี้</button></div>
     </div>
   </section>
 
@@ -221,19 +221,19 @@ table.sum td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
       <button class="btn" type="button" id="copyBtn">คัดลอกสรุปผล</button>
       <button class="btn danger" type="button" id="startNew2">เริ่มตรวจร้านใหม่</button>
     </div>
-    <p class="hint" id="exportMsg">แบบฟอร์ม PDF ฉบับเดียวรวมทุกล็อต ขนาด A4 พร้อมช่องลงนามนายตรวจชั่งตวงวัดและผู้ประกอบการ เปิดเซ็นต่อใน PDF Expert ได้</p>
+    <p class="hint" id="exportMsg">แบบฟอร์ม PDF ฉบับเดียวรวมทุกกอง ขนาด A4 พร้อมช่องลงนามนายตรวจชั่งตวงวัดและผู้ประกอบการ เปิดเซ็นต่อใน PDF Expert ได้</p>
     <textarea id="copyFallback" hidden readonly aria-label="สรุปผลสำหรับคัดลอก"></textarea>
   </section>
 
   <section class="refs">
     <h2 style="font-size:.95rem;color:var(--ink)">หลักเกณฑ์ที่ใช้</h2>
     <ul>
-      <li>ถังแต่ละขนาดเป็นคนละล็อต ตรวจและตัดสินผลแยกกัน ร้านผ่านเมื่อทุกล็อตผ่าน</li>
+      <li>ถังแต่ละขนาดเป็นคนละกอง ตรวจและตัดสินผลแยกกัน ร้านผ่านเมื่อทุกกองผ่าน</li>
       <li>อัตราเผื่อเหลือเผื่อขาดขั้นที่ 1 (T1) ตามประกาศ พณ. ข้อ 6(2): เกิน 1–10 กก. = 1.5%, เกิน 10–15 กก. = 150 ก., เกิน 15–50 กก. = 1% และ T2 = 2 × T1</li>
-      <li>ล็อตไม่เกิน 20 ถัง: ตรวจทุกถัง · ล็อตมากกว่า 20 ถัง: สุ่ม 20 ถัง ยอมให้ขาดเกิน T1 (ไม่เกิน T2) ได้ 1 ถัง ค่าแก้ไข 0.640 (ประกาศกรมฯ ข้อ 4(1))</li>
+      <li>กองไม่เกิน 20 ถัง: ตรวจทุกถัง · กองมากกว่า 20 ถัง: สุ่ม 20 ถัง ยอมให้ขาดเกิน T1 (ไม่เกิน T2) ได้ 1 ถัง ค่าแก้ไข 0.640 (ประกาศกรมฯ ข้อ 4(1))</li>
       <li>เกณฑ์ค่าเฉลี่ย: x̄ + (ค่าแก้ไข × S) ต้องไม่น้อยกว่าปริมาณสุทธิที่แสดง (ข้อ 4(2)) · ทุกถังต้องขาดไม่เกิน T2 (ข้อ 4(3))</li>
       <li>S คือค่าเบี่ยงเบนมาตรฐานของตัวอย่าง (หารด้วย n − 1)</li>
-      <li>ล็อตไม่เกิน 20 ถัง ตารางกำหนด "–" ไว้ แอปตีความว่าไม่ใช้ค่าแก้ไขและไม่ยอมให้มีถังขาดเกิน T1 ควรยืนยันกับแนวปฏิบัติของกองชั่งตวงวัด</li>
+      <li>กองไม่เกิน 20 ถัง ตารางกำหนด "–" ไว้ แอปตีความว่าไม่ใช้ค่าแก้ไขและไม่ยอมให้มีถังขาดเกิน T1 ควรยืนยันกับแนวปฏิบัติของกองชั่งตวงวัด</li>
       <li>ถ้าสุ่มชั่งเกินจำนวนที่กำหนด แอปตัดสินจากถังที่กรอกก่อนตามลำดับ ส่วนที่เกินแสดงไว้เพื่อข้อมูลเท่านั้น</li>
     </ul>
   </section>
@@ -266,6 +266,8 @@ function render(items,S,mk,FAM){
   function font(sz,b){ctx.font=(b?'700 ':'400 ')+sz+'px '+FAM;}
   function toks(s){return seg?Array.from(seg.segment(s),x=>x.segment):(s.match(MARKS)||[]);}
   function W(s){return ctx.measureText(s).width;}
+  /* Draw left-aligned and compute the offset ourselves: iOS Safari ignores canvas textAlign for this text. */
+  function put(s,x,yy,align){ctx.textAlign='left';const w=W(s);ctx.fillText(s,align==='center'?x-w/2:align==='right'?x-w:x,yy);}
   function wrap(s,w){
     const out=[];
     String(s==null?'':s).split('\n').forEach(par=>{
@@ -285,7 +287,7 @@ function render(items,S,mk,FAM){
     o=o||{};const sz=o.size||12,lh=sz*1.5;y+=o.before||0;font(sz,o.bold);
     const ind=o.indent||0;const lines=wrap(s,CW-ind);
     lines.forEach(l=>{ensure(lh);font(sz,o.bold);ctx.fillStyle=o.color||'#000000';
-      if(o.align==='center'){ctx.textAlign='center';ctx.fillText(l,ML+CW/2,y+sz*1.12);}else{ctx.textAlign='left';ctx.fillText(l,ML+ind,y+sz*1.12);}
+      put(l,o.align==='center'?ML+CW/2:ML+ind,y+sz*1.12,o.align);
       y+=lh;});
     y+=o.after||0;
   }
@@ -301,9 +303,7 @@ function render(items,S,mk,FAM){
         font(sz,c.b);const ls=wrap(c.t,w-2*pad);let ty=y+(h-ls.length*lh)/2;
         ctx.fillStyle=c.color||'#000000';
         ls.forEach(l=>{
-          if(c.align==='center'){ctx.textAlign='center';ctx.fillText(l,x+w/2,ty+sz*1.08);}
-          else if(c.align==='right'){ctx.textAlign='right';ctx.fillText(l,x+w-pad,ty+sz*1.08);}
-          else{ctx.textAlign='left';ctx.fillText(l,x+pad,ty+sz*1.08);}
+          put(l,c.align==='center'?x+w/2:c.align==='right'?x+w-pad:x+pad,ty+sz*1.08,c.align);
           ty+=lh;});
         if(!o.noBorder){ctx.strokeStyle='#333333';ctx.lineWidth=0.6;ctx.strokeRect(x,y,w,h);}
         x+=w;
@@ -315,7 +315,7 @@ function render(items,S,mk,FAM){
   const HF='#DCE4F0';
   const hd=t=>({t,b:true,fill:HF,align:'center'});
   const vFill=v=>v==='ok'?'#E2F0D9':v==='bad'?'#F8D7D3':null;
-  const lotName=(it,k)=>'ล็อตที่ '+(k+1)+' ถัง '+it.R.sizeTxt+(it.L.brand?' '+it.L.brand:'');
+  const lotName=(it,k)=>'กองที่ '+(k+1)+' ถัง '+it.R.sizeTxt+(it.L.brand?' '+it.L.brand:'');
 
   newPage();
   text('แบบสรุปผลการตรวจสอบความถูกต้องของการแสดงปริมาณสินค้าหีบห่อ',{size:14,bold:true,align:'center'});
@@ -333,25 +333,25 @@ function render(items,S,mk,FAM){
 
   heading('2. เกณฑ์การพิจารณา');
   text('2.1 อัตราเผื่อเหลือเผื่อขาดฝ่ายน้อยขั้นที่ 1 (T1) ตามประกาศกระทรวงพาณิชย์ เรื่อง กำหนดชนิดของสินค้าหีบห่อ หลักเกณฑ์และวิธีการแสดงปริมาณของสินค้า และอัตราเผื่อเหลือเผื่อขาด ลงวันที่ 12 มีนาคม 2561 ข้อ 6 (2) และขั้นที่ 2 (T2) เท่ากับสองเท่าของ T1 ค่าของแต่ละขนาดถังแสดงในข้อ 3',{indent:18});
-  text('2.2 ประกาศกรมการค้าภายใน เรื่อง หลักเกณฑ์และวิธีการตรวจสอบการแสดงปริมาณของสินค้าหีบห่อ ลงวันที่ 8 มิถุนายน 2561 ข้อ 4 ถังแต่ละขนาดเป็นคนละล็อต ล็อตที่มีไม่เกิน 20 ถัง ตรวจทุกถัง ค่าเฉลี่ยต้องไม่น้อยกว่าปริมาณสุทธิที่แสดง และไม่มีถังขาดเกิน T1 ล็อตที่มีมากกว่า 20 ถัง สุ่มตัวอย่าง 20 ถัง ค่าเฉลี่ยรวมกับ 0.640 เท่าของค่าเบี่ยงเบนมาตรฐานต้องไม่น้อยกว่าปริมาณสุทธิที่แสดง และยอมให้มีถังขาดเกิน T1 แต่ไม่เกิน T2 ได้ไม่เกิน 1 ถัง ทุกล็อตต้องไม่มีถังใดขาดเกิน T2',{indent:18});
+  text('2.2 ประกาศกรมการค้าภายใน เรื่อง หลักเกณฑ์และวิธีการตรวจสอบการแสดงปริมาณของสินค้าหีบห่อ ลงวันที่ 8 มิถุนายน 2561 ข้อ 4 ถังแต่ละขนาดเป็นคนละกอง กองที่มีไม่เกิน 20 ถัง ตรวจทุกถัง ค่าเฉลี่ยต้องไม่น้อยกว่าปริมาณสุทธิที่แสดง และไม่มีถังขาดเกิน T1 กองที่มีมากกว่า 20 ถัง สุ่มตัวอย่าง 20 ถัง ค่าเฉลี่ยรวมกับ 0.640 เท่าของค่าเบี่ยงเบนมาตรฐานต้องไม่น้อยกว่าปริมาณสุทธิที่แสดง และยอมให้มีถังขาดเกิน T1 แต่ไม่เกิน T2 ได้ไม่เกิน 1 ถัง ทุกกองต้องไม่มีถังใดขาดเกิน T2',{indent:18});
 
-  heading('3. สรุปผลรายล็อต');
+  heading('3. สรุปผลรายกอง');
   const sw=[30,104,46,54,66,40,40];sw.push(CW-sw.reduce((a,b)=>a+b,0));
-  const srows=[[hd('ล็อต'),hd('ขนาดถัง / ยี่ห้อ'),hd('ในล็อต (ถัง)'),hd('ตรวจ (ถัง)'),hd('ค่าเฉลี่ย (กก.)'),hd('เกิน T1'),hd('เกิน T2'),hd('ผล')]];
+  const srows=[[hd('กอง'),hd('ขนาดถัง / ยี่ห้อ'),hd('ในกอง\n(ถัง)'),hd('ตรวจ\n(ถัง)'),hd('ค่าเฉลี่ย\n(กก.)'),hd('เกิน\nT1'),hd('เกิน\nT2'),hd('ผล')]];
   items.forEach((it,k)=>{const R=it.R;
     srows.push([{t:String(k+1),align:'center'},{t:R.sizeTxt+(it.L.brand?'\n'+it.L.brand:'')},{t:R.p.N.toLocaleString('th-TH'),align:'center'},{t:String(R.n),align:'center'},
       {t:R.n?kg(R.mean):'-',align:'center'},{t:String(R.nWarn),align:'center'},{t:String(R.nBad),align:'center'},{t:R.vt,b:true,align:'center',fill:vFill(R.v)}]);});
   table(sw,srows,{header:true});
 
-  heading('4. รายละเอียดผลการชั่งรายล็อต',140);
+  heading('4. รายละเอียดผลการชั่งรายกอง',140);
   items.forEach((it,k)=>{
     const R=it.R,p=R.p,L=it.L,gt=L.mode!=='net';
     if(k>0)y+=8;
     ensure(140);
     text('4.'+(k+1)+' '+lotName(it,k),{size:12,bold:true});
-    text('จำนวนในล็อต '+p.N.toLocaleString('th-TH')+' ถัง · '+(p.all?'ตรวจทุกถัง':'สุ่มตัวอย่าง 20 ถัง')+' · T1 = '+String(Math.round(R.T1*100)/100)+' กรัม · T2 = '+String(Math.round(R.T2*100)/100)+' กรัม',{indent:18,size:11,after:3});
+    text('จำนวนในกอง '+p.N.toLocaleString('th-TH')+' ถัง · '+(p.all?'ตรวจทุกถัง':'สุ่มตัวอย่าง 20 ถัง')+' · T1 = '+String(Math.round(R.T1*100)/100)+' กรัม · T2 = '+String(Math.round(R.T2*100)/100)+' กรัม',{indent:18,size:11,after:3});
     const w6=[38,78,80,80,76];w6.push(CW-w6.reduce((a,b)=>a+b,0));
-    const rows=[[hd('ลำดับ'),hd('น้ำหนักรวม (กก.)'),hd('น้ำหนักถังเปล่า (กก.)'),hd('ปริมาณสุทธิ (กก.)'),hd('ผลต่าง (กรัม)'),hd('ผล')]];
+    const rows=[[hd('ลำดับ'),hd('น้ำหนักรวม\n(กก.)'),hd('น้ำหนักถังเปล่า\n(กก.)'),hd('ปริมาณสุทธิ\n(กก.)'),hd('ผลต่าง\n(กรัม)'),hd('ผล')]];
     const add=(x,j,extra)=>{const r=L.rows[x.i]||{};
       rows.push([{t:String(j),align:'center'},{t:gt?String(r.g||'-'):'-',align:'center'},{t:gt?String(r.t||'-'):'-',align:'center'},
         {t:kg(x.net),align:'center',b:true},{t:gtxt(x.net-R.Q),align:'center'},
@@ -370,7 +370,7 @@ function render(items,S,mk,FAM){
       [{t:'2) ถังที่ขาดเกิน T1 แต่ไม่เกิน T2 มีได้ไม่เกิน '+p.allow+' ถัง'},{t:R.nWarn+' ถัง'},res(R.c2,!(R.c2&&!R.complete))],
       [{t:'3) ถังที่ขาดเกิน T2 (น้อยกว่า '+kg(R.Q-R.T2)+' กก.) ต้องไม่มี'},{t:R.nBad+' ถัง'},res(R.c3,!(R.c3&&!R.complete))],
     ],{header:true});
-    text('ผลล็อตนี้: '+R.vt+' ('+R.reason+')',{size:11.5,bold:true,before:4,indent:18,color:R.v==='ok'?'#1b6b3a':R.v==='bad'?'#a1281d':'#000000'});
+    text('ผลกองนี้: '+R.vt+' ('+R.reason+')',{size:11.5,bold:true,before:4,indent:18,color:R.v==='ok'?'#1b6b3a':R.v==='bad'?'#a1281d':'#000000'});
   });
 
   const O=overall(items.map(it=>it.R));
@@ -389,19 +389,19 @@ function render(items,S,mk,FAM){
   table([half,half],[[sig(S.inspector,'ตำแหน่ง '+(insp?insp[1]:DOTS),'นายตรวจชั่งตวงวัด'),sig('','ผู้ประกอบการ / ผู้แทน','วันที่ '+DOTS)]],{noBorder:true,size:12,pad:0});
 
   const n=pages.length;
-  pages.forEach((pg,i)=>{const c=pg.ctx;c.font='400 9px '+FAM;c.fillStyle='#666666';c.textAlign='center';
-    c.fillText('หน้า '+(i+1)+' / '+n,PW/2,PH-30);});
+  pages.forEach((pg,i)=>{const c=pg.ctx;c.font='400 9px '+FAM;c.fillStyle='#666666';c.textAlign='left';
+    const t='หน้า '+(i+1)+' / '+n;c.fillText(t,PW/2-c.measureText(t).width/2,PH-30);});
   return pages.map(pg=>pg.c);
 }
 
 function overall(Rs){
   const bad=[],pend=[];
   Rs.forEach((R,k)=>{if(R.v==='bad')bad.push(k);else if(R.v!=='ok')pend.push(k);});
-  const nm=k=>'ล็อตที่ '+(k+1)+' ('+Rs[k].sizeTxt+')';
-  if(!Rs.length)return {v:'pend',vt:'ยังสรุปไม่ได้',reason:'ยังไม่มีล็อตที่ตรวจ'};
+  const nm=k=>'กองที่ '+(k+1)+' ('+Rs[k].sizeTxt+')';
+  if(!Rs.length)return {v:'pend',vt:'ยังสรุปไม่ได้',reason:'ยังไม่มีกองที่ตรวจ'};
   if(bad.length)return {v:'bad',vt:'ไม่ผ่าน',reason:'ไม่ผ่าน '+bad.map(nm).join(', ')+(pend.length?' · ยังตรวจไม่ครบ '+pend.map(nm).join(', '):'')};
   if(pend.length)return {v:'pend',vt:'ยังสรุปไม่ได้',reason:'ยังตรวจไม่ครบ '+pend.map(nm).join(', ')};
-  return {v:'ok',vt:'ผ่าน',reason:Rs.length===1?'ผ่านครบทั้ง 3 เกณฑ์':'ผ่านทั้ง '+Rs.length+' ล็อต'};
+  return {v:'ok',vt:'ผ่าน',reason:Rs.length===1?'ผ่านครบทั้ง 3 เกณฑ์':'ผ่านทั้ง '+Rs.length+' กอง'};
 }
 
 function pdf(imgs){
@@ -502,7 +502,7 @@ function compute(L){
     status[r.id]={k:st,net,extra:!!(p&&order>=p.n)};
   });
   const base={Q,T1,T2,p,filled,status,sizeTxt:sizeTxtOf(L)};
-  if(isNaN(Q)||!p)return Object.assign(base,{ready:false,v:'pend',vt:'ยังสรุปไม่ได้',reason:isNaN(Q)?'เลือกขนาดถังก่อน':'กรอกจำนวนถังในล็อตก่อน',used:filled,extra:[],n:filled.length});
+  if(isNaN(Q)||!p)return Object.assign(base,{ready:false,v:'pend',vt:'ยังสรุปไม่ได้',reason:isNaN(Q)?'เลือกขนาดถังก่อน':'กรอกจำนวนถังในกองก่อน',used:filled,extra:[],n:filled.length});
   const used=filled.slice(0,p.n),extra=filled.slice(p.n);
   const overflowErr=p.all&&filled.length>p.N;
   const n=used.length;
@@ -513,7 +513,7 @@ function compute(L){
   const complete=n===p.n&&!overflowErr;
   const c1=n?(adj>=Q-1e-9):null,c2=nWarn<=p.allow,c3=nBad===0;
   let v,vt,reason;
-  if(overflowErr){v='pend';vt='ตรวจข้อมูลอีกครั้ง';reason='จำนวนถังที่กรอกมากกว่าจำนวนในล็อต';}
+  if(overflowErr){v='pend';vt='ตรวจข้อมูลอีกครั้ง';reason='จำนวนถังที่กรอกมากกว่าจำนวนในกอง';}
   else if(!c3){v='bad';vt='ไม่ผ่าน';reason='มีถังขาดเกิน T2 จำนวน '+nBad+' ถัง';}
   else if(!c2){v='bad';vt='ไม่ผ่าน';reason='ถังขาดเกิน T1 มี '+nWarn+' ถัง เกินที่ยอมให้ ('+p.allow+')';}
   else if(!complete){v='pend';vt='ยังสรุปไม่ได้';reason='ต้องชั่งให้ครบ '+p.n+' ถัง (ขาดอีก '+(p.n-n)+' ถัง)';}
@@ -529,7 +529,7 @@ function renderTabs(Rs){
     const R=Rs[k];const b=document.createElement('button');b.type='button';b.className='tab';
     b.setAttribute('aria-pressed',String(k===S.cur));
     b.innerHTML='<span class="tab-t">'+esc(R.sizeTxt)+'</span><span class="tag '+(R.v==='ok'?'t-ok':R.v==='bad'?'t-bad':'t-pend')+'">'+(R.v==='ok'?'ผ่าน':R.v==='bad'?'ไม่ผ่าน':(R.p?R.n+'/'+R.p.n:'รอ'))+'</span>';
-    b.setAttribute('aria-label','ล็อตที่ '+(k+1)+' ถัง '+R.sizeTxt+' '+R.vt);
+    b.setAttribute('aria-label','กองที่ '+(k+1)+' ถัง '+R.sizeTxt+' '+R.vt);
     b.onclick=()=>{S.cur=k;showLot();};
     box.appendChild(b);
   });
@@ -557,7 +557,7 @@ function renderChips(){
 function showLot(){
   const L=cur();
   $('brand').value=L.brand||'';$('lotN').value=L.N||'';$('customSize').value=L.custom||'';
-  delArmed=false;$('delLot').textContent='ลบล็อตนี้';$('delLot').disabled=S.lots.length<2;
+  delArmed=false;$('delLot').textContent='ลบกองนี้';$('delLot').disabled=S.lots.length<2;
   renderChips();renderRows();update();
 }
 
@@ -615,7 +615,7 @@ function update(){
   Rs=S.lots.map(compute);
   const R=Rs[S.cur],Q=R.Q,p=R.p,T1=R.T1,T2=R.T2;
   renderTabs(Rs);
-  const nm='· ล็อตที่ '+(S.cur+1)+' ถัง '+R.sizeTxt;
+  const nm='· กองที่ '+(S.cur+1)+' ถัง '+R.sizeTxt;
   $('wLotName').textContent=nm;$('rLotName').textContent=nm;
 
   let ph='';
@@ -625,7 +625,7 @@ function update(){
     if(p){
       ph+='<div class="plan-row">'+(p.all?'<span><b>ตรวจทุกถัง '+p.N+' ถัง</b></span><span>ไม่ใช้ค่าแก้ไข</span><span>ไม่ยอมให้ขาดเกิน T1</span>':
         '<span><b>สุ่มตรวจ 20 ถัง</b> จาก '+p.N.toLocaleString('th-TH')+' ถัง</span><span>ยอมให้ขาดเกิน T1 ได้ <b>1 ถัง</b></span><span>ค่าแก้ไข <b class="num">0.640</b></span>')+'</div>';
-    }else ph+='<p class="hint">กรอกจำนวนถังในล็อตเพื่อกำหนดแผนการสุ่ม</p>';
+    }else ph+='<p class="hint">กรอกจำนวนถังในกองเพื่อกำหนดแผนการสุ่ม</p>';
     ph+='<div class="bands">'+
       '<div class="band b-ok">ปกติ<span class="num">≥ '+fmtKg(Q-T1)+'</span></div>'+
       '<div class="band b-warn">ขาดเกิน T1<span class="num">'+fmtKg(Q-T2)+' – &lt;'+fmtKg(Q-T1)+'</span></div>'+
@@ -645,11 +645,11 @@ function update(){
 
   const filled=R.filled,extra=R.extra||[];
   $('counter').textContent=p?('กรอกแล้ว '+Math.min(filled.length,p.n)+' / '+p.n+' ถัง'+(extra.length?' (+'+extra.length+' เกิน)':'')):'กรอกแล้ว '+filled.length+' ถัง';
-  $('barCount').textContent='ล็อต '+R.sizeTxt+': '+(p?('ชั่งแล้ว '+Math.min(filled.length,p.n)+'/'+p.n+' ถัง'):'ยังไม่ได้ระบุจำนวนถัง');
+  $('barCount').textContent='กอง '+R.sizeTxt+': '+(p?('ชั่งแล้ว '+Math.min(filled.length,p.n)+'/'+p.n+' ถัง'):'ยังไม่ได้ระบุจำนวนถัง');
 
   let sn='';
-  if(p&&p.all&&filled.length>p.N)sn='<p class="note msg-err">กรอกผลชั่ง '+filled.length+' ถัง มากกว่าจำนวนถังในล็อต ('+p.N+' ถัง) ตรวจจำนวนถังในล็อตอีกครั้ง</p>';
-  else if(p&&!p.all&&filled.length<20)sn='<p class="note">ล็อตนี้มีมากกว่า 20 ถัง ต้องสุ่มชั่งให้ครบ 20 ถัง (ขาดอีก '+(20-filled.length)+' ถัง) ถ้าถังขนาดนี้มีจริงไม่เกิน 20 ถัง ให้แก้จำนวนถังในล็อต</p>';
+  if(p&&p.all&&filled.length>p.N)sn='<p class="note msg-err">กรอกผลชั่ง '+filled.length+' ถัง มากกว่าจำนวนถังในกอง ('+p.N+' ถัง) ตรวจจำนวนถังในกองอีกครั้ง</p>';
+  else if(p&&!p.all&&filled.length<20)sn='<p class="note">กองนี้มีมากกว่า 20 ถัง ต้องสุ่มชั่งให้ครบ 20 ถัง (ขาดอีก '+(20-filled.length)+' ถัง) ถ้าถังขนาดนี้มีจริงไม่เกิน 20 ถัง ให้แก้จำนวนถังในกอง</p>';
   else if(p&&!p.all&&extra.length)sn='<p class="note">กรอกเกิน 20 ถัง แอปใช้ 20 ถังแรกตามลำดับตัดสินผล อีก '+extra.length+' ถังแสดงไว้เพื่อข้อมูล</p>';
   $('sampleNote').innerHTML=sn;
 
@@ -676,7 +676,7 @@ function update(){
   // whole shop
   const O=LPGPDF.overall(Rs);
   $('allVerdict').className='verdict v-'+O.v;$('allVerdict').innerHTML='<span class="v">'+O.vt+'</span><span>'+esc(O.reason)+'</span>';
-  let t='<thead><tr><th>ล็อต</th><th>ขนาด / ยี่ห้อ</th><th>ในล็อต</th><th>ตรวจ</th><th>เกิน T1</th><th>เกิน T2</th><th>ผล</th></tr></thead><tbody>';
+  let t='<thead><tr><th>กอง</th><th>ขนาด / ยี่ห้อ</th><th>ในกอง</th><th>ตรวจ</th><th>เกิน T1</th><th>เกิน T2</th><th>ผล</th></tr></thead><tbody>';
   S.lots.forEach((Lk,k)=>{const r=Rs[k];
     t+='<tr><td class="num">'+(k+1)+'</td><td>'+esc(r.sizeTxt)+(Lk.brand?'<br><span class="hint">'+esc(Lk.brand)+'</span>':'')+'</td><td class="num">'+(r.p?r.p.N:'—')+'</td><td class="num">'+(r.p?Math.min(r.filled.length,r.p.n)+'/'+r.p.n:r.filled.length)+'</td><td class="num">'+(r.ready?r.nWarn:'—')+'</td><td class="num">'+(r.ready?r.nBad:'—')+'</td><td><span class="tag '+(r.v==='ok'?'t-ok':r.v==='bad'?'t-bad':'t-pend')+'">'+r.vt+'</span></td></tr>';});
   $('sumTable').innerHTML=t+'</tbody>';
@@ -690,7 +690,7 @@ function buildSummary(O){
     'สถานที่ตรวจ: '+(S.shop||'-'),'ที่อยู่: '+(S.address||'-'),'วันที่ตรวจ: '+(S.date||'-'),
     'นายตรวจชั่งตวงวัด: '+(S.inspector?S.inspector+(insp?' ตำแหน่ง '+insp[1]:''):'-'),''];
   S.lots.forEach((L,k)=>{const R=Rs[k];
-    lines.push('ล็อตที่ '+(k+1)+': ถัง '+R.sizeTxt+(L.brand?' ยี่ห้อ '+L.brand:'')+(R.p?' | ในล็อต '+R.p.N+' ถัง | '+(R.p.all?'ตรวจทุกถัง':'สุ่มตรวจ 20 ถัง'):''));
+    lines.push('กองที่ '+(k+1)+': ถัง '+R.sizeTxt+(L.brand?' ยี่ห้อ '+L.brand:'')+(R.p?' | ในกอง '+R.p.N+' ถัง | '+(R.p.all?'ตรวจทุกถัง':'สุ่มตรวจ 20 ถัง'):''));
     if(R.ready){
       lines.push('  T1 '+fmtG(R.T1)+' ก. | T2 '+fmtG(R.T2)+' ก. | ค่าเฉลี่ย '+(R.n?fmtKg(R.mean):'-')+' กก. | S '+(R.n>1?fmtG(R.sd):'-')+' ก.'+(R.p.k?' | x̄+0.640S '+(R.n?fmtKg(R.adj):'-')+' กก.':''));
       lines.push('  ขาดเกิน T1 '+R.nWarn+' ถัง | ขาดเกิน T2 '+R.nBad+' ถัง');
@@ -721,7 +721,7 @@ const plainSave={save:async({filename,data})=>{const url=URL.createObjectURL(dat
 exBtn.onclick=async()=>{
   if(!dl)return;
   const items=S.lots.map((L,k)=>({L,R:Rs[k]})).filter(it=>it.R.ready);
-  if(!items.length){exMsg.textContent='เลือกขนาดถังและกรอกจำนวนถังในล็อตอย่างน้อย 1 ล็อตก่อนส่งออก';return;}
+  if(!items.length){exMsg.textContent='เลือกขนาดถังและกรอกจำนวนถังในกองอย่างน้อย 1 กองก่อนส่งออก';return;}
   const skipped=S.lots.length-items.length;
   exBtn.disabled=true;exMsg.textContent='กำลังสร้างไฟล์…';
   try{
@@ -732,7 +732,7 @@ exBtn.onclick=async()=>{
     const safe=t=>String(t||'').replace(/[\\/:*?"<>|]+/g,' ').trim().slice(0,60);
     const name='ผลตรวจก๊าซหุงต้ม'+(S.shop?'_'+safe(S.shop):'')+'_'+(S.date||'')+'.pdf';
     await dl.save({filename:name,data:blob});
-    exMsg.textContent='ส่งไฟล์ '+name+' แล้ว ('+pages.length+' หน้า, '+items.length+' ล็อต)'+(skipped?' · ไม่รวม '+skipped+' ล็อตที่ยังไม่ระบุขนาดหรือจำนวนถัง':'');
+    exMsg.textContent='ส่งไฟล์ '+name+' แล้ว ('+pages.length+' หน้า, '+items.length+' กอง)'+(skipped?' · ไม่รวม '+skipped+' กองที่ยังไม่ระบุขนาดหรือจำนวนถัง':'');
   }catch(e){
     const c=e&&e.code;
     exMsg.textContent=c==='declined'?'ยกเลิกการบันทึกไฟล์':c==='rate_limited'?'มีหน้าต่างบันทึกเปิดค้างอยู่ ลองอีกครั้งในอีกสักครู่':'ส่งออกไม่สำเร็จ'+(e&&e.message?' ('+e.message+')':'');
@@ -743,12 +743,12 @@ let delArmed=false;
 $('delLot').onclick=()=>{
   if(S.lots.length<2)return;
   const b=$('delLot');
-  if(!delArmed){delArmed=true;b.textContent='แตะอีกครั้งเพื่อลบล็อต '+cur().size+(cur().size==='other'?'':' กก.');setTimeout(()=>{if(delArmed){delArmed=false;b.textContent='ลบล็อตนี้';}},3000);return;}
+  if(!delArmed){delArmed=true;b.textContent='แตะอีกครั้งเพื่อลบกอง '+cur().size+(cur().size==='other'?'':' กก.');setTimeout(()=>{if(delArmed){delArmed=false;b.textContent='ลบกองนี้';}},3000);return;}
   delArmed=false;S.lots.splice(S.cur,1);S.cur=Math.max(0,S.cur-1);showLot();
 };
 let armed=null;
 function startNew(btn){
-  if(armed!==btn){armed=btn;const old=btn.textContent;btn.textContent='แตะอีกครั้งเพื่อล้างข้อมูลทุกล็อต';setTimeout(()=>{if(armed===btn){armed=null;btn.textContent=old;}},3000);return;}
+  if(armed!==btn){armed=btn;const old=btn.textContent;btn.textContent='แตะอีกครั้งเพื่อล้างข้อมูลทุกกอง';setTimeout(()=>{if(armed===btn){armed=null;btn.textContent=old;}},3000);return;}
   armed=null;S=blankState(S.example?null:S);initFields();showLot();
   $('startNew1').textContent='เริ่มตรวจร้านใหม่';$('startNew2').textContent='เริ่มตรวจร้านใหม่';
   $('shop').focus();

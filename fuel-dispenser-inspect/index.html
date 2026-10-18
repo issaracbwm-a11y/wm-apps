@@ -83,6 +83,24 @@ button.btn:disabled{opacity:.55;cursor:default}
 .btn.sm{font-size:14px;padding:7px 12px}
 [data-shot]{display:none}
 .has-sample [data-shot],.has-ocr [data-shot]{display:inline-block}
+.drop{border:2px dashed var(--line);border-radius:var(--r);padding:14px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;background:var(--surface)}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.impchoice{display:flex;gap:8px;flex-wrap:wrap}
+.sigpanel{display:flex;flex-direction:column;gap:10px}
+.siglist{display:flex;flex-direction:column;gap:8px}
+.sigrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg)}
+.sigrow .who{flex:1 1 100%;min-width:0}
+.sigrow .acts{margin-left:auto}
+.sigrow .who b{display:block;font-size:14px}
+.sigrow .who span{font-size:12px;color:var(--muted)}
+.sigrow .thumb{width:96px;height:40px;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;color:#8a949b;flex:none;overflow:hidden}
+.sigrow .thumb img{max-width:100%;max-height:100%}
+.sigrow .acts{display:flex;gap:6px;flex:none}
+.sigmodal{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.sigbox{background:var(--surface);border-radius:12px;padding:14px;width:100%;max-width:620px;display:flex;flex-direction:column;gap:10px}
+.sigtitle{font-weight:700;font-size:16px}
+#sigPad{width:100%;height:220px;background:#fff;border:1px solid var(--line);border-radius:8px;touch-action:none;display:block}
+.sigbtns{display:flex;gap:8px;align-items:center}
 .placebar{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
 .ext{font-size:14px;color:var(--accent);text-decoration:none;padding:6px 2px}
 .scanmsg{margin-top:8px;font-size:13px;border-radius:6px;padding:6px 8px;background:var(--accent-soft);color:var(--ink)}
@@ -122,7 +140,10 @@ button.btn:disabled{opacity:.55;cursor:default}
 .pg .sig{display:flex;justify-content:space-between;gap:24px;margin-top:14px;font-size:14px}
 .pg .sig > div{flex:1}
 .pg .sig .c{text-align:center}
-.pg .sl{display:inline-block;width:190px;border-bottom:1px dotted #000;height:1.3em}
+.pg .sl{display:inline-block;width:190px;border-bottom:1px dotted #000;height:1.3em;position:relative;vertical-align:baseline}
+.pg .sl img{position:absolute;left:0;right:0;bottom:1px;margin:0 auto;max-width:186px;max-height:44px}
+.pg .sig.co{flex-wrap:wrap;margin-top:34px;gap:38px 24px}
+.pg .sig.co > div{flex:0 0 calc(50% - 12px)}
 .pg .pno{text-align:right;font-size:11.5px;color:#333}
 .pg .cont{font-size:13px;font-weight:600;margin-bottom:2px}
 </style>
@@ -171,6 +192,20 @@ button.btn:disabled{opacity:.55;cursor:default}
   </section>
 
   <section>
+    <div class="sec-h"><h2>นำเข้าข้อมูล</h2></div>
+    <div class="drop" id="dropZone">
+      <button type="button" class="btn primary sm" id="impBtn">นำเข้าจากไฟล์ผลตรวจ (PDF)</button>
+      <div class="crit" style="margin:0">หรือลากไฟล์มาวางในกรอบนี้ · ใช้กับไฟล์ "บันทึกการตรวจสอบมาตรวัดปริมาณน้ำมันเชื้อเพลิงตามสถานีบริการ" จากระบบของกรมฯ แอปจะกรอกข้อมูลสถานีและหัวจ่ายทุกเครื่องให้</div>
+      <div class="scanmsg" id="impMsg" role="status" hidden></div>
+      <div class="impchoice" id="impChoice" hidden>
+        <button type="button" class="btn sm primary" id="impReplace">แทนที่หัวจ่ายเดิม</button>
+        <button type="button" class="btn sm" id="impAppend">เพิ่มต่อท้าย</button>
+        <button type="button" class="btn sm" id="impCancel">ยกเลิก</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
     <div class="sec-h"><h2>สถานีบริการ</h2></div>
     <div class="panel">
       <div class="grid">
@@ -204,6 +239,25 @@ button.btn:disabled{opacity:.55;cursor:default}
     </div>
     <div class="crit">หัวใหม่จะคัดลอกยี่ห้อ ชนิดน้ำมัน คีม ซีล วันหมดอายุ จากหัวก่อนหน้า และเพิ่มเลขลำดับเครื่องให้อัตโนมัติ</div>
   </section>
+
+  <section>
+    <div class="sec-h"><h2>ลงลายมือชื่อ</h2></div>
+    <div class="panel sigpanel">
+      <div class="crit" style="margin:0">เซ็นในแอปแล้วลายเซ็นจะไปอยู่บนช่องลงชื่อใน PDF ทันที หรือเว้นไว้แล้วเซ็นใน PDF Expert ภายหลังก็ได้</div>
+      <label>ชื่อเจ้าของ / ผู้จัดการ / ผู้แทนสถานี<input id="m_ownerName" placeholder="ชื่อ-นามสกุล ที่จะพิมพ์ใต้ลายเซ็น"></label>
+      <div id="sigList" class="siglist"></div>
+    </div>
+  </section>
+</div>
+
+<div class="sigmodal" id="sigModal" hidden>
+  <div class="sigbox" role="dialog" aria-modal="true" aria-labelledby="sigTitle">
+    <div class="sigtitle" id="sigTitle">ลงลายมือชื่อ</div>
+    <canvas id="sigPad"></canvas>
+    <div class="crit" style="margin:0">ใช้นิ้วหรือปากกาเซ็นในกรอบ</div>
+    <div class="sigbtns"><button type="button" class="btn sm" id="sigClear">ล้าง</button><span style="flex:1"></span>
+      <button type="button" class="btn sm" id="sigCancel">ยกเลิก</button><button type="button" class="btn sm primary" id="sigSave">บันทึกลายเซ็น</button></div>
+  </div>
 </div>
 
 <div class="foot">
@@ -218,6 +272,7 @@ button.btn:disabled{opacity:.55;cursor:default}
 <input type="file" id="shotFile" accept="image/*" multiple hidden>
 <input type="file" id="placeFile" accept="image/*" multiple hidden>
 <input type="file" id="qrFile" accept="image/*" capture="environment" hidden>
+<input type="file" id="impFile" accept="application/pdf,.pdf,image/*" hidden>
 <div id="pdfroot" aria-hidden="true"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -247,7 +302,7 @@ let uid=1;const nid=()=>"r"+(Date.now().toString(36))+(uid++);
 
 function blankMeta(keep){return Object.assign({inspector:0,zone:"เขต 3-1 สุราษฎร์ธานี",team:"",helpers:"",date:today(),writeAt:"",tStart:"",tEnd:"",mode:"use",mmq:"5",
   station:"",taxId:"",company:"",address:"",tambon:"",amphoe:"",province:"สุราษฎร์ธานี",phone:"",lat:"",lng:""},keep||{})}
-function blankRow(){return {id:nid(),sn:"",brand:"",oil:"",clamp:"",seal:"",expiry:"",r5:"",r20:"",action:""}}
+function blankRow(){return {id:nid(),sn:"",brand:"",oil:"",clamp:"",seal:"",expiry:"",r5:"0",r20:"0",action:""}}
 function sampleState(){
   const m=blankMeta({team:"ว่าที่ ร.ต.ธรรมรัตน์ สายสวัสดิ์, นายอดิเทพ คุ้มจันทร์, นายธีระยุธ คงเกษตร",helpers:"3",
     station:"บจ.สยามสุขสวัสดิ์ (3110297)",taxId:"0115555015410",address:"82/2 หมู่ที่ 3 ถนนสายเอเชีย 41 (ขาขึ้น)",tambon:"หัวเตย",amphoe:"พุนพิน",phone:"084-4391521",lat:"9.11365",lng:"99.15877",tStart:"09:30"});
@@ -295,7 +350,7 @@ function critText(){
 }
 
 /* ---------- meta form ---------- */
-const META_IDS=["zone","team","helpers","date","writeAt","tStart","tEnd","mmq","station","taxId","company","address","phone","lat","lng"];
+const META_IDS=["ownerName","zone","team","helpers","date","writeAt","tStart","tEnd","mmq","station","taxId","company","address","phone","lat","lng"];
 const GEO={"นครศรีธรรมราช":{"เมืองนครศรีธรรมราช":[["ในเมือง",80000],["ท่าวัง",80000],["คลัง",80000],["ท่าไร่",80000],["ปากนคร",80000],["นาทราย",80280],["กำแพงเซา",80280],["ไชยมนตรี",80000],["มะม่วงสองต้น",80000],["นาเคียน",80000],["ท่างิ้ว",80280],["โพธิ์เสด็จ",80000],["บางจาก",80330],["ปากพูน",80000],["ท่าซัก",80000],["ท่าเรือ",80000]],"พรหมคีรี":[["พรหมโลก",80320],["บ้านเกาะ",80320],["อินคีรี",80320],["ทอนหงส์",80320],["นาเรียง",80320]],"ลานสกา":[["เขาแก้ว",80230],["ลานสกา",80230],["ท่าดี",80230],["กำโลน",80230],["ขุนทะเล",80230]],"ฉวาง":[["ฉวาง",80150],["ละอาย",80250],["นาแว",80260],["ไม้เรียง",80260],["กะเปียด",80260],["นากะชะ",80150],["ห้วยปริก",80260],["ไสหร้า",80150],["นาเขลียง",80260],["จันดี",80250]],"พิปูน":[["พิปูน",80270],["กะทูน",80270],["เขาพระ",80270],["ยางค้อม",80270],["ควนกลาง",80270]],"เชียรใหญ่":[["เชียรใหญ่",80190],["ท่าขนาน",80190],["บ้านกลาง",80190],["บ้านเนิน",80190],["ไสหมาก",80190],["ท้องลำเจียก",80190],["เสือหึง",80190],["การะเกด",80190],["เขาพระบาท",80190],["แม่เจ้าอยู่หัว",80190]],"ชะอวด":[["ชะอวด",80180],["ท่าเสม็ด",80180],["ท่าประจะ",80180],["เคร็ง",80180],["วังอ่าง",80180],["บ้านตูล",80180],["ขอนหาด",80180],["เกาะขันธ์",80180],["ควนหนองหงษ์",80180],["เขาพระทอง",80180],["นางหลง",80180]],"ท่าศาลา":[["ท่าศาลา",80160],["กลาย",80160],["ท่าขึ้น",80160],["หัวตะพาน",80160],["สระแก้ว",80160],["โมคลาน",80160],["ไทยบุรี",80160],["ดอนตะโก",80160],["ตลิ่งชัน",80160],["โพธิ์ทอง",80160]],"ทุ่งสง":[["ปากแพรก",80110],["ชะมาย",80110],["หนองหงส์",80110],["ควนกรด",80110],["นาไม้ไผ่",80110],["นาหลวงเสน",80110],["เขาโร",80110],["กะปาง",80310],["ที่วัง",80110],["น้ำตก",80110],["ถ้ำใหญ่",80110],["นาโพธิ์",80110],["เขาขาว",80110]],"นาบอน":[["นาบอน",80220],["ทุ่งสง",80220],["แก้วแสน",80220]],"ทุ่งใหญ่":[["ท่ายาง",80240],["ทุ่งสัง",80240],["ทุ่งใหญ่",80240],["กุแหระ",80240],["ปริก",80240],["บางรูป",80240],["กรุงหยัน",80240]],"ปากพนัง":[["ปากพนัง",80140],["คลองน้อย",80330],["ป่าระกำ",80140],["ชะเมา",80330],["คลองกระบือ",80140],["เกาะทวด",80330],["บ้านใหม่",80140],["หูล่อง",80140],["แหลมตะลุมพุก",80140],["ปากพนังฝั่งตะวันตก",80140],["บางศาลา",80140],["บางพระ",80140],["บางตะพง",80140],["ปากพนังฝั่งตะวันออก",80140],["บ้านเพิง",80140],["ท่าพยา",80140],["ปากแพรก",80140],["ขนาบนาก",80140]],"ร่อนพิบูลย์":[["ร่อนพิบูลย์",80130],["หินตก",80350],["เสาธง",80350],["ควนเกย",80130],["ควนพัง",80130],["ควนชุม",80130]],"สิชล":[["สิชล",80120],["ทุ่งปรัง",80120],["ฉลอง",80120],["เสาเภา",80340],["เปลี่ยน",80120],["สี่ขีด",80120],["เทพราช",80340],["เขาน้อย",80120],["ทุ่งใส",80120]],"ขนอม":[["ขนอม",80210],["ควนทอง",80210],["ท้องเนียน",80210]],"หัวไทร":[["หัวไทร",80170],["หน้าสตน",80170],["ทรายขาว",80170],["แหลม",80170],["เขาพังไกร",80170],["บ้านราม",80170],["บางนบ",80170],["ท่าซอม",80170],["ควนชะลิก",80170],["รามแก้ว",80170],["เกาะเพชร",80170]],"บางขัน":[["บางขัน",80360],["บ้านลำนาว",80360],["วังหิน",80360],["บ้านนิคม",80360]],"ถ้ำพรรณรา":[["ถ้ำพรรณรา",80260],["คลองเส",80260],["ดุสิต",80260]],"จุฬาภรณ์":[["บ้านควนมุด",80180],["บ้านชะอวด",80180],["ควนหนองคว้า",80130],["ทุ่งโพธิ์",80130],["นาหมอบุญ",80130],["สามตำบล",80130]],"พระพรหม":[["นาพรุ",80000],["นาสาร",80000],["ท้ายสำเภา",80000],["ช้างซ้าย",80000]],"นบพิตำ":[["นบพิตำ",80160],["กรุงชิง",80160],["กะหรอ",80160],["นาเหรง",80160]],"ช้างกลาง":[["ช้างกลาง",80250],["หลักช้าง",80250],["สวนขัน",80250]],"เฉลิมพระเกียรติ":[["เชียรเขา",80190],["ดอนตรอ",80290],["สวนหลวง",80190],["ทางพูน",80290]]},"สุราษฎร์ธานี":{"เมืองสุราษฎร์ธานี":[["ตลาด",84000],["มะขามเตี้ย",84000],["วัดประดู่",84000],["ขุนทะเล",84100],["บางใบไม้",84000],["บางชนะ",84000],["คลองน้อย",84000],["บางไทร",84000],["บางโพธิ์",84000],["บางกุ้ง",84000],["คลองฉนาก",84000]],"กาญจนดิษฐ์":[["ท่าทองใหม่",84290],["ท่าทอง",84160],["กะแดะ",84160],["ทุ่งกง",84290],["กรูด",84160],["ช้างซ้าย",84160],["พลายวาส",84160],["ป่าร่อน",84160],["ตะเคียนทอง",84160],["ช้างขวา",84160],["ท่าอุแท",84160],["ทุ่งรัง",84290],["คลองสระ",84160]],"ดอนสัก":[["ดอนสัก",84220],["ชลคราม",84160],["ไชยคราม",84220],["ปากแพรก",84340]],"เกาะสมุย":[["อ่างทอง",84140],["ลิปะน้อย",84140],["ตลิ่งงาม",84140],["หน้าเมือง",84140],["มะเร็ต",84310],["บ่อผุด",84320],["แม่น้ำ",84330]],"เกาะพะงัน":[["เกาะพะงัน",84280],["บ้านใต้",84280],["เกาะเต่า",84360]],"ไชยา":[["ตลาดไชยา",84110],["พุมเรียง",84110],["เลม็ด",84110],["เวียง",84110],["ทุ่ง",84110],["ป่าเว",84110],["ตะกรบ",84110],["โมถ่าย",84110],["ปากหมาก",84110]],"ท่าชนะ":[["ท่าชนะ",84170],["สมอทอง",84170],["ประสงค์",84170],["คันธุลี",84170],["วัง",84170],["คลองพา",84170]],"คีรีรัฐนิคม":[["ท่าขนอน",84180],["บ้านยาง",84180],["น้ำหัก",84180],["กะเปา",84180],["ท่ากระดาน",84180],["ย่านยาว",84180],["ถ้ำสิงขร",84180],["บ้านทำเนียบ",84180]],"บ้านตาขุน":[["เขาวง",84230],["พระแสง",84230],["พรุไทย",84230],["เขาพัง",84230]],"พนม":[["พนม",84250],["ต้นยวน",84250],["คลองศก",84250],["พลูเถื่อน",84250],["พังกาญจน์",84250],["คลองชะอุ่น",84250]],"ท่าฉาง":[["ท่าฉาง",84150],["ท่าเคย",84150],["คลองไทร",84150],["เขาถ่าน",84150],["เสวียด",84150],["ปากฉลุย",84150]],"บ้านนาสาร":[["นาสาร",84120],["พรุพี",84270],["ทุ่งเตา",84120],["ลำพูน",84120],["ท่าชี",84120],["ควนศรี",84270],["ควนสุบรรณ",84120],["คลองปราบ",84120],["น้ำพุ",84120],["ทุ่งเตาใหม่",84120],["เพิ่มพูนทรัพย์",84120]],"บ้านนาเดิม":[["บ้านนา",84240],["ท่าเรือ",84240],["ทรัพย์ทวี",84240],["นาใต้",84240]],"เคียนซา":[["เคียนซา",84260],["พ่วงพรมคร",84210],["เขาตอก",84260],["อรัญคามวารี",84260],["บ้านเสด็จ",84260]],"เวียงสระ":[["เวียงสระ",84190],["บ้านส้อง",84190],["คลองฉนวน",84190],["ทุ่งหลวง",84190],["เขานิพันธ์",84190]],"พระแสง":[["อิปัน",84210],["สินปุน",84210],["บางสวรรค์",84210],["ไทรขึง",84210],["สินเจริญ",84210],["ไทรโสภา",84210],["สาคู",84210]],"พุนพิน":[["ท่าข้าม",84130],["ท่าสะท้อน",84130],["ลีเล็ด",84130],["บางมะเดื่อ",84130],["บางเดือน",84130],["ท่าโรงช้าง",84130],["กรูด",84130],["พุนพิน",84130],["บางงอน",84130],["ศรีวิชัย",84130],["น้ำรอบ",84130],["มะลวน",84130],["หัวเตย",84130],["หนองไทร",84130],["เขาหัวควาย",84130],["ตะปาน",84130]],"ชัยบุรี":[["สองแพรก",84350],["ชัยบุรี",84350],["คลองน้อย",84350],["ไทรทอง",84350]],"วิภาวดี":[["ตะกุกใต้",84370],["ตะกุกเหนือ",84370]]}};
 function opts(list,val,ph){
   const has=!val||list.includes(val);
@@ -405,6 +460,7 @@ $("cards").addEventListener("input",ev=>{
   const t=ev.target,k=t.dataset.k;if(!k)return;const card=t.closest(".card");const row=rowById(card.dataset.id);if(!row)return;
   row[k]=t.value;refreshCard(row);tally();save();
 });
+$("cards").addEventListener("focusin",ev=>{const t=ev.target;if(t.matches&&t.matches('input[data-k="r5"],input[data-k="r20"]')){if(t.dataset.nosel){delete t.dataset.nosel;return}setTimeout(()=>{try{t.select()}catch(e){}},0)}});
 $("cards").addEventListener("change",ev=>{
   const t=ev.target;if(!t.matches("[data-oilsel]"))return;const card=t.closest(".card");const row=rowById(card.dataset.id);if(!row)return;
   const inp=card.querySelector('input[data-k="oil"]');
@@ -417,8 +473,9 @@ $("cards").addEventListener("click",ev=>{
   if(ev.target.closest("[data-qr]")){scanTarget=row.id;$("qrFile").value="";$("qrFile").click();return}
   const sg=ev.target.closest("[data-sign]");
   if(sg){const k=sg.dataset.sign;const inp=card.querySelector('input[data-k="'+k+'"]');let v=(inp.value||"").trim().replace(/−/g,"-");
-    if(v.startsWith("-"))v="+"+v.slice(1);else if(v.startsWith("+"))v="-"+v.slice(1);else v="-"+v;
-    inp.value=v;row[k]=v;refreshCard(row);tally();save();inp.focus();return}
+    if(/^[+-]?0?$/.test(v))v=v.startsWith("-")?"+":"-"; // ค่าเริ่มต้น 0: ใส่เครื่องหมายแล้วพิมพ์ตัวเลขต่อได้เลย
+    else if(v.startsWith("-"))v="+"+v.slice(1);else if(v.startsWith("+"))v="-"+v.slice(1);else v="-"+v;
+    inp.value=v;row[k]=v;refreshCard(row);tally();save();inp.dataset.nosel="1";inp.focus();try{inp.setSelectionRange(v.length,v.length)}catch(e){}return}
   const del=ev.target.closest("[data-del]");
   if(del){if(del.dataset.armed){S.rows=S.rows.filter(r=>r!==row);renderCards();save();return}
     del.dataset.armed="1";del.textContent="แตะอีกครั้งเพื่อยืนยันการลบ";setTimeout(()=>{if(del.isConnected){delete del.dataset.armed;del.textContent="ลบหัวจ่ายนี้"}},3000)}
@@ -441,7 +498,7 @@ $("resetBtn").addEventListener("click",function(){
   if(!b.dataset.armed){b.dataset.armed="1";b.textContent="แตะอีกครั้งเพื่อล้าง";setTimeout(()=>{delete b.dataset.armed;b.textContent="เริ่มสถานีใหม่"},3000);return}
   delete b.dataset.armed;b.textContent="เริ่มสถานีใหม่";
   const m=S.meta;S={meta:blankMeta({inspector:m.inspector,zone:m.zone,team:m.team,helpers:m.helpers,mode:m.mode,mmq:m.mmq,province:m.province}),rows:[blankRow()],sample:false};
-  fillMeta();renderCards();save();setMsg("ล้างข้อมูลแล้ว พร้อมกรอกสถานีใหม่","ok");window.scrollTo({top:0});
+  fillMeta();renderCards();renderSigs();save();setMsg("ล้างข้อมูลแล้ว พร้อมกรอกสถานีใหม่","ok");window.scrollTo({top:0});
 });
 function setMsg(t,c){const m=$("msg");m.textContent=t||"";m.className="msg"+(c?" "+c:"")}
 
@@ -477,9 +534,10 @@ function footHTML(){
     :"ตรวจให้คำรับรอง อัตราเผื่อเหลือเผื่อขาด ±0.3% หรือ Emin (MMQ "+esc(m.mmq)+" ลิตร) ค่าที่มากกว่า (5 ลิตร ±"+fmt(mpeML(5))+" มล. / 20 ลิตร ±"+fmt(mpeML(20))+" มล.) ตามข้อ 20";
   return '<div class="foot-block"><div class="sum"><b>รวม '+S.rows.length+' เครื่อง</b>  ถูก '+t.p+' เครื่อง  ผิด '+t.f+' เครื่อง'+(t.q?'  ไม่ได้ตรวจ '+t.q+' เครื่อง':'')+'</div>'+
   '<div class="note">เกณฑ์: '+crit+'<br>ช่อง 5 ลิตร / 20 ลิตร คือค่าอ่านจากถังตวงแบบมาตรา หน่วยมิลลิลิตร (+ จ่ายเกิน, − จ่ายขาด)</div>'+
-  '<div class="sig"><div><div>ข้าพเจ้า <span class="sl" style="width:230px"></span></div><div>เป็นเจ้าของ / ผู้จัดการ / ผู้แทน ของสถานที่จำหน่ายน้ำมันเชื้อเพลิงแห่งนี้ ขอรับรองว่าผลการตรวจของนายตรวจตามรายงานข้างต้นนี้เป็นความจริง</div>'+
-  '<div class="c" style="margin-top:22px">ลงชื่อ <span class="sl"></span></div><div class="c">( <span class="sl"></span> )</div><div class="c">วันที่ <span class="sl" style="width:150px"></span></div></div>'+
-  '<div class="c" style="padding-top:62px"><div>ลงชื่อ <span class="sl"></span></div><div>( '+esc(ins.n)+' )</div><div>ตำแหน่ง '+esc(ins.p)+'</div><div>นายตรวจชั่งตวงวัด</div></div></div></div>';
+  '<div class="sig"><div><div>ข้าพเจ้า <span class="sl" style="width:230px">'+sigTxt(m.ownerName)+'</span></div><div>เป็นเจ้าของ / ผู้จัดการ / ผู้แทน ของสถานที่จำหน่ายน้ำมันเชื้อเพลิงแห่งนี้ ขอรับรองว่าผลการตรวจของนายตรวจตามรายงานข้างต้นนี้เป็นความจริง</div>'+
+  '<div class="c" style="margin-top:22px">ลงชื่อ <span class="sl">'+sigImg("owner")+'</span></div><div class="c">( <span class="sl">'+sigTxt(m.ownerName)+'</span> )</div><div class="c">วันที่ <span class="sl" style="width:150px">'+(sigGet("owner")?sigTxt(shortDate(m.date)):"")+'</span></div></div>'+
+  '<div class="c" style="padding-top:62px"><div>ลงชื่อ <span class="sl">'+sigImg("insp")+'</span></div><div>( '+esc(ins.n)+' )</div><div>ตำแหน่ง '+esc(ins.p)+'</div><div>นายตรวจชั่งตวงวัด</div></div></div>'+
+  '</div>';
 }
 function newPage(first,no){
   const pg=document.createElement("div");pg.className="pg";
@@ -765,7 +823,191 @@ $("qrFile").addEventListener("change",async e=>{
   }catch(err){msg("อ่าน QR ไม่สำเร็จ: "+(err&&err.message||err),true)}
 });
 
-fillMeta();renderCards();
+/* ---------- import from inspection-result PDF (บันทึกการตรวจสอบ...จากระบบกรมฯ) ---------- */
+const PDFJS="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+function loadScriptOnce(src,test){return new Promise((res,rej)=>{if(test())return res();const sc=document.createElement("script");sc.src=src;sc.onload=()=>res();sc.onerror=()=>rej(new Error("โหลดตัวอ่าน PDF ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ต"));document.head.appendChild(sc)})}
+async function fileToCanvases(file){
+  const isPdf=/pdf/i.test(file.type)||/\.pdf$/i.test(file.name||"");
+  if(!isPdf){const img=await loadBitmap(file);const c=document.createElement("canvas");const k=Math.min(1,2400/Math.max(img.width,img.height));
+    c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);return [c]}
+  await loadScriptOnce(PDFJS+"pdf.min.js",()=>!!window.pdfjsLib);
+  await loadScriptOnce(PDFJS+"pdf.worker.min.js",()=>!!window.pdfjsWorker);
+  pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+"pdf.worker.min.js";
+  const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
+  const out=[];
+  for(let i=1;i<=Math.min(pdf.numPages,8);i++){const pg=await pdf.getPage(i);const v0=pg.getViewport({scale:1});const vp=pg.getViewport({scale:2000/v0.width});
+    const c=document.createElement("canvas");c.width=Math.round(vp.width);c.height=Math.round(vp.height);const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);
+    await pg.render({canvasContext:x,viewport:vp}).promise;out.push(c)}
+  return out;
+}
+const canvasBlob=c=>new Promise(r=>c.toBlob(b=>r(b),"image/jpeg",0.88));
+const IMP_PROMPT='ภาพที่แนบเป็นหน้าของไฟล์ "บันทึกการตรวจสอบมาตรวัดปริมาณน้ำมันเชื้อเพลิงตามสถานีบริการ" และ "รายงานการตรวจสอบมาตรวัด..." จากระบบของกรมการค้าภายใน '+
+ 'อ่านแล้วตอบเป็น JSON เท่านั้น รูปแบบ {"station":{"name":"","address":"","tambon":"","amphoe":"","province":"","zip":"","phone":""},"rows":[{"sn":"","oil":"","brand":"","model":"","e5":"","e20":"","expiry":"","clamp":"","seal":""}]} โดย '+
+ 'station มาจากช่อง ชื่อสถานีบริการ (หรือ ชื่อสถานประกอบการ) และช่อง ตั้งอยู่เลขที่/หมู่/ถนน/ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์/โทร ของสถานประกอบการ (ไม่ใช่ที่อยู่ของผู้ยื่นคำขอหรือผู้ติดตั้ง และไม่ใช่ที่อยู่ของกองชั่งตวงวัดที่หัวกระดาษ); '+
+ 'address = เลขที่ หมู่ ถนน รวมกัน เช่น "54/9 ถ.พัฒนาการคูขวาง"; rows มาจากตารางรายงานผล หนึ่งแถวต่อหนึ่งเครื่องตามลำดับในตาราง: sn = หมายเลขประจำเครื่อง (W&M No.) รวมขีด ไม่เว้นวรรค, '+
+ 'oil = ชนิดน้ำมัน, brand = เครื่องหมายการค้า, model = ข้อความในช่อง รุ่น (Model) คัดลอกตามที่เห็นแม้ตัวอักษรจะเล็กหรือถูกตัดขอบไม่ครบ (ตัดส่วน "(S/N ..." ท้ายข้อความออก) ห้ามปล่อยว่างถ้าช่องมีข้อความ, e5 = ค่าความคลาดเคลื่อนช่อง 5 L, e20 = ค่าความคลาดเคลื่อนช่อง 20 L (ตัวเลขพร้อมเครื่องหมายตามที่แสดง หน่วยมิลลิลิตร), '+
+ 'expiry = วันสิ้นอายุคำรับรอง แปลงเป็นปีคริสต์ศักราชรูป YYYY-MM-DD (ปี พ.ศ. ลบ 543), clamp = คีม, seal = ซีล ถ้ามี; ช่องใดว่างหรือไม่มีในเอกสารให้เป็น "" ห้ามเดา. '+
+ 'ถ้ามีภาพที่เป็นภาพขยายเฉพาะส่วนซ้ายของตาราง (คอลัมน์หมายเลขประจำเครื่องถึงหมายเลขการผลิต) ให้ใช้ภาพนั้นอ่านรุ่นและหมายเลขเครื่องให้แม่นยำ';
+function similar(a,b){a=String(a||"");b=String(b||"");if(!a||!b)return 0;const m=[...a];let hit=0;const pool=[...b];for(const ch of m){const k=pool.indexOf(ch);if(k>=0){hit++;pool.splice(k,1)}}return 2*hit/(a.length+b.length)}
+function bestGeo(list,v){if(!v)return "";let best="",sc=0;for(const x of list){const s=x===v?2:similar(x,v);if(s>sc){sc=s;best=x}}return sc>=0.8?best:v}
+function normNum(t){t=String(t||"").replace(/[−–—]/g,"-").replace(/\s+/g,"").replace(/[oO]/g,"0");const m=t.match(/^[+-]?\d{1,4}(?:\.\d+)?$/);return m?m[0]:""}
+function cleanModel(t){return String(t||"").replace(/\(?\s*[S5$]\s*\/\s*N.*$/i,"").replace(/\s+/g,"").replace(/[^A-Za-z0-9\-\/\.]/g,"")}
+function matchOil(t){t=String(t||"").replace(/\s+/g," ").trim();if(!t)return "";
+  const exact=OILS.find(o=>o===t);if(exact)return exact;
+  if(/ดีเซล|ดีเชล/.test(t)){if(/B\s*20|บี\s*20/i.test(t))return "ดีเซล B20";if(/พรีเมียม|พาวเวอร์|เพาเวอร์|premium/i.test(t))return "ดีเซลพรีเมียม";return "ดีเซล"}
+  if(/E\s*85/i.test(t))return "แก๊สโซฮอล์ E85";if(/E\s*20/i.test(t))return "แก๊สโซฮอล์ E20";
+  if(/91/.test(t))return "แก๊สโซฮอล์ 91";if(/95/.test(t))return /เบนซิน/.test(t)?"เบนซิน 95":"แก๊สโซฮอล์ 95";
+  return t}
+function gridDetect(img){
+  const {data,width:W,height:H}=img;const dark=i=>(data[i]+data[i+1]+data[i+2])<300;
+  const hs=[];for(let y=0;y<H;y++){let run=0,best=0,i=y*W*4;for(let x=0;x<W;x++,i+=4){if(dark(i)){if(++run>best)best=run}else run=0}if(best>W*0.5)hs.push(y)}
+  const merge=a=>{const o=[];for(const v of a){if(o.length&&v-o[o.length-1].e<=3)o[o.length-1].e=v;else o.push({s:v,e:v})}return o.map(q=>Math.round((q.s+q.e)/2))};
+  const rows=merge(hs);if(rows.length<3)return null;const top=rows[0],bot=rows[rows.length-1];
+  const vs=[];for(let x=0;x<W;x++){let c=0;for(let y=top;y<=bot;y++)if(dark((y*W+x)*4))c++;if(c>(bot-top)*0.8)vs.push(x)}
+  return {rows,cols:merge(vs)};
+}
+function tableZoom(c){
+  try{const ctx=c.getContext("2d",{willReadFrequently:true});const g=gridDetect(ctx.getImageData(0,0,c.width,c.height));
+    if(!g||g.cols.length<12||g.rows.length<3)return null;
+    // หาแถวสุดท้ายที่มีข้อมูล (ช่องหมายเลขเครื่องมีหมึก)
+    const D=ctx.getImageData(0,0,c.width,c.height).data,W=c.width,C=g.cols;let last=1;
+    for(let i=1;i<g.rows.length-1;i++){let n=0;for(let y=g.rows[i]+4;y<g.rows[i+1]-3;y++)for(let x=C[1]+4;x<C[2]-4;x+=2){const k=(y*W+x)*4;if(D[k]+D[k+1]+D[k+2]<300)n++}if(n>20)last=i+1}
+    const x0=C[0],x1=C[Math.min(6,C.length-1)],y0=g.rows[0],y1=g.rows[last];
+    const sc=Math.min(3,2400/(x1-x0));const z=document.createElement("canvas");z.width=Math.round((x1-x0)*sc);z.height=Math.round((y1-y0)*sc);
+    if(z.height>6000)return null;const zx=z.getContext("2d");zx.imageSmoothingQuality="high";zx.drawImage(c,x0,y0,x1-x0,y1-y0,0,0,z.width,z.height);return z}
+  catch(e){return null}}
+async function importOCR(canvases,msg){
+  OCR_OK=true;const W=await ocrWorkers(null,msg);
+  const res={station:{},rows:[]};let stationText="";
+  for(let pi=0;pi<canvases.length;pi++){
+    const c=canvases[pi];msg("กำลังอ่านหน้า "+(pi+1)+"/"+canvases.length+"…");
+    const ctx=c.getContext("2d",{willReadFrequently:true});const img=ctx.getImageData(0,0,c.width,c.height);
+    const g=gridDetect(img);
+    if(g&&g.cols.length>=12&&g.rows.length>=3){
+      const C=g.cols,D=img.data,Wd=img.width;
+      const ink=r=>{let n=0;for(let y=r.top;y<r.top+r.height;y++)for(let x=r.left;x<r.left+r.width;x++){const i=(y*Wd+x)*4;if(D[i]+D[i+1]+D[i+2]<300)n++}return n};
+      await W.th.setParameters({tessedit_pageseg_mode:"7"});await W.en.setParameters({tessedit_pageseg_mode:"7"});
+      try{
+        for(let i=1;i<g.rows.length-1;i++){
+          const y0=g.rows[i]+4,y1=g.rows[i+1]-3;if(y1-y0<10)continue;
+          const cell=k=>({left:C[k]+4,top:y0,width:C[k+1]-C[k]-8,height:y1-y0});
+          if(ink(cell(1))<40)continue;
+          const rd=async(w,k)=>{if(k+1>=C.length)return "";const r=cell(k);if(ink(r)<15)return "";return ((await w.recognize(c,{rectangle:r})).data.text||"").trim()};
+          msg("กำลังอ่านหน้า "+(pi+1)+" แถวที่ "+(res.rows.length+1)+"…");
+          const sn=(await rd(W.en,1)).replace(/\s+/g,"");if(!/\d-\d{4,7}-\d-\d{4}-\d{4,7}-\d{2}/.test(sn))continue;
+          res.rows.push({sn:sn.match(/\d-\d{4,7}-\d-\d{4}-\d{4,7}-\d{2}/)[0],oil:await rd(W.th,2),brand:(await rd(W.en,3)).replace(/[^A-Za-z0-9 \-]/g,"").trim(),model:cleanModel(await rd(W.en,4)),
+            e5:normNum(await rd(W.en,7)),e20:normNum(await rd(W.en,8)),expiry:(thaiDates((await rd(W.th,9)).replace(/,/g,"."))[0]||""),clamp:(await rd(W.en,10)).replace(/[^0-9A-Za-z]/g,""),seal:""});
+        }
+      }finally{await W.th.setParameters({tessedit_pageseg_mode:"3"});await W.en.setParameters({tessedit_pageseg_mode:"3"})}
+    }else{
+      const r=await W.th.recognize(c);stationText+="\n"+(r.data.text||"");
+    }
+  }
+  // model: ใช้ค่าที่พบบ่อยที่สุดเมื่ออ่านเพี้ยนเล็กน้อย
+  const cnt={};res.rows.forEach(r=>{if(r.model)cnt[r.model]=(cnt[r.model]||0)+1});
+  const top=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
+  if(top&&cnt[top]>=2)res.rows.forEach(r=>{if(r.model!==top&&similar(r.model,top)>=0.75)r.model=top});
+  // station (หน้า 1)
+  const T=stationText.replace(/[ \t]+/g," ");
+  const line=re=>{const m=T.match(re);return m?m[1].trim():""};
+  let name=line(/[ชซ][ืิ]?่?อ\s*สถานี\s*บริการ\s*(.+?)(?:\s+ผู้แทน|\n|$)/)||line(/[ชซ][ืิ]?่?อ\s*สถานประกอบการ\s*(.+?)(?:\s+[ชซ][ืิ]?่?อผู้ครอบครอง|\n|$)/);
+  let loc=line(/ต[ั]?[้]?งอยู่เลขที่\s*(.+)/);
+  loc=loc.replace(/(?:^|\s)(หมู่|ถนน|ซอย)(?=\s+(?:หมู่|ถนน|ซอย|ต[ํำ]าบล|ตำบล|ต\.)|\s*$)/g," ").replace(/ต[ํ]าบล/g,"ตำบล").replace(/อ[ํ]าเภอ/g,"อำเภอ").replace(/\s+/g," ").trim();
+  const zip=line(/รหัสไปรษณีย์\s*(\d{5})/);const phone=line(/รหัสไปรษณีย์[^\n]*?โทร\.?\s*([0-9][0-9\- ]{7,13}[0-9])/);
+  const pl=parsePlace((name?name+" ":"")+loc);
+  res.station={name,address:pl.address,tambon:pl.tambon,amphoe:pl.amphoe,province:pl.province,zip,phone:phone.replace(/\s+/g,"")};
+  return res;
+}
+let IMP_PENDING=null;
+function impMsg(t,err){const el=$("impMsg");el.hidden=!t;el.textContent=t||"";el.classList.toggle("err",!!err)}
+function hasRealRows(){return !S.sample&&S.rows.some(r=>(r.sn||r.r5||r.r20||r.brand||"").toString().trim())}
+function applyImport(d,mode){
+  const st=d.station||{};const m=S.meta;const got=[];
+  if(st.name){m.station=String(st.name).trim();got.push("ชื่อสถานี")}
+  if(st.address){m.address=String(st.address).trim();got.push("ที่อยู่")}
+  if(st.province){const P=bestGeo(Object.keys(GEO),String(st.province).replace(/^จ(\.|ังหวัด)\s*/,""));m.province=P;
+    const A=GEO[P]?Object.keys(GEO[P]):[];m.amphoe=bestGeo(A,String(st.amphoe||"").replace(/^อ(\.|ำเภอ)\s*/,""));
+    const TB=(GEO[P]&&GEO[P][m.amphoe]||[]).map(x=>x[0]);m.tambon=bestGeo(TB,String(st.tambon||"").replace(/^ต(\.|ำบล)\s*/,""))}
+  if(st.phone){m.phone=String(st.phone).trim();got.push("เบอร์โทร")}
+  const rows=(d.rows||[]).filter(r=>r&&(r.sn||r.brand||r.e5||r.e20)).map(r=>{const x=blankRow();
+    x.sn=String(r.sn||"").replace(/\s+/g,"");x.brand=[r.brand,cleanModel(r.model)].map(v=>String(v||"").trim()).filter(Boolean).join(" / ");
+    x.oil=matchOil(r.oil);x.clamp=String(r.clamp||"").trim();x.seal=String(r.seal||"").trim();
+    const ex=String(r.expiry||"");if(/^\d{4}-\d{2}-\d{2}$/.test(ex)){const y=+ex.slice(0,4);x.expiry=(y>2400?String(y-543):ex.slice(0,4))+ex.slice(4)}
+    x.r5=normNum(r.e5);x.r20=normNum(r.e20);return x});
+  if(rows.length){S.rows=mode==="append"?S.rows.concat(rows):rows}
+  S.sample=false;fillMeta();renderCards();topSub();save();
+  return {got,n:rows.length};
+}
+async function handleImport(file){
+  if(!file)return;$("impChoice").hidden=true;IMP_PENDING=null;
+  if(!(SAMPLE||OCR_OK)){impMsg("การนำเข้าไฟล์ต้องเปิดแอปจากลิงก์เว็บของศูนย์ฯ หรือผ่าน Claude",true);return}
+  impMsg("กำลังเปิดไฟล์…");
+  try{
+    const cv=await fileToCanvases(file);if(!cv.length){impMsg("ไฟล์นี้ไม่มีหน้าให้อ่าน",true);return}
+    let d;
+    if(SAMPLE){impMsg("กำลังให้ Claude อ่านไฟล์ "+cv.length+" หน้า…");const lim=await SAMPLE.limits().catch(()=>null);const max=(lim&&lim.images&&lim.images.maxCount)||4;
+      const blobs=[];for(const c of cv.slice(0,max))blobs.push(await canvasBlob(c));
+      for(const c of cv){if(blobs.length>=max)break;const z=tableZoom(c);if(z)blobs.push(await canvasBlob(z))}
+      d=await SAMPLE.json(IMP_PROMPT,{images:blobs,modelTier:"default",cache:false})}
+    else d=await importOCR(cv,t=>impMsg(t));
+    const n=(d&&d.rows||[]).filter(r=>r&&r.sn).length;
+    if(!n&&!(d&&d.station&&d.station.name)){impMsg("อ่านข้อมูลจากไฟล์นี้ไม่ได้ ตรวจสอบว่าเป็นไฟล์ผลตรวจจากระบบของกรมฯ",true);return}
+    if(n&&hasRealRows()){IMP_PENDING=d;impMsg("พบหัวจ่าย "+n+" เครื่องในไฟล์ แต่ในแอปมีหัวจ่ายกรอกไว้แล้ว "+S.rows.length+" หัว เลือกวิธีนำเข้า");$("impChoice").hidden=false;return}
+    finishImport(d,"replace");
+  }catch(err){const c=err&&err.code;impMsg(c==="not_granted"?"ยังไม่ได้อนุญาตให้ส่งภาพให้ Claude อ่าน":"นำเข้าไม่สำเร็จ ("+(c||err&&err.message||"error")+")",true)}
+}
+function finishImport(d,mode){const r=applyImport(d,mode);$("impChoice").hidden=true;IMP_PENDING=null;
+  impMsg("นำเข้าแล้ว: หัวจ่าย "+r.n+" เครื่อง"+(r.got.length?" · "+r.got.join(", "):"")+" — ตรวจทานข้อมูลทุกช่องก่อนส่งออก PDF (ซีลไม่มีในไฟล์ผลตรวจ กรอกเองถ้ามี)");}
+$("impReplace").onclick=()=>IMP_PENDING&&finishImport(IMP_PENDING,"replace");
+$("impAppend").onclick=()=>IMP_PENDING&&finishImport(IMP_PENDING,"append");
+$("impCancel").onclick=()=>{IMP_PENDING=null;$("impChoice").hidden=true;impMsg("ยกเลิกการนำเข้า")};
+$("impBtn").onclick=()=>{$("impFile").value="";$("impFile").click()};
+$("impFile").addEventListener("change",e=>handleImport(e.target.files&&e.target.files[0]));
+(()=>{const z=$("dropZone");["dragenter","dragover"].forEach(t=>z.addEventListener(t,e=>{e.preventDefault();z.classList.add("over")}));
+  ["dragleave","drop"].forEach(t=>z.addEventListener(t,e=>{e.preventDefault();if(t==="dragleave"&&z.contains(e.relatedTarget))return;z.classList.remove("over")}));
+  z.addEventListener("drop",e=>{const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];handleImport(f)});
+  window.addEventListener("dragover",e=>e.preventDefault());window.addEventListener("drop",e=>{if(!z.contains(e.target))e.preventDefault()})})();
+
+/* ---------- signatures ---------- */
+function coNames(){return String(S.meta.team||"").split(/[,，、;\n]+/).map(x=>x.trim()).filter(Boolean)}
+function sigGet(k){return S.sigs&&S.sigs[k]||""}
+function sigImg(k){const d=sigGet(k);return d?'<img src="'+d+'" alt="">':""}
+function sigTxt(t){return t?'<span style="position:absolute;left:0;right:0;bottom:0;text-align:center;white-space:nowrap">'+esc(t)+'</span>':""}
+function sigPeople(){const ins=INSPECTORS[+S.meta.inspector]||INSPECTORS[0];
+  return [{k:"owner",role:"เจ้าของ / ผู้แทนสถานี",name:S.meta.ownerName||"(ยังไม่ได้กรอกชื่อ)"},{k:"insp",role:"นายตรวจชั่งตวงวัด",name:ins.n}];
+}
+function renderSigs(){const el=$("sigList");if(!el)return;
+  el.innerHTML=sigPeople().map(p=>{const d=sigGet(p.k);return '<div class="sigrow" data-sk="'+esc(p.k)+'"><div class="who"><b>'+esc(p.name)+'</b><span>'+esc(p.role)+'</span></div>'+
+    '<div class="thumb">'+(d?'<img src="'+d+'" alt="ลายเซ็น">':'ยังไม่ได้เซ็น')+'</div><div class="acts"><button type="button" class="btn sm'+(d?'':' primary')+'" data-sign-k>'+(d?'เซ็นใหม่':'เซ็น')+'</button>'+
+    (d?'<button type="button" class="btn sm danger" data-sign-del>ลบ</button>':'')+'</div></div>'}).join("")}
+let sigKey=null,sigDirty=false;
+const pad=$("sigPad"),pctx=pad.getContext("2d");
+function padSize(){const r=pad.getBoundingClientRect(),dpr=window.devicePixelRatio||1;pad.width=Math.round(r.width*dpr);pad.height=Math.round(r.height*dpr);
+  pctx.setTransform(dpr,0,0,dpr,0,0);pctx.lineWidth=2.6;pctx.lineCap="round";pctx.lineJoin="round";pctx.strokeStyle="#0b1f6b";pctx.clearRect(0,0,r.width,r.height)}
+function openPad(k){sigKey=k;sigDirty=false;const p=sigPeople().find(x=>x.k===k);$("sigTitle").textContent="ลงลายมือชื่อ: "+(p?p.name+" ("+p.role+")":"");
+  $("sigModal").hidden=false;requestAnimationFrame(padSize)}
+function closePad(){$("sigModal").hidden=true;sigKey=null}
+(()=>{let drawing=false,last=null;const pos=e=>{const r=pad.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top}};
+  pad.addEventListener("pointerdown",e=>{e.preventDefault();pad.setPointerCapture(e.pointerId);drawing=true;last=pos(e);pctx.beginPath();pctx.arc(last.x,last.y,1.2,0,7);pctx.fillStyle="#0b1f6b";pctx.fill();sigDirty=true});
+  pad.addEventListener("pointermove",e=>{if(!drawing)return;e.preventDefault();const p=pos(e);pctx.beginPath();pctx.moveTo(last.x,last.y);pctx.lineTo(p.x,p.y);pctx.stroke();last=p});
+  ["pointerup","pointercancel","pointerleave"].forEach(t=>pad.addEventListener(t,()=>{drawing=false}))})();
+function trimmedSig(){const w=pad.width,h=pad.height,d=pctx.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){if(d[(y*w+x)*4+3]>10){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
+  if(x1<0)return "";const m=6;x0=Math.max(0,x0-m);y0=Math.max(0,y0-m);x1=Math.min(w-1,x1+m);y1=Math.min(h-1,y1+m);
+  const sc=Math.min(1,120/(y1-y0+1),480/(x1-x0+1));const c=document.createElement("canvas");c.width=Math.max(1,Math.round((x1-x0+1)*sc));c.height=Math.max(1,Math.round((y1-y0+1)*sc));
+  c.getContext("2d").drawImage(pad,x0,y0,x1-x0+1,y1-y0+1,0,0,c.width,c.height);return c.toDataURL("image/png")}
+$("sigClear").onclick=()=>{padSize();sigDirty=false};
+$("sigCancel").onclick=closePad;
+$("sigSave").onclick=()=>{if(!sigKey)return;const d=sigDirty?trimmedSig():"";if(!d){$("sigTitle").textContent="ยังไม่มีลายเซ็นในกรอบ เซ็นก่อนแล้วกดบันทึก";return}
+  S.sigs=S.sigs||{};S.sigs[sigKey]=d;save();closePad();renderSigs()};
+$("sigList").addEventListener("click",e=>{const row=e.target.closest("[data-sk]");if(!row)return;const k=row.dataset.sk;
+  if(e.target.closest("[data-sign-k]"))openPad(k);
+  if(e.target.closest("[data-sign-del]")){if(S.sigs)delete S.sigs[k];save();renderSigs()}});
+$("m_ownerName").addEventListener("input",renderSigs);
+$("m_inspector").addEventListener("change",()=>{if(S.sigs)delete S.sigs.insp;save();renderSigs()});
+window.addEventListener("resize",()=>{if(!$("sigModal").hidden&&!sigDirty)padSize()});
+
+fillMeta();renderCards();renderSigs();
 })();
 </script>
 </body></html>
