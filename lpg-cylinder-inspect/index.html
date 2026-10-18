@@ -133,6 +133,21 @@ textarea{font-family:var(--f-num);font-size:.8rem;width:100%;min-height:8rem;bac
 table.sum{width:100%;border-collapse:collapse;font-size:.88rem}
 table.sum th{font-weight:600;color:var(--muted);text-align:left;font-size:.78rem;padding:6px 8px;border-bottom:1px solid var(--line)}
 table.sum td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
+.btn.sm{padding:6px 10px;font-size:.85rem}
+.sigpanel{display:grid;gap:10px;border-top:1px solid var(--line);padding-top:14px}
+.siglist{display:grid;gap:8px}
+.sigrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg)}
+.sigrow .who{flex:1 1 160px;min-width:0}
+.sigrow .who b{display:block;font-size:.92rem}
+.sigrow .who span{font-size:.8rem;color:var(--muted)}
+.sigrow .thumb{width:110px;height:44px;border-radius:6px;background:#ffffff;display:flex;align-items:center;justify-content:center;font-size:.72rem;color:#7a8494;flex:none;overflow:hidden;border:1px solid var(--line)}
+.sigrow .thumb img{max-width:100%;max-height:100%}
+.sigrow .acts{display:flex;gap:6px;flex:none;margin-left:auto}
+.sigmodal{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.sigbox{background:var(--surface);border-radius:12px;padding:14px;width:100%;max-width:620px;display:grid;gap:10px}
+.sigtitle{font-weight:700}
+#sigPad{width:100%;height:220px;background:#ffffff;border:1px solid var(--line);border-radius:8px;touch-action:none;display:block}
+.sigbtns{display:flex;gap:8px;align-items:center}
 .refs{font-size:.84rem;color:var(--muted);display:grid;gap:6px}
 .refs ul{margin:0;padding-left:1.1rem;display:grid;gap:4px}
 
@@ -240,6 +255,17 @@ table.sum td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
     <div class="tbl-wrap"><table class="sum" id="sumTable"></table></div>
     <label class="field">การดำเนินการ<input id="action" type="text" autocomplete="off" placeholder="เช่น แนะนำให้ปรับเครื่องชั่งบรรจุ"></label>
     <label class="field">หมายเหตุ<input id="remark" type="text" autocomplete="off"></label>
+    <div class="sigpanel">
+      <h3 style="margin:0;font-size:1rem">ลงลายมือชื่อ</h3>
+      <p class="hint">เซ็นในแอปแล้วลายเซ็นจะไปอยู่บนช่องลงชื่อใน PDF ทั้งสองหน้า หรือเว้นไว้แล้วเซ็นใน PDF Expert ภายหลังก็ได้</p>
+      <div class="grid2">
+        <label class="field">ชื่อผู้แทน / ผู้จัดการ / เจ้าของร้าน<input id="ownerName" type="text" autocomplete="off" placeholder="ชื่อที่จะพิมพ์ใต้ลายเซ็น"></label>
+        <label class="field">พยาน คนที่ 1<input id="wit1" type="text" autocomplete="off"></label>
+        <label class="field">พยาน คนที่ 2<input id="wit2" type="text" autocomplete="off"></label>
+        <label class="field">พยาน คนที่ 3<input id="wit3" type="text" autocomplete="off"></label>
+      </div>
+      <div id="sigList" class="siglist"></div>
+    </div>
     <div class="row-actions">
       <button class="btn primary" type="button" id="exportBtn">ส่งออกแบบฟอร์ม PDF</button>
       <button class="btn" type="button" id="copyBtn">คัดลอกสรุปผล</button>
@@ -261,6 +287,16 @@ table.sum td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
       <li>ถ้าสุ่มชั่งเกินจำนวนที่กำหนด แอปตัดสินจากถังที่กรอกก่อนตามลำดับ ส่วนที่เกินแสดงไว้เพื่อข้อมูลเท่านั้น</li>
     </ul>
   </section>
+</div>
+
+<div class="sigmodal" id="sigModal" hidden>
+  <div class="sigbox" role="dialog" aria-modal="true" aria-labelledby="sigTitle">
+    <div class="sigtitle" id="sigTitle">ลงลายมือชื่อ</div>
+    <canvas id="sigPad"></canvas>
+    <p class="hint">ใช้นิ้วหรือปากกาเซ็นในกรอบ</p>
+    <div class="sigbtns"><button type="button" class="btn sm" id="sigClear">ล้าง</button><span style="flex:1"></span>
+      <button type="button" class="btn sm" id="sigCancel">ยกเลิก</button><button type="button" class="btn sm primary" id="sigSave">บันทึกลายเซ็น</button></div>
+  </div>
 </div>
 
 <div class="bar">
@@ -288,9 +324,11 @@ function th(s){return String(s==null?'':s).replace(/[0-9]/g,d=>TD[d]);}
 function f3(kgv){if(kgv==null||isNaN(kgv))return '';return String(Math.round(kgv*1000)/1000);}
 function dparts(iso){const a=String(iso||'').split('-').map(Number);if(!a[0]||!a[1]||!a[2])return ['','',''];return [th(a[2]),TH_M[a[1]-1],th(a[0]+543)];}
 const ROLE={sell:'ผู้จำหน่าย',pack:'ผู้บรรจุ'};
+function assistList(S){return String(S.assistants||'').split(/[,，、;\n]+/).map(x=>x.trim()).filter(Boolean);}
 
 /* Official forms: page 1 = inspection record (one per shop), page 2 = net-quantity report (one per pile). */
-function render(items,S,mk,FAM){
+function render(items,S,mk,FAM,imgs){
+  imgs=imgs||{};
   const pages=[];let ctx,y;
   const seg=(typeof Intl!=='undefined'&&Intl.Segmenter)?new Intl.Segmenter('th',{granularity:'word'}):null;
   function newPage(){const c=mk(Math.round(PW*SC),Math.round(PH*SC));ctx=c.getContext('2d');ctx.setTransform(SC,0,0,SC,0,0);ctx.fillStyle='#ffffff';ctx.fillRect(0,0,PW,PH);pages.push({c,ctx});ctx.fillStyle='#000000';}
@@ -346,6 +384,8 @@ function render(items,S,mk,FAM){
     if(o.border!==false)box(x,yy,w,h);
   }
   const insp=INSPECTORS.find(x=>x[0]===S.inspector);
+  const asst=assistList(S);
+  function sigDraw(im,x,yy,w,h){if(!im||!im.width||w<4||h<4)return;const k=Math.min(w/im.width,h/im.height);const dw=im.width*k,dh=im.height*k;ctx.drawImage(im,x+(w-dw)/2,yy+h-dh,dw,dh);}
   const role=S.role==='pack'?'pack':'sell';
   const [dd,mm,yy]=dparts(S.date);
   const brands=[...new Set(items.map(it=>(it.L.brand||'').trim()).filter(Boolean))].join(', ');
@@ -358,7 +398,7 @@ function render(items,S,mk,FAM){
   font(15,true);put('บันทึกการตรวจสอบปริมาณสุทธิของสินค้าหีบห่อ (ก๊าซหุงต้ม) และ',PW/2,y+14,'center');
   put('การแสดงเครื่องหมายประจำตัวที่อุปกรณ์ปิดผนึกลิ้น (Seal)',PW/2,y+34,'center');
   y+=50;
-  const R={x0:A0,x1:A1,size:12.5,h:20.5};
+  const R={x0:A0,x1:A1,size:12.5,h:19.5};
   ln(A0,y,A1,y,'#c8c8c8',0.6);
   frow([{sp:true},{t:'เขียนที่'},{w:200,v:v(S.place||S.shop)}],R);
   frow([{sp:true},{t:'วันที่'},{w:48,v:dd},{t:'เดือน'},{w:88,v:mm},{t:'พ.ศ.'},{w:62,v:yy}],R);
@@ -369,7 +409,7 @@ function render(items,S,mk,FAM){
   frow([{t:'ซึ่งมี'},{v:v(S.operator),f:1.4},{t:'เป็น'},{w:110,v:ROLE[role]},{t:'ตั้งอยู่เลขที่'},{w:100,v:v(S.addrNo)}],R);
   frow([{t:'ซอย'},{v:v(S.soi)},{t:'ถนน'},{v:v(S.road)},{t:'แขวง / ตำบล'},{v:v(S.subdistrict)}],R);
   frow([{t:'เขต / อำเภอ'},{v:v(S.district)},{t:'จังหวัด'},{v:v(S.province)},{t:'โทรศัพท์'},{v:v(S.phone)}],R);
-  y+=22;
+  y+=14;
   font(14,true);put('ปรากฏผลการตรวจสอบดังนี้',PW/2,y+12,'center');y+=24;
   ln(A0,y,A1,y,'#c8c8c8',0.6);
   frow([{t:'๑.'},{chk:true,on:role==='sell'},{t:'ผู้จำหน่าย'},{w:28,sp:true},{chk:true,on:role==='pack'},{t:'ผู้บรรจุ'},{w:16,sp:true},{t:'เครื่องหมายการค้า / เครื่องหมายประจำตัวโรงบรรจุ'},{v:v(brands)}],R);
@@ -390,7 +430,7 @@ function render(items,S,mk,FAM){
   longField('๕. หมายเหตุ',S.remark||'');
   y+=8;
   function para(s,ind){
-    font(12.5,false);const lh=19;
+    font(12.5,false);const lh=17.5;
     const first=wrap(s,A1-A0-ind)[0]||'';const rest=s.slice(first.length).replace(/^\s+/,'');
     put(first,A0+ind,y+13,'left');y+=lh;
     if(rest)wrap(rest,A1-A0).forEach(l=>{put(l,A0,y+13,'left');y+=lh;});
@@ -398,15 +438,20 @@ function render(items,S,mk,FAM){
   para('หน่วยตรวจ/หน่วยรับรอง จะรักษาความลับของข้อมูลการตรวจ และแจ้งให้ลูกค้าทราบถ้ามีการเปิดเผยข้อมูลสู่สาธารณะ โดยความรับผิดชอบในกิจกรรมการตรวจให้เป็นไปตามพระราชบัญญัติความรับผิดชอบทางละเมิดของเจ้าหน้าที่ พ.ศ. ๒๕๓๙',40);
   para('อนึ่ง ในการตรวจสอบสินค้าหีบห่อในครั้งนี้ นายตรวจชั่งตวงวัดพร้อมผู้ช่วย มิได้ทำให้ทรัพย์สินเสียหาย บุบสลายแต่อย่างใด หรือมิได้เรียกร้องเอาทรัพย์สินใด ๆ เพื่อประโยชน์ส่วนตัวและไม่มีการขู่เข็ญ บังคับแต่ประการใดทั้งสิ้น',40);
   para('ได้อ่านแล้วรับรองว่าถูกต้องเป็นจริงทุกประการ จึงลงลายมือชื่อไว้เป็นหลักฐาน',40);
-  y+=10;
-  const sx=A0+75,sw=[52,140,128],sh=27;const sigs=[['ผู้แทน , ผู้จัดการ',''],['นายตรวจชั่งตวงวัด',S.inspector||''],['พยาน',''],['พยาน',''],['พยาน','']];
-  const avail=PH-36-y;const shh=Math.min(sh,avail/sigs.length);
-  sigs.forEach(([r,name])=>{
-    box(sx,y,sw[0]+sw[1]+sw[2],shh,'#9a9a9a');ln(sx+sw[0],y,sx+sw[0],y+shh,'#9a9a9a');ln(sx+sw[0]+sw[1],y,sx+sw[0]+sw[1],y+shh,'#9a9a9a');
-    font(12,false);put('( ลงชื่อ )',sx+sw[0]/2,y+shh*0.55,'center');
-    dots(sx+sw[0]+4,sx+sw[0]+sw[1]-4,y+shh*0.62);
-    if(name){font(9,false);put('( '+name+' )',sx+sw[0]+sw[1]/2,y+shh-2.5,'center');}
-    font(12,false);put(r,sx+sw[0]+sw[1]+4,y+shh*0.55,'left');
+  y+=8;
+  const tx=A0+6,tw0=62,tw1=262,tw2=(A1-6)-tx-tw0-tw1;
+  const sigRows=[['owner','ผู้แทน , ผู้จัดการ',S.ownerName],['insp','นายตรวจชั่งตวงวัด',S.inspector]]
+    .concat(asst.map((n,i)=>['asst'+i,'ผู้ช่วย',n]))
+    .concat([['wit0','พยาน',S.wit1],['wit1','พยาน',S.wit2],['wit2','พยาน',S.wit3]]);
+  const shh=Math.max(26,Math.min(46,(PH-28-y)/sigRows.length));
+  sigRows.forEach(([key,r,name])=>{
+    box(tx,y,tw0+tw1+tw2,shh,'#9a9a9a');ln(tx+tw0,y,tx+tw0,y+shh,'#9a9a9a');ln(tx+tw0+tw1,y,tx+tw0+tw1,y+shh,'#9a9a9a');
+    const lineY=y+shh-(name?13:8);
+    font(12,false);put('( ลงชื่อ )',tx+tw0/2,lineY,'center');
+    dots(tx+tw0+8,tx+tw0+tw1-8,lineY+1.5);
+    sigDraw(imgs[key],tx+tw0+12,y+2,tw1-24,lineY-y-2);
+    if(name){font(9.5,false);put('( '+name+' )',tx+tw0+tw1/2,y+shh-3,'center');}
+    font(12,false);put(r,tx+tw0+tw1+8,lineY,'left');
     y+=shh;
   });
 
@@ -434,7 +479,7 @@ function render(items,S,mk,FAM){
     cell(cx[5],y,CW_(5)+CW_(6),hs1,'ค่าความคลาดเคลื่อน\n(กก.)\n(๕)=(๔)-(๑)',{size:7.6});
     cell(cx[5],y+hs1,CW_(5),hs,'ฝ่ายมาก',{size:7.6});cell(cx[6],y+hs1,CW_(6),hs,'ฝ่ายน้อย',{size:7.6});
     y+=hh;
-    const rows=Rk.used||[];const nRows=Math.max(20,rows.length);const rh=Math.min(13.5,272/nRows);const ty0=y;
+    const rows=Rk.used||[];const nRows=Math.max(20,rows.length);const rh=Math.min(13,260/nRows);const ty0=y;
     const Qk=Rk.Q/1000;
     for(let i=0;i<nRows;i++){
       const x=rows[i];const r=x?(L.rows[x.i]||{}):null;
@@ -475,12 +520,20 @@ function render(items,S,mk,FAM){
     font(12.5,true);chk(RX+18,bt+56,Rk.v==='ok',11);put('ผ่าน',RX+36,bt+56,'left');chk(RX+RW/2+8,bt+56,Rk.v==='bad',11);put('ไม่ผ่าน',RX+RW/2+26,bt+56,'left');
     if(Rk.v!=='ok'&&Rk.v!=='bad'){font(8.5,false);put('('+Rk.reason+')',RX+RW/2,bt+74,'center');}
     y=bb+12;
-    const S0=X0+14,SM=X0+300,SE=X1;
-    const SR={size:11,h:18};
-    const rowSig=(l,r)=>{const yy0=y;frow(l,Object.assign({x0:S0,x1:SM-10},SR));y=yy0;frow(r,Object.assign({x0:SM,x1:SE-4},SR));};
-    rowSig([{t:'พนักงานเจ้าหน้าที่ผู้ทำการตรวจสอบ'},{sp:true}],[{t:'ทราบผลการตรวจสอบแล้ว'},{sp:true}]);
-    rowSig([{t:'ลงชื่อ'},{v:''},{t:S.inspector?'( '+S.inspector+' )':''}],[{sp:true}]);
-    rowSig([{t:'ลงชื่อ'},{v:''},{t:S.assistants?'( '+S.assistants.split(/[,\n]/)[0].trim()+' )':''}],[{t:'ลงชื่อ'},{v:''},{t:'ผู้จัดการ/ผู้แทน/เจ้าของร้าน'}]);
+    const half=CX/2,L0=X0+10,L1=X0+half-14,M0=X0+half+10,M1=X1-10;
+    font(11,false);put('พนักงานเจ้าหน้าที่ผู้ทำการตรวจสอบ',L0,y+12,'left');put('ทราบผลการตรวจสอบแล้ว',M0,y+12,'left');y+=16;
+    const officials=[['insp',S.inspector]].concat(asst.map((n,i)=>['asst'+i,n]));if(officials.length<2)officials.push(['','']);
+    const rowH=Math.max(34,Math.min(58,(PH-34-y-16)/officials.length));
+    const lineSig=(x0,x1,key,name,yy)=>{
+      font(11,false);const lab='ลงชื่อ';put(lab,x0,yy+rowH-15,'left');const lx=x0+W(lab)+6;
+      dots(lx,x1,yy+rowH-13);sigDraw(imgs[key],lx+6,yy+1,x1-lx-12,rowH-16);
+      if(name){font(9.5,false);put('( '+name+' )',(lx+x1)/2,yy+rowH-2,'center');}
+    };
+    const y0=y;
+    officials.forEach(([key,name],i)=>{lineSig(L0,L1,key,name,y0+i*rowH);});
+    lineSig(M0,M1,'owner',S.ownerName,y0);
+    font(10.5,false);put('ผู้จัดการ/ผู้แทน/เจ้าของร้าน',(M0+W('ลงชื่อ')+6+M1)/2,y0+rowH+(S.ownerName?0:-6)+13,'center');
+    y=y0+officials.length*rowH;
   });
   return pages.map(pg=>pg.c);
 }
@@ -525,7 +578,7 @@ function pdf(imgs){
   const out=new Uint8Array(len);let o=0;parts.forEach(u=>{out.set(u,o);o+=u.length;});
   return out;
 }
-return {render,pdf,overall,INSPECTORS};
+return {render,pdf,overall,INSPECTORS,assistList};
 })();
 if(typeof module!=='undefined')module.exports=LPGPDF;
 </script>
@@ -550,13 +603,13 @@ function today(){const d=new Date();const p=n=>String(n).padStart(2,'0');return 
 function blankRows(n){const a=[];for(let i=0;i<n;i++)a.push({id:++uid,g:'',t:'',n:''});return a;}
 function newLot(o){o=o||{};return {id:++uid,size:o.size==null?15:o.size,custom:o.custom||'',N:o.N||'',mode:o.mode||'gt',brand:o.brand||'',seal:o.seal||'',rows:o.rows||blankRows(20)};}
 function exampleState(){
-  return {example:true,shop:'ร้านตัวอย่าง',place:'',operator:'',role:'sell',agentOf:'ปตท.',addrNo:'',soi:'',road:'',subdistrict:'',district:'',province:'สุราษฎร์ธานี',phone:'',date:today(),time:'10:30',inspector:'',assistants:'',assistantCount:'1',action:'',remark:'',cur:0,lots:[
+  return {example:true,shop:'ร้านตัวอย่าง',place:'',operator:'',role:'sell',agentOf:'ปตท.',addrNo:'',soi:'',road:'',subdistrict:'',district:'',province:'สุราษฎร์ธานี',phone:'',date:today(),time:'10:30',inspector:'',assistants:'',assistantCount:'1',action:'',remark:'',sigs:{},cur:0,lots:[
     newLot({size:15,N:'60',brand:'ปตท.',rows:EX_NET.map((n,i)=>({id:++uid,g:(n+EX_TARE[i]).toFixed(2),t:EX_TARE[i].toFixed(1),n:n.toFixed(2)}))}),
     newLot({size:48,N:'6',brand:'ปตท.',rows:EX48_NET.map((n,i)=>({id:++uid,g:(n+EX48_TARE[i]).toFixed(2),t:EX48_TARE[i].toFixed(1),n:n.toFixed(2)}))})
   ]};
 }
 function blankState(prev){
-  return {example:false,shop:'',place:'',operator:'',role:prev&&prev.role||'sell',agentOf:'',addrNo:'',soi:'',road:'',subdistrict:'',district:'',province:prev&&prev.province||'',phone:'',date:today(),time:'',inspector:prev?prev.inspector:'',assistants:prev&&prev.assistants||'',assistantCount:prev&&prev.assistantCount||'',action:'',remark:'',cur:0,lots:[newLot({mode:prev&&prev.lots&&prev.lots[0]?prev.lots[0].mode:'gt'})]};
+  return {example:false,shop:'',place:'',operator:'',role:prev&&prev.role||'sell',agentOf:'',addrNo:'',soi:'',road:'',subdistrict:'',district:'',province:prev&&prev.province||'',phone:'',date:today(),time:'',inspector:prev?prev.inspector:'',assistants:prev&&prev.assistants||'',assistantCount:prev&&prev.assistantCount||'',action:'',remark:'',sigs:{},cur:0,lots:[newLot({mode:prev&&prev.lots&&prev.lots[0]?prev.lots[0].mode:'gt'})]};
 }
 function load(){
   try{
@@ -824,7 +877,8 @@ exBtn.onclick=async()=>{
   exBtn.disabled=true;exMsg.textContent='กำลังสร้างไฟล์…';
   try{
     try{await Promise.all([document.fonts.load('400 12px Sarabun','ก'),document.fonts.load('700 12px Sarabun','ก')]);}catch(e){}
-    const pages=LPGPDF.render(items,S,(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;},'Sarabun, "IBM Plex Sans Thai", "Noto Sans Thai", sans-serif');
+    const sigImgs=await loadSigImgs();
+    const pages=LPGPDF.render(items,S,(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c;},'Sarabun, "IBM Plex Sans Thai", "Noto Sans Thai", sans-serif',sigImgs);
     const imgs=await Promise.all(pages.map(c=>new Promise((res,rej)=>c.toBlob(b=>{if(!b){rej(new Error('สร้างภาพหน้าไม่สำเร็จ'));return;}b.arrayBuffer().then(ab=>res({bytes:new Uint8Array(ab),w:c.width,h:c.height}),rej);},'image/jpeg',0.92))));
     const blob=new Blob([LPGPDF.pdf(imgs)],{type:'application/pdf'});
     const safe=t=>String(t||'').replace(/[\\/:*?"<>|]+/g,' ').trim().slice(0,60);
@@ -847,14 +901,14 @@ $('delLot').onclick=()=>{
 let armed=null;
 function startNew(btn){
   if(armed!==btn){armed=btn;const old=btn.textContent;btn.textContent='แตะอีกครั้งเพื่อล้างข้อมูลทุกกอง';setTimeout(()=>{if(armed===btn){armed=null;btn.textContent=old;}},3000);return;}
-  armed=null;S=blankState(S.example?null:S);initFields();showLot();
+  armed=null;S=blankState(S.example?null:S);initFields();showLot();renderSigs();
   $('startNew1').textContent='เริ่มตรวจร้านใหม่';$('startNew2').textContent='เริ่มตรวจร้านใหม่';
   $('shop').focus();
 }
 $('startNew1').onclick=()=>startNew($('startNew1'));
 $('startNew2').onclick=()=>startNew($('startNew2'));
 
-const FIELDS=['shop','place','operator','role','agentOf','addrNo','soi','road','subdistrict','district','province','phone','date','time','inspector','assistants','assistantCount','action','remark'];
+const FIELDS=['ownerName','wit1','wit2','wit3','shop','place','operator','role','agentOf','addrNo','soi','road','subdistrict','district','province','phone','date','time','inspector','assistants','assistantCount','action','remark'];
 function initFields(){FIELDS.forEach(k=>{$(k).value=S[k]||(k==='role'?'sell':'');});}
 FIELDS.forEach(k=>{const el=$(k);const h=()=>{S[k]=el.value;update();};el.addEventListener('input',h);if(el.tagName==='SELECT')el.addEventListener('change',h);});
 $('brand').addEventListener('input',e=>{cur().brand=e.target.value;update();});
@@ -867,6 +921,50 @@ $('lotN').addEventListener('input',e=>{
 });
 $('customSize').addEventListener('input',e=>{cur().custom=e.target.value;update();});
 initFields();showLot();
+
+/* ---------- signatures ---------- */
+function sigPeople(){
+  const insp=LPGPDF.INSPECTORS.find(x=>x[0]===S.inspector);
+  const out=[{k:'owner',role:'ผู้แทน / ผู้จัดการ / เจ้าของร้าน',name:S.ownerName||'(ยังไม่ได้กรอกชื่อ)'},
+    {k:'insp',role:'นายตรวจชั่งตวงวัด'+(insp?' · '+insp[1]:''),name:S.inspector||'(ยังไม่ได้เลือกนายตรวจ)'}];
+  LPGPDF.assistList(S).forEach((n,i)=>out.push({k:'asst'+i,role:'ผู้ช่วย',name:n}));
+  [S.wit1,S.wit2,S.wit3].forEach((n,i)=>out.push({k:'wit'+i,role:'พยาน คนที่ '+(i+1)+' (หน้าบันทึกการตรวจสอบ)',name:n||'(ยังไม่ได้กรอกชื่อ)'}));
+  return out;
+}
+function renderSigs(){
+  const sg=S.sigs||{};
+  $('sigList').innerHTML=sigPeople().map(p=>{const d=sg[p.k];return '<div class="sigrow" data-sk="'+esc(p.k)+'"><div class="who"><b>'+esc(p.name)+'</b><span>'+esc(p.role)+'</span></div>'+
+    '<div class="thumb">'+(d?'<img src="'+d+'" alt="ลายเซ็น">':'ยังไม่ได้เซ็น')+'</div><div class="acts"><button type="button" class="btn sm'+(d?'':' primary')+'" data-sign-k>'+(d?'เซ็นใหม่':'เซ็น')+'</button>'+
+    (d?'<button type="button" class="btn sm danger" data-sign-del>ลบ</button>':'')+'</div></div>';}).join('');
+}
+let sigKey=null,sigDirty=false;
+const pad=$('sigPad'),pctx=pad.getContext('2d');
+function padSize(){const r=pad.getBoundingClientRect(),dpr=window.devicePixelRatio||1;pad.width=Math.round(r.width*dpr);pad.height=Math.round(r.height*dpr);
+  pctx.setTransform(dpr,0,0,dpr,0,0);pctx.lineWidth=2.6;pctx.lineCap='round';pctx.lineJoin='round';pctx.strokeStyle='#0b1f6b';pctx.clearRect(0,0,r.width,r.height);}
+function openPad(k){sigKey=k;sigDirty=false;const p=sigPeople().find(x=>x.k===k);$('sigTitle').textContent='ลงลายมือชื่อ: '+(p?p.name+' ('+p.role+')':'');
+  $('sigModal').hidden=false;requestAnimationFrame(padSize);}
+function closePad(){$('sigModal').hidden=true;sigKey=null;}
+(()=>{let drawing=false,last=null;const pos=e=>{const r=pad.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};};
+  pad.addEventListener('pointerdown',e=>{e.preventDefault();pad.setPointerCapture(e.pointerId);drawing=true;last=pos(e);pctx.beginPath();pctx.arc(last.x,last.y,1.2,0,7);pctx.fillStyle='#0b1f6b';pctx.fill();sigDirty=true;});
+  pad.addEventListener('pointermove',e=>{if(!drawing)return;e.preventDefault();const q=pos(e);pctx.beginPath();pctx.moveTo(last.x,last.y);pctx.lineTo(q.x,q.y);pctx.stroke();last=q;});
+  ['pointerup','pointercancel','pointerleave'].forEach(t=>pad.addEventListener(t,()=>{drawing=false;}));})();
+function trimmedSig(){const w=pad.width,h=pad.height,d=pctx.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1;
+  for(let yy=0;yy<h;yy++)for(let xx=0;xx<w;xx++){if(d[(yy*w+xx)*4+3]>10){if(xx<x0)x0=xx;if(xx>x1)x1=xx;if(yy<y0)y0=yy;if(yy>y1)y1=yy;}}
+  if(x1<0)return '';const m=6;x0=Math.max(0,x0-m);y0=Math.max(0,y0-m);x1=Math.min(w-1,x1+m);y1=Math.min(h-1,y1+m);
+  const sc=Math.min(1,160/(y1-y0+1),640/(x1-x0+1));const c=document.createElement('canvas');c.width=Math.max(1,Math.round((x1-x0+1)*sc));c.height=Math.max(1,Math.round((y1-y0+1)*sc));
+  c.getContext('2d').drawImage(pad,x0,y0,x1-x0+1,y1-y0+1,0,0,c.width,c.height);return c.toDataURL('image/png');}
+$('sigClear').onclick=()=>{padSize();sigDirty=false;};
+$('sigCancel').onclick=closePad;
+$('sigSave').onclick=()=>{if(!sigKey)return;const d=sigDirty?trimmedSig():'';if(!d){$('sigTitle').textContent='ยังไม่มีลายเซ็นในกรอบ เซ็นก่อนแล้วกดบันทึก';return;}
+  S.sigs=S.sigs||{};S.sigs[sigKey]=d;save();closePad();renderSigs();};
+$('sigList').addEventListener('click',e=>{const row=e.target.closest('[data-sk]');if(!row)return;const k=row.dataset.sk;
+  if(e.target.closest('[data-sign-k]'))openPad(k);
+  if(e.target.closest('[data-sign-del]')){if(S.sigs)delete S.sigs[k];save();renderSigs();}});
+['ownerName','wit1','wit2','wit3','assistants'].forEach(k=>$(k).addEventListener('input',renderSigs));
+$('inspector').addEventListener('change',()=>{if(S.sigs)delete S.sigs.insp;save();renderSigs();});
+window.addEventListener('resize',()=>{if(!$('sigModal').hidden&&!sigDirty)padSize();});
+async function loadSigImgs(){const out={};await Promise.all(Object.entries(S.sigs||{}).map(([k,d])=>new Promise(res=>{const im=new Image();im.onload=()=>{out[k]=im;res();};im.onerror=()=>res();im.src=d;})));return out;}
+renderSigs();
 })();
 </script>
 
