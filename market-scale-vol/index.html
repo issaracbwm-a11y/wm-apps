@@ -145,6 +145,14 @@ footer{font-size:12px;color:var(--muted);line-height:1.6}
       <label class="f full">ชื่อตลาด
         <input id="market" placeholder="เช่น ตลาดสดเทศบาลนครสุราษฎร์ธานี" autocomplete="off">
       </label>
+      <label class="f full">ประเภทสถานที่ <small>ใช้แยกยอดในชีตสรุปผลตรวจรายวัน</small>
+        <select id="ptype">
+          <option>ตลาดสด</option>
+          <option>ตลาดนัด</option>
+          <option>ร้านค้า</option>
+          <option>สถานที่รับซื้อสินค้าเกษตร</option>
+        </select>
+      </label>
       <label class="f">1. ประเภทเจ้าหน้าที่
         <input id="otypeShow" value="อส.ชว.ตลาดสด" readonly>
         <input id="otype" type="hidden" value="vol">
@@ -279,6 +287,7 @@ footer{font-size:12px;color:var(--muted);line-height:1.6}
     </div>
     <div class="msg" id="msg2" role="status"></div>
     <div class="msg" id="sheetMsg" role="status"></div>
+    <div class="msg" id="pdfMsg" role="status"></div>
   </section>
 
   <footer>
@@ -332,10 +341,10 @@ function status(errG,mpe){const a=r1(Math.abs(errG));
 
 /* ---------- storage ---------- */
 function save(){try{localStorage.setItem(KEY,JSON.stringify({
-  market:$("market").value,date:$("date").value,
+  market:$("market").value,ptype:$("ptype").value,date:$("date").value,
   vol:$("volName").value,team:$("team").value,records:state.records,sessionId:state.sessionId||"",totals:state.totals||{}}))}catch(e){}}
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(!s)return;
-  $("market").value=s.market||"";$("date").value=s.date||todayISO();
+  $("market").value=s.market||"";if(s.ptype)$("ptype").value=s.ptype;$("date").value=s.date||todayISO();
   $("volName").value=s.vol||"";$("team").value=s.team||"";state.records=s.records||[];state.sessionId=s.sessionId||"";state.totals=s.totals||{};}catch(e){}}
 
 /* ---------- market totals (may exceed per-shop records) ---------- */
@@ -363,6 +372,9 @@ for(const k in TOT_IDS){$(TOT_IDS[k]).addEventListener("input",e=>{state.totals=
 const SHEET_URL="https://script.google.com/macros/s/AKfycbxSyZQ3yg3QtnJROf7xN6dVhiFiZ6IJ2ys_sdU2GFY_BTd9pb60YsktUqVLHz6DglrZrQ/exec";                     // URL เว็บแอป Apps Script (ลงท้าย /exec)
 const SHEET_TOKEN="cbwm31-market-2569";   // ต้องตรงกับ TOKEN ในสคริปต์
 const QKEY="mkt-scale-vol-queue";
+// ชีตสรุปผลตรวจรายวันของศูนย์ฯ (ให้ ผอ. รับทราบ) รับทั้งตัวเลขสรุปและไฟล์ PDF · เว้นว่างไว้ถ้ายังไม่ได้ติดตั้ง
+const DAILY_URL="";                       // URL เว็บแอป Apps Script ของชีตสรุปรายวัน (ลงท้าย /exec)
+const DAILY_TOKEN="cbwm31-daily-2569";    // ต้องตรงกับ TOKEN ใน daily-summary/apps-script.gs
 function newId(){return Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,8)}
 function readQ(){try{return JSON.parse(localStorage.getItem(QKEY)||"[]")}catch(e){return[]}}
 function writeQ(q){try{localStorage.setItem(QKEY,JSON.stringify(q))}catch(e){}}
@@ -377,13 +389,20 @@ function buildSummary(){
     shops:getShops(),springPass:t.sp,springFail:t.sf,digitalPass:t.dp,digitalFail:t.df,
     actionText:parts.length?parts.join(", "):"-",seized,tagged,notified};
 }
+// แถวเดียวต่อตลาดในชีตสรุปรายวัน ใช้รหัสรายการเดียวกับชีตตลาดสด
+function buildDaily(s){
+  return{_url:DAILY_URL,token:DAILY_TOKEN,kind:"summary",app:"market-scale-vol",job:"เครื่องชั่งในตลาด",
+    submitId:s.submitId,date:s.date,placeType:$("ptype").value,place:s.market,officerType:s.officerType,
+    officerName:s.officerName,team:s.team,units:s.shops,pass:s.springPass+s.digitalPass,fail:s.springFail+s.digitalFail,
+    detail:`สปริง ถูก ${s.springPass} ผิด ${s.springFail} · ดิจิทัล ถูก ${s.digitalPass} ผิด ${s.digitalFail}`,actionText:s.actionText};
+}
 function sheetMsg(t,k){const el=$("sheetMsg");el.textContent=t;el.className="msg "+(k||"")}
 let flushing=false,retryTimer=null;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function postItem(item){
   // ลองส่งสูงสุด 3 ครั้ง · keepalive ให้คำขอส่งต่อได้แม้หน้าเว็บถูกขัดจังหวะตอนบันทึก PDF
   for(let i=0;i<3;i++){
-    try{await fetch(SHEET_URL,{method:"POST",mode:"no-cors",keepalive:true,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(item)});return true}
+    try{await fetch(item._url||SHEET_URL,{method:"POST",mode:"no-cors",keepalive:true,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...item,_url:undefined})});return true}
     catch(e){await sleep(1500*(i+1))}
   }
   return false;
@@ -411,16 +430,36 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 function sendSummary(){
   if(!SHEET_URL)return;
   if(!state.sessionId){state.sessionId=newId();save()}
-  const s=buildSummary();
-  const q=readQ().filter(x=>x.submitId!==s.submitId);q.push(s);writeQ(q);
+  const s=buildSummary(), items=[s];
+  if(DAILY_URL)items.push(buildDaily(s));
+  // ส่งออกซ้ำ ให้แทนฉบับเดิมที่ยังค้างในคิวของปลายทางเดียวกัน
+  const q=readQ().filter(x=>!items.some(i=>i.submitId===x.submitId&&(i._url||"")===(x._url||"")));q.push(...items);writeQ(q);
   flushQ();
 }
 window.addEventListener("online",flushQ);
+
+/* ---------- ส่งไฟล์ PDF เข้าโฟลเดอร์ Drive ของชีตสรุปรายวัน ---------- */
+// ไฟล์ใหญ่เกินกว่าจะใช้ keepalive และไม่เก็บเข้าคิว ถ้าส่งไม่สำเร็จให้กดส่งออก PDF อีกครั้งเมื่อมีสัญญาณ
+async function uploadPdf(filename,b64){
+  if(!DAILY_URL||!state.sessionId)return;
+  const el=$("pdfMsg"),show=(t,k)=>{el.textContent=t;el.className="msg "+(k||"")};
+  if(navigator.onLine===false)return show("ยังไม่มีสัญญาณ ไฟล์ PDF ยังไม่ได้ส่งเข้าชีตสรุปรายวัน กดส่งออก PDF อีกครั้งเมื่อออนไลน์","err");
+  show("กำลังส่งไฟล์ PDF เข้าชีตสรุปรายวัน…");
+  const body=JSON.stringify({token:DAILY_TOKEN,kind:"pdf",submitId:state.sessionId,filename,data:b64});
+  for(let i=0;i<3;i++){
+    try{await fetch(DAILY_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body});return show("ส่งไฟล์ PDF เข้าชีตสรุปรายวันแล้ว","ok")}
+    catch(e){await sleep(2000*(i+1))}
+  }
+  show("ส่งไฟล์ PDF เข้าชีตสรุปรายวันไม่สำเร็จ กดส่งออก PDF อีกครั้งเมื่อสัญญาณดีขึ้น","err");
+}
 
 /* ---------- officer ---------- */
 function officer(){return{type:"vol",typeLabel:"อส.ชว.ตลาดสด",name:$("volName").value.trim(),pos:"อาสาสมัครผู้ช่วยนายตรวจชั่งตวงวัดประจำตลาดสด"}}
 function syncOfficer(){evaluate();save()}
 ["market","date","volName","team"].forEach(id=>$(id).addEventListener("input",save));
+$("ptype").addEventListener("change",save);
+// ชื่อที่มีคำว่า ตลาดนัด เลือกประเภทให้อัตโนมัติ แก้ทีหลังได้
+$("market").addEventListener("input",()=>{if(/ตลาดนัด/.test($("market").value)&&$("ptype").value==="ตลาดสด"){$("ptype").value="ตลาดนัด";save()}});
 
 /* ---------- scale type / preset ---------- */
 function fillPresets(){const sel=$("preset");sel.innerHTML="";
@@ -621,6 +660,7 @@ $("pdfBtn").addEventListener("click",async()=>{
     const mk=($("market").value||"ตลาด").replace(/[\\/:*?"<>|\s]+/g,"_");
     const fname=`รายงานตรวจเครื่องชั่ง_${mk}_${$("date").value}.pdf`;
     stage.innerHTML="";
+    uploadPdf(fname,pdf.output("datauristring").split(",")[1]);
     let dl=null;
     try{ if(window.claude&&window.claude.use) dl=await Promise.race([window.claude.use("downloads"),new Promise(r=>setTimeout(()=>r(null),4000))]); }catch(_){dl=null}
     if(dl){
