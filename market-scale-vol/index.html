@@ -374,7 +374,20 @@ const SHEET_TOKEN="cbwm31-market-2569";   // ต้องตรงกับ TOKE
 const QKEY="mkt-scale-vol-queue";
 // ชีตสรุปผลตรวจรายวันของศูนย์ฯ (ให้ ผอ. รับทราบ) รับทั้งตัวเลขสรุปและไฟล์ PDF · เว้นว่างไว้ถ้ายังไม่ได้ติดตั้ง
 const DAILY_URL="";                       // URL เว็บแอป Apps Script ของชีตสรุปรายวัน (ลงท้าย /exec)
-const DAILY_TOKEN="cbwm31-daily-2569";    // ต้องตรงกับ TOKEN ใน daily-summary/apps-script.gs
+const DAILY_TOKEN="";                     // รหัสแอปที่ได้จาก setup ของชีตสรุปรายวัน
+// รหัสผู้ส่งข้อมูลรายบุคคล (ขอจากผู้ช่วยนายตรวจ) ใส่ครั้งเดียว ใช้ร่วมกันทุกแอปในเว็บนี้
+const SENDER_KEY="wm-daily-sender";
+function dailySender(ask){
+  let c="";try{c=localStorage.getItem(SENDER_KEY)||""}catch(e){}
+  if(!c&&ask){c=(prompt("ใส่รหัสผู้ส่งข้อมูลของท่าน (ขอได้จากผู้ช่วยนายตรวจชั่งตวงวัด)\nใส่ครั้งเดียว ใช้ได้กับทุกแอป")||"").trim().toUpperCase();if(c)try{localStorage.setItem(SENDER_KEY,c)}catch(e){}}
+  return c;
+}
+function addSenderLink(id){
+  const el=document.getElementById(id);if(!el||!DAILY_URL)return;
+  const a=document.createElement("a");a.href="#";a.textContent="เปลี่ยนรหัสผู้ส่งข้อมูล";a.style.cssText="display:inline-block;margin-top:4px;font-size:.85em";
+  a.addEventListener("click",e=>{e.preventDefault();try{localStorage.removeItem(SENDER_KEY)}catch(_){}dailySender(true)});
+  el.after(a);
+}
 function newId(){return Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,8)}
 function readQ(){try{return JSON.parse(localStorage.getItem(QKEY)||"[]")}catch(e){return[]}}
 function writeQ(q){try{localStorage.setItem(QKEY,JSON.stringify(q))}catch(e){}}
@@ -400,9 +413,12 @@ function sheetMsg(t,k){const el=$("sheetMsg");el.textContent=t;el.className="msg
 let flushing=false,retryTimer=null;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function postItem(item){
+  // ชีตสรุปรายวันต้องมีรหัสผู้ส่ง ยังไม่มีให้ค้างในคิวไว้ก่อน
+  const daily=item._url&&item._url===DAILY_URL;
+  if(daily&&!dailySender(false))return false;
   // ลองส่งสูงสุด 3 ครั้ง · keepalive ให้คำขอส่งต่อได้แม้หน้าเว็บถูกขัดจังหวะตอนบันทึก PDF
   for(let i=0;i<3;i++){
-    try{await fetch(item._url||SHEET_URL,{method:"POST",mode:"no-cors",keepalive:true,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...item,_url:undefined})});return true}
+    try{await fetch(item._url||SHEET_URL,{method:"POST",mode:"no-cors",keepalive:true,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...item,_url:undefined,...(daily?{sender:dailySender(false)}:{})})});return true}
     catch(e){await sleep(1500*(i+1))}
   }
   return false;
@@ -431,12 +447,13 @@ function sendSummary(){
   if(!SHEET_URL)return;
   if(!state.sessionId){state.sessionId=newId();save()}
   const s=buildSummary(), items=[s];
-  if(DAILY_URL)items.push(buildDaily(s));
+  if(DAILY_URL){items.push(buildDaily(s));dailySender(true)}
   // ส่งออกซ้ำ ให้แทนฉบับเดิมที่ยังค้างในคิวของปลายทางเดียวกัน
   const q=readQ().filter(x=>!items.some(i=>i.submitId===x.submitId&&(i._url||"")===(x._url||"")));q.push(...items);writeQ(q);
   flushQ();
 }
 window.addEventListener("online",flushQ);
+addSenderLink("pdfMsg");
 
 /* ---------- ส่งไฟล์ PDF เข้าโฟลเดอร์ Drive ของชีตสรุปรายวัน ---------- */
 // ไฟล์ใหญ่เกินกว่าจะใช้ keepalive และไม่เก็บเข้าคิว ถ้าส่งไม่สำเร็จให้กดส่งออก PDF อีกครั้งเมื่อมีสัญญาณ
@@ -445,7 +462,8 @@ async function uploadPdf(filename,b64){
   const el=$("pdfMsg"),show=(t,k)=>{el.textContent=t;el.className="msg "+(k||"")};
   if(navigator.onLine===false)return show("ยังไม่มีสัญญาณ ไฟล์ PDF ยังไม่ได้ส่งเข้าชีตสรุปรายวัน กดส่งออก PDF อีกครั้งเมื่อออนไลน์","err");
   show("กำลังส่งไฟล์ PDF เข้าชีตสรุปรายวัน…");
-  const body=JSON.stringify({token:DAILY_TOKEN,kind:"pdf",submitId:state.sessionId,filename,data:b64});
+  if(!dailySender(true))return show("ยังไม่ได้ใส่รหัสผู้ส่งข้อมูล ผลยังไม่ได้ส่งเข้าชีตสรุปรายวัน กดส่งออกอีกครั้งเพื่อใส่รหัส","err");
+  const body=JSON.stringify({token:DAILY_TOKEN,kind:"pdf",submitId:state.sessionId,filename,data:b64,sender:dailySender(false)});
   for(let i=0;i<3;i++){
     try{await fetch(DAILY_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body});return show("ส่งไฟล์ PDF เข้าชีตสรุปรายวันแล้ว","ok")}
     catch(e){await sleep(2000*(i+1))}

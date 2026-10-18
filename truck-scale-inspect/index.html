@@ -1036,12 +1036,26 @@ fillAll();
 /* ---------- ส่งผลเข้าชีตสรุปผลตรวจรายวันของศูนย์ฯ (ให้ ผอ. รับทราบ) ---------- */
 // หนึ่งแถวต่อสถานที่ ส่งซ้ำด้วยรหัสเดิมจะแทนแถวเดิม · เว้น DAILY_URL ว่างไว้ถ้ายังไม่ได้ติดตั้งชีต
 const DAILY_URL="";                       // URL เว็บแอป Apps Script ของชีตสรุปรายวัน (ลงท้าย /exec)
-const DAILY_TOKEN="cbwm31-daily-2569";    // ต้องตรงกับ TOKEN ใน daily-summary/apps-script.gs
+const DAILY_TOKEN="";                     // รหัสแอปที่ได้จาก setup ของชีตสรุปรายวัน
+// รหัสผู้ส่งข้อมูลรายบุคคล (ขอจากผู้ช่วยนายตรวจ) ใส่ครั้งเดียว ใช้ร่วมกันทุกแอปในเว็บนี้
+const SENDER_KEY="wm-daily-sender";
+function dailySender(ask){
+  let c="";try{c=localStorage.getItem(SENDER_KEY)||""}catch(e){}
+  if(!c&&ask){c=(prompt("ใส่รหัสผู้ส่งข้อมูลของท่าน (ขอได้จากผู้ช่วยนายตรวจชั่งตวงวัด)\nใส่ครั้งเดียว ใช้ได้กับทุกแอป")||"").trim().toUpperCase();if(c)try{localStorage.setItem(SENDER_KEY,c)}catch(e){}}
+  return c;
+}
+function addSenderLink(id){
+  const el=document.getElementById(id);if(!el||!DAILY_URL)return;
+  const a=document.createElement("a");a.href="#";a.textContent="เปลี่ยนรหัสผู้ส่งข้อมูล";a.style.cssText="display:inline-block;margin-top:4px;font-size:.85em";
+  a.addEventListener("click",e=>{e.preventDefault();try{localStorage.removeItem(SENDER_KEY)}catch(_){}dailySender(true)});
+  el.after(a);
+}
 const DAILY_Q="truck-daily-queue";
 function dailyMsg(t,k){const el=document.getElementById("dailyMsg");if(!el)return;el.textContent=t||"";el.className="msg"+(k?" "+k:"")}
 function dailyRead(){try{return JSON.parse(localStorage.getItem(DAILY_Q)||"[]")}catch(e){return[]}}
 function dailyWrite(q){try{localStorage.setItem(DAILY_Q,JSON.stringify(q))}catch(e){}}
-async function dailyPost(body){
+async function dailyPost(item){
+  const body=JSON.stringify(Object.assign({},item,{sender:dailySender(false)}));
   for(let i=0;i<3;i++){
     try{await fetch(DAILY_URL,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body});return true}
     catch(e){await new Promise(r=>setTimeout(r,1500*(i+1)))}
@@ -1049,11 +1063,12 @@ async function dailyPost(body){
   return false;
 }
 let dailyBusy=false;
-async function flushDaily(){
+async function flushDaily(ask){
   if(!DAILY_URL||dailyBusy||!dailyRead().length)return;
+  if(!dailySender(ask))return dailyMsg("ยังไม่ได้ใส่รหัสผู้ส่งข้อมูล ผลยังไม่ได้ส่งเข้าชีตสรุปรายวัน กดส่งออกอีกครั้งเพื่อใส่รหัส","err");
   if(navigator.onLine===false)return dailyMsg("ยังไม่มีสัญญาณ รอส่งเข้าชีตสรุปรายวัน จะส่งให้อัตโนมัติเมื่อออนไลน์","err");
   dailyBusy=true;
-  try{for(const item of dailyRead()){const s=JSON.stringify(item);if(await dailyPost(s))dailyWrite(dailyRead().filter(x=>JSON.stringify(x)!==s))}}
+  try{for(const item of dailyRead()){const s=JSON.stringify(item);if(await dailyPost(item))dailyWrite(dailyRead().filter(x=>JSON.stringify(x)!==s))}}
   finally{dailyBusy=false}
   dailyMsg(dailyRead().length?"ส่งเข้าชีตสรุปรายวันยังไม่สำเร็จ จะลองใหม่อัตโนมัติ":"ส่งผลเข้าชีตสรุปรายวันแล้ว",dailyRead().length?"err":"ok");
 }
@@ -1061,17 +1076,19 @@ function sendDaily(row){
   if(!DAILY_URL||!row.submitId)return;
   const item=Object.assign({token:DAILY_TOKEN,kind:"summary"},row);
   dailyWrite(dailyRead().filter(x=>x.submitId!==item.submitId).concat(item));
-  flushDaily();
+  flushDaily(true);
 }
 // ไฟล์ PDF ใหญ่ ไม่เก็บเข้าคิว ถ้าส่งไม่สำเร็จให้กดส่งออก PDF อีกครั้งเมื่อมีสัญญาณ
 async function sendDailyPdf(submitId,filename,b64){
   if(!DAILY_URL||!submitId)return;
   if(navigator.onLine===false)return dailyMsg("ยังไม่มีสัญญาณ ไฟล์ PDF ยังไม่ได้ส่งเข้าชีตสรุปรายวัน กดส่งออก PDF อีกครั้งเมื่อออนไลน์","err");
-  const ok=await dailyPost(JSON.stringify({token:DAILY_TOKEN,kind:"pdf",submitId,filename,data:b64}));
+  if(!dailySender(true))return dailyMsg("ยังไม่ได้ใส่รหัสผู้ส่งข้อมูล ผลยังไม่ได้ส่งเข้าชีตสรุปรายวัน กดส่งออกอีกครั้งเพื่อใส่รหัส","err");
+  const ok=await dailyPost({token:DAILY_TOKEN,kind:"pdf",submitId,filename,data:b64});
   dailyMsg(ok?"ส่งไฟล์ PDF เข้าชีตสรุปรายวันแล้ว":"ส่งไฟล์ PDF เข้าชีตสรุปรายวันไม่สำเร็จ กดส่งออก PDF อีกครั้งเมื่อสัญญาณดีขึ้น",ok?"ok":"err");
 }
-window.addEventListener("online",flushDaily);
-setTimeout(flushDaily,2000);
+window.addEventListener("online",()=>flushDaily(false));
+setTimeout(()=>flushDaily(false),2000);
+addSenderLink("dailyMsg");
 // หนึ่งสถานประกอบการ = 1 ราย · นับเครื่องชั่งรถยนต์ที่ตรวจ ถูก/ผิด
 function sendDailyTruck(){
   if(S.sample)return; // ข้อมูลสาธิต ไม่ส่ง

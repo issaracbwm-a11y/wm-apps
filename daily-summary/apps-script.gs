@@ -20,32 +20,47 @@
  *    เรียกใช้ในฐานะ: ฉัน   ผู้ที่มีสิทธิ์เข้าถึง: ทุกคน
  * 7. คัดลอก URL เว็บแอป (ลงท้าย /exec) ส่งให้ Claude ใส่ในแอป
  */
-const TOKEN = 'cbwm31-daily-2569';
+// รหัสแอป (TOKEN) เก็บใน Script Properties ไม่อยู่ในโค้ด setup สร้างให้ครั้งแรก เปลี่ยนได้ด้วย newToken
+// รหัสแอปอยู่ในแอปบนเบราว์เซอร์จึงไม่ใช่การยืนยันตัวตน ผู้ส่งแต่ละคนจึงต้องมีรหัสผู้ส่งของตัวเอง (แท็บ ผู้ส่งข้อมูล)
 const TZ = 'Asia/Bangkok';
 const LOG = 'รายการตรวจ';
 const ACK = 'รับทราบ';
 const CFG = 'ตั้งค่า';
 const HIST = 'ประวัติ';
+const SENDERS = 'ผู้ส่งข้อมูล';
+const REJECT = 'ข้อมูลที่ไม่รับ';
+const APPS = ['market-scale-inspect', 'market-scale-vol', 'fuel-dispenser-inspect', 'truck-scale-inspect', 'lpg-cylinder-inspect'];
+const PDF_MAX_BYTES = 10 * 1024 * 1024;
 const COL = { date: 1, total: 11, link: 14, id: 17, edited: 18 };
 // แท็บ รับทราบ: F ผอ.รับทราบ, G เมื่อ, H ลงระบบแล้ว, I เมื่อ/โดย, J หมายเหตุ, K ยอดที่ ผอ.รับทราบ, L ยอดที่ลงระบบ, M สถานะ
 const A = { ack: 6, ackAt: 7, done: 8, doneAt: 9, ackSnap: 11, doneSnap: 12 };
-const STATUS_F = '={"สถานะ";ARRAYFORMULA(IF(LEN(A2:A)=0,,LET(cur,B2:B&" แห่ง · "&C2:C&" ราย · "&D2:D&" เครื่อง · ผิด "&E2:E,'
+const STATUS_F = '={"สถานะ";ARRAYFORMULA(IF(LEN(A2:A)=0,,LET(cur,B2:B&" แห่ง · "&C2:C&" ราย · "&D2:D&" · ไม่ผ่าน "&E2:E,'
   + 'k,(K2:K<>"")*(K2:K<>cur),l,(L2:L<>"")*(L2:L<>cur),'
   + 'IF(k*l,"มีข้อมูลเปลี่ยนแปลง รอ ผอ.รับทราบใหม่ และต้องปรับปรุงยอดในระบบงาน",IF(l,"ต้องตรวจสอบและปรับปรุงยอดในระบบงาน",'
   + 'IF(k,"มีข้อมูลเปลี่ยนแปลง รอรับทราบใหม่",IF(H2:H=TRUE,"ลงระบบแล้ว",IF(F2:F=TRUE,"รับทราบแล้ว รอลงระบบ","รอ ผอ.รับทราบ"))))))))}';
 const JOBS = ['เครื่องชั่งในตลาด', 'เครื่องชั่ง', 'เครื่องตวง', 'มาตรวัดน้ำมันเชื้อเพลิง', 'ก๊าซหุงต้มบรรจุถัง', 'เครื่องชั่งรถยนต์', 'สินค้าหีบห่อ'];
 const PLACES = ['ตลาดสด', 'ตลาดนัด', 'ร้านค้า', 'สถานที่รับซื้อสินค้าเกษตร', 'สถานีบริการน้ำมัน', 'โรงงาน'];
+// หน่วยนับตามงาน งานที่ไม่อยู่ในรายการนับเป็น เครื่อง
+const UNIT = { 'ก๊าซหุงต้มบรรจุถัง': 'ถัง', 'สินค้าหีบห่อ': 'รายการ' };
+const UNITS = ['เครื่อง', 'ถัง', 'รายการ'];
+const unit_ = (job) => UNIT[job] || 'เครื่อง';
 
 const SUM = 'สรุปรายวัน';
 const LOG_HEAD = [
   'วันที่ตรวจ', 'งาน', 'ประเภทสถานประกอบการ', 'ชื่อสถานประกอบการ', 'ผู้ตรวจ', 'ประเภทเจ้าหน้าที่', 'พร้อมด้วย',
-  'จำนวนราย', 'เครื่องถูก', 'เครื่องผิด', ['รวมเครื่อง', '={"รวมเครื่อง";ARRAYFORMULA(IF(LEN(A2:A),I2:I+J2:J,))}'],
-  'รายละเอียดเครื่อง', 'การดำเนินการ', 'ลิงก์รายงาน PDF', 'ส่งข้อมูลเมื่อ', 'แอปที่ส่ง', 'รหัสรายการ', 'แก้ไขล่าสุด (เวลา · ผู้แก้)'
+  'จำนวนราย', 'ผ่าน', 'ไม่ผ่าน', ['รวมที่ตรวจ', '={"รวมที่ตรวจ";ARRAYFORMULA(IF(LEN(A2:A),I2:I+J2:J,))}'],
+  'รายละเอียด', 'การดำเนินการ', 'ลิงก์รายงาน PDF', 'ส่งข้อมูลเมื่อ', 'แอปที่ส่ง', 'รหัสรายการ', 'แก้ไขล่าสุด (เวลา · ผู้แก้)',
+  ['หน่วยนับ', '={"หน่วยนับ";ARRAYFORMULA(IF(LEN(A2:A),IF(B2:B="ก๊าซหุงต้มบรรจุถัง","ถัง",IF(B2:B="สินค้าหีบห่อ","รายการ","เครื่อง")),))}']
 ];
-const ackSum_ = (h, col) => ['' + h, '={"' + h + '";ARRAYFORMULA(IF(LEN(A2:A),'
-  + (col ? "SUMIF('" + LOG + "'!A:A,A2:A,'" + LOG + "'!" + col + ':' + col + ')' : "COUNTIFS('" + LOG + "'!A:A,A2:A)") + ',))}'];
+// ยอดต่อวันในแท็บ รับทราบ: แห่งนับชื่อสถานที่ไม่ซ้ำ ส่วนจำนวนที่ตรวจและไม่ผ่านแยกตามหน่วยนับ เช่น "45 เครื่อง · 120 ถัง"
+const LQ = "'" + LOG + "'!";
+const perUnit_ = (h, col) => [h, '={"' + h + '";MAP(A2:A,LAMBDA(d,IF(d="",,LET(t,TEXTJOIN(" · ",TRUE,MAP({"' + UNITS.join('","')
+  + '"},LAMBDA(u,LET(n,SUMIFS(' + LQ + col + ':' + col + ',' + LQ + 'A:A,d,' + LQ + 'S:S,u),IF(n,n&" "&u,""))))),IF(t="","0",t)))))}'];
 const ACK_HEAD = [
-  'วันที่ตรวจ', ackSum_('จำนวนแห่ง'), ackSum_('จำนวนราย', 'H'), ackSum_('รวมเครื่อง', 'K'), ackSum_('เครื่องผิด', 'J'),
+  'วันที่ตรวจ',
+  ['จำนวนแห่ง', '={"จำนวนแห่ง";MAP(A2:A,LAMBDA(d,IF(d="",,COUNTUNIQUEIFS(' + LQ + 'D:D,' + LQ + 'A:A,d))))}'],
+  ['จำนวนราย', '={"จำนวนราย";ARRAYFORMULA(IF(LEN(A2:A),SUMIF(' + LQ + 'A:A,A2:A,' + LQ + 'H:H),))}'],
+  perUnit_('จำนวนที่ตรวจ', 'K'), perUnit_('ไม่ผ่าน', 'J'),
   'ผอ.รับทราบ', 'ผอ.รับทราบเมื่อ', 'ลงระบบงานชั่งตวงวัดแล้ว', 'ลงระบบเมื่อ / โดย', 'หมายเหตุ',
   'ยอดที่ ผอ.รับทราบ', 'ยอดที่ลงระบบ', ['สถานะ', STATUS_F]
 ];
@@ -55,7 +70,8 @@ const CFG_ROWS = [
   ['เวลาส่งอีเมลสรุปถึง ผอ. (ชั่วโมง 0-23)', 17, 'ส่งเฉพาะวันที่มีผลตรวจ'],
   ['รหัสโฟลเดอร์เก็บรายงาน PDF', '', 'ฟังก์ชัน setup กรอกให้เอง'],
   ['รหัสชีตตลาดสดเดิม', '1DyiPbe3H-tWHOHgs0WaVBVKVgtUWwOcGszz_WT_o5ew', 'ใช้กับฟังก์ชัน importMarketHistory เพื่อนำเข้าข้อมูลเก่า'],
-  ['อีเมลผู้ช่วยนายตรวจชั่งตวงวัด', '', 'คนรวมตัวเลขเสนอ ผอ. ใส่ได้หลายคน คั่นด้วยจุลภาค (,)']
+  ['อีเมลผู้ช่วยนายตรวจชั่งตวงวัด', '', 'คนรวมตัวเลขเสนอ ผอ. ใส่ได้หลายคน คั่นด้วยจุลภาค (,)'],
+  ['ต้องใช้รหัสผู้ส่งข้อมูล', 'ใช่', 'ใช่ = รับเฉพาะข้อมูลที่มีรหัสผู้ส่งที่เปิดใช้งานในแท็บ ผู้ส่งข้อมูล']
 ];
 const DATES_F = "=IFERROR(SORT(UNIQUE(FILTER('" + LOG + "'!A2:A,'" + LOG + "'!A2:A<>\"\")),1,FALSE),\"\")";
 
@@ -72,10 +88,10 @@ function ss_() {
 
 /* ---------- ตั้งค่า ---------- */
 function cfg_() {
-  const v = ss_().getSheetByName(CFG).getRange('B1:B6').getValues().map(r => String(r[0]).trim());
+  const v = ss_().getSheetByName(CFG).getRange('B1:B7').getValues().map(r => String(r[0]).trim());
   return {
     director: v[0], recorder: v[1], hour: Number(v[2]) || 17, folderId: v[3], marketSheetId: v[4],
-    assistants: v[5].split(/[,\s]+/).filter(Boolean)
+    assistants: v[5].split(/[,\s]+/).filter(Boolean), needSender: v[6] !== 'ไม่ใช่'
   };
 }
 
@@ -126,6 +142,8 @@ function checkStructure_(ss) {
 
   head(sheet(LOG), LOG_HEAD);
   head(sheet(ACK), ACK_HEAD);
+  head(sheet(SENDERS), ['ชื่อผู้ส่ง', 'รหัสผู้ส่ง', 'ใช้งาน', 'ส่งข้อมูลล่าสุด']);
+  head(sheet(REJECT), ['เวลา', 'เหตุผล', 'แอป', 'ผู้ส่ง', 'วันที่ตรวจ', 'สถานที่', 'ข้อมูลที่ส่งมา']);
   hist_();
   if (!ss.getSheetByName(SUM)) { buildSummary_(ss.insertSheet(SUM, 0)); made.push('สร้างแท็บ ' + SUM); }
   else if (ss.getSheetByName(SUM).getRange('A2').getDisplayValue() !== 'วันที่ตรวจ')
@@ -136,13 +154,13 @@ function checkStructure_(ss) {
 }
 
 // แท็บ สรุปรายวัน สำหรับชีตเปล่า (ชีตเดิมที่มีแท็บนี้แล้วไม่แตะ)
+// ตารางแรกแยกตามประเภทสถานประกอบการ (แห่ง ราย) ตารางที่สองแยกตามงานพร้อมหน่วยนับของงานนั้น
 function buildSummary_(sh) {
-  const L = "'" + LOG + "'!";
-  const n = PLACES.length, first = 7, other = first + n, total = other + 1;
-  const ackF = (snapCol, okCol, atCol, okText, noText, changed) => '=IFERROR(LET(r,MATCH($B$2,\'' + ACK + '\'!$A:$A,0),'
-    + 'c,INDEX(\'' + ACK + '\'!B:B,r)&" แห่ง · "&INDEX(\'' + ACK + '\'!C:C,r)&" ราย · "&INDEX(\'' + ACK + '\'!D:D,r)&" เครื่อง · ผิด "&INDEX(\'' + ACK + '\'!E:E,r),'
-    + 's,INDEX(\'' + ACK + '\'!' + snapCol + ':' + snapCol + ',r),IF((s<>"")*(s<>c),"' + changed + ' "&s&")",'
-    + 'IF(INDEX(\'' + ACK + '\'!' + okCol + ':' + okCol + ',r)=TRUE,"' + okText + ' "&INDEX(\'' + ACK + '\'!' + atCol + ':' + atCol + ',r),"' + noText + '"))),"ไม่มีผลตรวจในวันที่เลือก")';
+  const L = LQ, K = "'" + ACK + "'!";
+  const ackF = (snapCol, okCol, atCol, okText, noText, changed) => '=IFERROR(LET(r,MATCH($B$2,' + K + '$A:$A,0),'
+    + 'c,INDEX(' + K + 'B:B,r)&" แห่ง · "&INDEX(' + K + 'C:C,r)&" ราย · "&INDEX(' + K + 'D:D,r)&" · ไม่ผ่าน "&INDEX(' + K + 'E:E,r),'
+    + 's,INDEX(' + K + snapCol + ':' + snapCol + ',r),IF((s<>"")*(s<>c),"' + changed + ' "&s&")",'
+    + 'IF(INDEX(' + K + okCol + ':' + okCol + ',r)=TRUE,"' + okText + ' "&INDEX(' + K + atCol + ':' + atCol + ',r),"' + noText + '"))),"ไม่มีผลตรวจในวันที่เลือก")';
   sh.getRange('A1').setValue('สรุปผลการตรวจสอบเครื่องชั่งตวงวัดและสินค้าหีบห่อรายวัน').setFontWeight('bold').setFontSize(14);
   sh.getRange('A2:A4').setValues([['วันที่ตรวจ'], ['ผอ.ศูนย์ฯ รับทราบ'], ['ลงระบบงานชั่งตวงวัด']]).setFontWeight('bold');
   sh.getRange('B2').setValue(toISO_(new Date())).setNumberFormat('d mmmm yyyy').setDataValidation(
@@ -150,28 +168,44 @@ function buildSummary_(sh) {
   sh.getRange('C2').setValue('กดลูกศรในช่อง B2 เพื่อเลือกวันที่มีงานตรวจ');
   sh.getRange('B3').setFormula(ackF('K', 'F', 'G', 'รับทราบแล้ว', 'ยังไม่รับทราบ', 'มีข้อมูลเปลี่ยนแปลง รอรับทราบใหม่ (ยอดที่เคยรับทราบ'));
   sh.getRange('B4').setFormula(ackF('L', 'H', 'I', 'ลงระบบแล้ว', 'ยังไม่ได้ลงระบบ', 'ต้องตรวจสอบและปรับปรุงยอดในระบบงาน (ยอดที่ลงระบบไว้'));
-  sh.getRange('A6:F6').setValues([['ประเภทสถานประกอบการ', 'จำนวนแห่ง', 'จำนวนราย', 'เครื่องถูก', 'เครื่องผิด', 'รวมเครื่อง']]).setFontWeight('bold');
-  const cols = ['H', 'I', 'J', 'K'];
-  PLACES.forEach((p, i) => {
-    const r = first + i;
-    sh.getRange(r, 1).setValue(p);
-    sh.getRange(r, 2, 1, 5).setFormulas([['=COUNTIFS(' + L + '$A:$A,$B$2,' + L + '$C:$C,$A' + r + ')']
-      .concat(cols.map(c => '=SUMIFS(' + L + c + ':' + c + ',' + L + '$A:$A,$B$2,' + L + '$C:$C,$A' + r + ')'))]);
-  });
-  const prev = (c) => 'SUM(' + c + first + ':' + c + (other - 1) + ')';
-  sh.getRange(other, 1).setValue('อื่น ๆ');
-  sh.getRange(other, 2, 1, 5).setFormulas([['=COUNTIFS(' + L + '$A:$A,$B$2)-' + prev('B')]
-    .concat(cols.map((c, j) => '=SUMIFS(' + L + c + ':' + c + ',' + L + '$A:$A,$B$2)-' + prev('CDEF'[j])))]);
-  sh.getRange(total, 1).setValue('รวม').setFontWeight('bold');
-  sh.getRange(total, 2, 1, 5).setFormulas([['B', 'C', 'D', 'E', 'F'].map(c => '=SUM(' + c + first + ':' + c + other + ')')]);
-  const t = total + 2;
-  sh.getRange(t, 1).setValue('รายการตรวจของวันที่เลือก (คลิก เปิดรายงาน เพื่อดูผลรายเครื่อง)').setFontWeight('bold');
-  sh.getRange(t + 1, 1, 1, 10).setValues([['งาน', 'ประเภทสถานประกอบการ', 'ชื่อสถานประกอบการ', 'ผู้ตรวจ', 'จำนวนราย',
-    'เครื่องถูก', 'เครื่องผิด', 'รวมเครื่อง', 'การดำเนินการ', 'รายงาน PDF']]).setFontWeight('bold');
-  sh.getRange(t + 2, 1).setFormula('=IFERROR(FILTER({' + L + 'B2:E,' + L + 'H2:K,' + L + 'M2:M},' + L + 'A2:A=$B$2),"ไม่มีรายการในวันที่เลือก")');
-  sh.getRange(t + 2, 10).setFormula('=IFERROR(ARRAYFORMULA(LET(u,FILTER(' + L + 'N2:N,' + L + 'A2:A=$B$2),'
-    + 'IF(u="","ยังไม่มีไฟล์",IF(LEFT(u,4)="http",HYPERLINK(u,"เปิดรายงาน"),u)))),"")');
+  summaryTables_(sh);
   sh.setColumnWidth(1, 220);
+}
+
+// ตารางสรุปและรายการของวันที่เลือก เริ่มแถว 6 คืนค่าแถวสุดท้ายที่ใช้
+function summaryTables_(sh) {
+  const L = LQ, day = L + '$A:$A,$B$2';
+  let r = 6;
+  sh.getRange(r, 1, 1, 3).setValues([['ประเภทสถานประกอบการ', 'จำนวนแห่ง', 'จำนวนราย']]).setFontWeight('bold');
+  const p0 = r + 1;
+  PLACES.forEach((p, i) => {
+    const q = p0 + i;
+    sh.getRange(q, 1, 1, 3).setValues([[p, '=COUNTUNIQUEIFS(' + L + 'D:D,' + day + ',' + L + 'C:C,$A' + q + ')',
+      '=SUMIFS(' + L + 'H:H,' + day + ',' + L + 'C:C,$A' + q + ')']]);
+  });
+  const po = p0 + PLACES.length, pt = po + 1;
+  sh.getRange(po, 1, 2, 3).setValues([
+    ['อื่น ๆ', '=COUNTUNIQUEIFS(' + L + 'D:D,' + day + ')-SUM(B' + p0 + ':B' + (po - 1) + ')', '=SUMIFS(' + L + 'H:H,' + day + ')-SUM(C' + p0 + ':C' + (po - 1) + ')'],
+    ['รวม (แห่งนับไม่ซ้ำ)', '=COUNTUNIQUEIFS(' + L + 'D:D,' + day + ')', '=SUM(C' + p0 + ':C' + po + ')']]);
+  sh.getRange(pt, 1, 1, 3).setFontWeight('bold');
+
+  r = pt + 2;
+  sh.getRange(r, 1, 1, 7).setValues([['งาน', 'จำนวนแห่ง', 'จำนวนราย', 'ผ่าน', 'ไม่ผ่าน', 'รวมที่ตรวจ', 'หน่วยนับ']]).setFontWeight('bold');
+  JOBS.forEach((j, i) => {
+    const q = r + 1 + i, by = day + ',' + L + 'B:B,$A' + q;
+    sh.getRange(q, 1, 1, 7).setValues([[j, '=COUNTUNIQUEIFS(' + L + 'D:D,' + by + ')', '=SUMIFS(' + L + 'H:H,' + by + ')',
+      '=SUMIFS(' + L + 'I:I,' + by + ')', '=SUMIFS(' + L + 'J:J,' + by + ')', '=SUMIFS(' + L + 'K:K,' + by + ')', unit_(j)]]);
+  });
+
+  r = r + JOBS.length + 2;
+  sh.getRange(r, 1).setValue('รายการตรวจของวันที่เลือก (คลิก เปิดรายงาน เพื่อดูผลละเอียด)').setFontWeight('bold');
+  sh.getRange(r + 1, 1, 1, 11).setValues([['งาน', 'ประเภทสถานประกอบการ', 'ชื่อสถานประกอบการ', 'ผู้ตรวจ', 'จำนวนราย',
+    'ผ่าน', 'ไม่ผ่าน', 'รวมที่ตรวจ', 'การดำเนินการ', 'รายงาน PDF', 'หน่วยนับ']]).setFontWeight('bold');
+  sh.getRange(r + 2, 1).setFormula('=IFERROR(FILTER({' + L + 'B2:E,' + L + 'H2:K,' + L + 'M2:M},' + L + 'A2:A=$B$2),"ไม่มีรายการในวันที่เลือก")');
+  sh.getRange(r + 2, 10).setFormula('=IFERROR(ARRAYFORMULA(LET(u,FILTER(' + L + 'N2:N,' + L + 'A2:A=$B$2),'
+    + 'IF(u="","ยังไม่มีไฟล์",IF(LEFT(u,4)="http",HYPERLINK(u,"เปิดรายงาน"),u)))),"")');
+  sh.getRange(r + 2, 11).setFormula('=IFERROR(FILTER(' + L + 'S2:S,' + L + 'A2:A=$B$2),"")');
+  return r + 2;
 }
 
 function setup() {
@@ -186,11 +220,37 @@ function setup() {
   const cs = ss.getSheetByName(CFG);
   const c = cfg_();
 
-  // โฟลเดอร์เก็บรายงาน PDF (สร้างครั้งแรกครั้งเดียว)
+  // รหัสแอป สร้างครั้งแรกครั้งเดียว
+  const props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('TOKEN')) props.setProperty('TOKEN', newCode_(24));
+
+  // โฟลเดอร์เก็บรายงาน PDF (สร้างครั้งแรกครั้งเดียว) ไม่เปิดลิงก์สาธารณะ
+  // แชร์ให้ดูได้เฉพาะ ผอ. เจ้าหน้าที่ลงระบบ และผู้ช่วยนายตรวจ ไฟล์ในโฟลเดอร์ได้สิทธิ์ตามโฟลเดอร์
   if (!c.folderId) {
     const f = DriveApp.createFolder('รายงานผลตรวจ PDF (สรุปรายวัน)');
     cs.getRange('B4').setValue(f.getId());
   }
+  const folder = folder_();
+  folder.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
+  const people = [c.director, c.recorder].concat(c.assistants).filter(Boolean);
+  const shareErr = [];
+  people.forEach(m => { try { folder.addViewer(m); } catch (err) { shareErr.push(m); } });
+
+  // รหัสผู้ส่งข้อมูล: แถวที่มีชื่อแต่ยังไม่มีรหัส สร้างรหัสให้และเปิดใช้งาน
+  const snd = ss.getSheetByName(SENDERS);
+  const cbx = SpreadsheetApp.newDataValidation().requireCheckbox().build();
+  if (snd.getLastRow() >= 2) {
+    const n = snd.getLastRow() - 1, rows = snd.getRange(2, 1, n, 3).getValues();
+    rows.forEach((r, i) => {
+      if (!String(r[0]).trim()) return;
+      if (!String(r[1]).trim()) { r[1] = newCode_(6); if (r[2] === '') r[2] = true; made.push('รหัสผู้ส่ง ' + r[0]); }
+    });
+    snd.getRange(2, 1, n, 3).setValues(rows);
+    snd.getRange(2, 3, n, 1).setDataValidation(cbx);
+  }
+  snd.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => p.remove());
+  const ps = snd.getRange('B2:D').protect().setDescription('รหัสผู้ส่ง สร้างโดย setup');
+  ps.removeEditors(ps.getEditors());
 
   // ช่องติ๊ก ผอ.รับทราบ (F) และ ลงระบบแล้ว (H) เฉพาะแถวที่มีวันที่ แถวใหม่ ensureAckDate_ ใส่ให้เอง
   const ack = ss.getSheetByName(ACK);
@@ -218,10 +278,10 @@ function setup() {
   const list = (a) => SpreadsheetApp.newDataValidation().requireValueInList(a, true).setAllowInvalid(true).build();
   log.getRange('B2:B').setDataValidation(list(JOBS));
   log.getRange('C2:C').setDataValidation(list(PLACES));
-  // สูตรรวมเครื่องและช่องบันทึกผู้แก้ไข ขึ้นคำเตือนเมื่อจะแก้ด้วยมือ (ไม่ล็อก เพื่อให้ลบแถวได้)
+  // สูตรรวมที่ตรวจ หน่วยนับ และช่องบันทึกผู้แก้ไข ขึ้นคำเตือนเมื่อจะแก้ด้วยมือ (ไม่ล็อก เพื่อให้ลบแถวได้)
   log.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => p.remove());
-  log.getRange('K:K').protect().setDescription('รวมเครื่อง คำนวณอัตโนมัติ').setWarningOnly(true);
-  log.getRange('R:R').protect().setDescription('แก้ไขล่าสุด บันทึกอัตโนมัติ').setWarningOnly(true);
+  log.getRange('K:K').protect().setDescription('รวมที่ตรวจ คำนวณอัตโนมัติ').setWarningOnly(true);
+  log.getRange('R:S').protect().setDescription('แก้ไขล่าสุดและหน่วยนับ บันทึกอัตโนมัติ').setWarningOnly(true);
 
   // แชร์สิทธิ์แก้ไขให้ ผอ. เจ้าหน้าที่ลงระบบ และผู้ช่วยนายตรวจชั่งตวงวัด
   [c.director, c.recorder].concat(c.assistants).filter(Boolean).forEach(m => ss.addEditor(m));
@@ -235,21 +295,44 @@ function setup() {
   if (!c.director) warn.push('ยังไม่ได้กรอกอีเมล ผอ.ศูนย์ฯ (ตั้งค่า!B1) ช่อง ผอ.รับทราบ จึงยังไม่ล็อก และยังไม่ส่งอีเมลสรุป');
   if (!c.recorder) warn.push('ยังไม่ได้กรอกอีเมลเจ้าหน้าที่ลงระบบ (ตั้งค่า!B2)');
   if (!c.assistants.length) warn.push('ยังไม่ได้กรอกอีเมลผู้ช่วยนายตรวจชั่งตวงวัด (ตั้งค่า!B6)');
+  if (shareErr.length) warn.push('แชร์โฟลเดอร์ PDF ให้อีเมลนี้ไม่ได้ (ต้องเป็นบัญชี Google): ' + shareErr.join(', '));
+  if (c.needSender && snd.getLastRow() < 2) warn.push('ยังไม่มีผู้ส่งข้อมูล ใส่ชื่อผู้ตรวจในแท็บ ' + SENDERS + ' คอลัมน์ A แล้วเรียก setup ซ้ำเพื่อสร้างรหัส');
   Logger.log('ตั้งค่าเรียบร้อย ' + ss.getUrl()
+    + '\nรหัสแอป (TOKEN) สำหรับใส่ในแอป: ' + props.getProperty('TOKEN')
     + (made.length ? '\nสร้างหรือเติมให้: ' + made.join(', ') : '\nโครงสร้างชีตครบถ้วน')
     + (warn.length ? '\nยังขาด:\n- ' + warn.join('\n- ') + '\nกรอกแล้วเรียก setup ซ้ำ' : ''));
+}
+
+// รหัสสุ่ม ไม่มีตัวที่สับสนง่าย (0 O 1 I L)
+function newCode_(n) {
+  const ch = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const b = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, Utilities.getUuid() + Date.now());
+  let out = '';
+  for (let i = 0; i < n; i++) out += ch[(b[i % b.length] + 256 + i * 7) % ch.length];
+  return out;
+}
+
+// เปลี่ยนรหัสแอปเมื่อสงสัยว่ารั่ว แล้วนำรหัสใหม่ใส่ในแอปทั้งหมด (แอปที่ยังใช้รหัสเดิมจะส่งไม่เข้า)
+function newToken() {
+  const t = newCode_(24);
+  PropertiesService.getScriptProperties().setProperty('TOKEN', t);
+  Logger.log('รหัสแอปใหม่: ' + t);
 }
 
 /* ---------- รับข้อมูลจากแอป ---------- */
 function doPost(e) {
   let data;
   try { data = JSON.parse(e.postData.contents); } catch (err) { return out_({ ok: false, error: 'bad json' }); }
-  if (!data || data.token !== TOKEN) return out_({ ok: false, error: 'bad token' });
-  if (!data.submitId) return out_({ ok: false, error: 'no submitId' });
+  const token = PropertiesService.getScriptProperties().getProperty('TOKEN');
+  if (!data || !token || data.token !== token) return out_({ ok: false, error: 'bad token' });
 
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    const sender = checkSender_(data.sender);
+    const bad = sender.error || validate_(data);
+    if (bad) { reject_(bad, data, sender.name); return out_({ ok: false, error: bad }); }
+    data.senderName = sender.name;
     if (data.kind === 'pdf') return out_(savePdf_(data));
     upsert_(data);
     return out_({ ok: true });
@@ -258,6 +341,65 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// รหัสผู้ส่งต้องอยู่ในแท็บ ผู้ส่งข้อมูล และติ๊กใช้งานไว้ (ปิดใช้ได้ทันทีโดยเอาติ๊กออก)
+function checkSender_(code) {
+  code = String(code || '').trim().toUpperCase();
+  const need = cfg_().needSender;
+  if (!code) return need ? { error: 'ไม่มีรหัสผู้ส่ง', name: '' } : { name: '' };
+  const sh = ss_().getSheetByName(SENDERS);
+  const n = sh.getLastRow();
+  const rows = n < 2 ? [] : sh.getRange(2, 1, n - 1, 3).getValues();
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][1]).trim().toUpperCase() !== code) continue;
+    if (rows[i][2] !== true) return { error: 'รหัสผู้ส่งถูกปิดใช้งาน', name: String(rows[i][0]) };
+    sh.getRange(i + 2, 4).setValue(Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'));
+    return { name: String(rows[i][0]) };
+  }
+  return need ? { error: 'รหัสผู้ส่งไม่ถูกต้อง', name: code.slice(0, 2) + '…' } : { name: '' };
+}
+
+// ตรวจรูปแบบข้อมูลก่อนบันทึก คืนข้อความเหตุผลถ้าไม่ผ่าน
+function validate_(d) {
+  if (!/^[A-Za-z0-9_.:\-]{4,80}$/.test(String(d.submitId || ''))) return 'รหัสรายการไม่ถูกต้อง';
+  if (d.kind === 'pdf') {
+    const b64 = String(d.data || '');
+    if (!b64) return 'ไม่มีไฟล์ PDF';
+    if (b64.length > PDF_MAX_BYTES * 4 / 3 + 4) return 'ไฟล์ PDF ใหญ่เกิน ' + (PDF_MAX_BYTES / 1048576) + ' MB';
+    let head;
+    try { head = Utilities.base64Decode(b64.slice(0, 8)); } catch (err) { return 'ไฟล์ PDF เสียหาย'; }
+    if (String.fromCharCode.apply(null, head.slice(0, 5).map(x => (x + 256) % 256)) !== '%PDF-') return 'ไฟล์ไม่ใช่ PDF';
+    return '';
+  }
+  if (d.kind && d.kind !== 'summary') return 'ชนิดข้อมูลไม่ถูกต้อง';
+  if (APPS.indexOf(d.app) < 0) return 'ไม่รู้จักแอป ' + clip_(d.app, 40);
+  if (JOBS.indexOf(d.job) < 0) return 'ไม่รู้จักงาน ' + clip_(d.job, 40);
+  const date = toISO_(d.date);
+  if (!date) return 'วันที่ตรวจไม่ถูกต้อง';
+  const days = (new Date(date + 'T00:00:00+07:00') - new Date()) / 86400000;
+  if (days > 1 || days < -400) return 'วันที่ตรวจอยู่นอกช่วงที่รับ';
+  if (!String(d.place || '').trim()) return 'ไม่มีชื่อสถานประกอบการ';
+  for (const k of ['units', 'pass', 'fail']) {
+    const v = Number(d[k] || 0);
+    if (!Number.isInteger(v) || v < 0 || v > 100000) return 'จำนวน ' + k + ' ไม่ถูกต้อง';
+  }
+  return '';
+}
+
+// ข้อความจากแอป ตัดความยาว และกันไม่ให้ชีตตีความเป็นสูตร
+function clip_(v, n) {
+  const t = String(v == null ? '' : v).slice(0, n || 200);
+  return /^[=+\-@]/.test(t) ? "'" + t : t;
+}
+
+// เก็บข้อมูลที่ไม่รับไว้ให้ผู้ช่วยนายตรวจตรวจสอบและกรอกเองถ้าจำเป็น (ไม่เก็บเนื้อไฟล์ PDF)
+function reject_(why, d, who) {
+  const copy = Object.assign({}, d);
+  delete copy.token; delete copy.sender;
+  if (copy.data) copy.data = '(PDF ' + Math.round(String(copy.data).length * 0.75 / 1024) + ' KB)';
+  ss_().getSheetByName(REJECT).appendRow([Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'), why,
+    clip_(d.app, 40), clip_(who, 60), clip_(d.date, 20), clip_(d.place, 120), clip_(JSON.stringify(copy), 2000)]);
 }
 
 function doGet() {
@@ -302,16 +444,18 @@ function upsert_(d, noSync) {
     if (link) sh.getRange(row, COL.link).setValue(link);
     return;
   }
-  // คอลัมน์ K (รวมเครื่อง) เป็นสูตรในหัวตาราง จึงเขียนแยกสองช่วง A:J และ L:Q
+  // คอลัมน์ K (รวมที่ตรวจ) เป็นสูตรในหัวตาราง จึงเขียนแยกสองช่วง A:J และ L:Q
   const r = row || sh.getLastRow() + 1;
   sh.getRange(r, 15, 1, 3).setNumberFormat('@');
+  const placeType = PLACES.indexOf(d.placeType) >= 0 ? d.placeType : 'อื่น ๆ';
   sh.getRange(r, 1, 1, 10).setValues([[
-    date, d.job || '', d.placeType || '', d.place || '', d.officerName || '', d.officerType || '', d.team || '',
+    date, clip_(d.job, 60), placeType, clip_(d.place, 200), clip_(d.officerName, 100), clip_(d.officerType, 60), clip_(d.team, 300),
     Number(d.units) || 0, pass, fail
   ]]);
+  const sent = clip_(d.sentAt, 30) || Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm');
   sh.getRange(r, 12, 1, 6).setValues([[
-    d.detail || '', d.actionText || '-', link,
-    d.sentAt || Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'), d.app || '', String(d.submitId)
+    clip_(d.detail, 1000), clip_(d.actionText, 500) || '-', link,
+    sent + (d.senderName ? ' · ส่งโดย ' + d.senderName : ''), clip_(d.app, 60), String(d.submitId)
   ]]);
   sh.getRange(r, 1).setNumberFormat('dd/mm/yyyy');
   ensureAckDate_(date);
@@ -339,10 +483,9 @@ function savePdf_(d) {
   // ส่งออกซ้ำ ให้แทนไฟล์เดิมของรายการเดียวกัน
   const old = folder.searchFiles("title contains '" + id + "' and trashed = false");
   while (old.hasNext()) old.next().setTrashed(true);
-  const base = String(d.filename || 'รายงาน.pdf').replace(/\.pdf$/i, '');
+  const base = String(d.filename || 'รายงาน.pdf').replace(/\.pdf$/i, '').replace(/[^\w\u0E00-\u0E7F .()\-]/g, '_').slice(0, 120);
   const blob = Utilities.newBlob(Utilities.base64Decode(d.data), 'application/pdf', base + '_' + id + '.pdf');
-  const file = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  const file = folder.createFile(blob);   // สิทธิ์ตามโฟลเดอร์ ไม่เปิดลิงก์สาธารณะ
   const sh = ss_().getSheetByName(LOG);
   const row = findRow_(sh, id);
   if (row) sh.getRange(row, COL.link).setValue(file.getUrl());
@@ -402,7 +545,7 @@ function onAckEdit_(e) {
 }
 
 function snap_(v) {
-  return v[1] + ' แห่ง · ' + v[2] + ' ราย · ' + v[3] + ' เครื่อง · ผิด ' + v[4];
+  return v[1] + ' แห่ง · ' + v[2] + ' ราย · ' + v[3] + ' · ไม่ผ่าน ' + v[4];
 }
 
 // ตรวจทุกวันที่เคยรับทราบหรือลงระบบไว้ ถ้ายอดปัจจุบันไม่ตรงกับยอดที่เก็บไว้ ให้เอาติ๊กออก
@@ -482,13 +625,22 @@ function dailyEmail() {
     .filter(r => r[0] && toISO_(r[0]) !== today && /รอ ผอ.รับทราบใหม่|รอรับทราบใหม่/.test(r[12]))
     .map(r => '• ' + thai_(toISO_(r[0])) + ' ' + r[12] + ' (ยอดใหม่ ' + snap_(r) + ')');
   if (!rows.length && !redo.length) return;
-  const sum = (i) => rows.reduce((a, r) => a + (Number(r[i]) || 0), 0);
-  const lines = rows.map(r => '• ' + r[3] + ' (' + r[2] + ') ' + r[7] + ' ราย ' + r[10] + ' เครื่อง ผิด ' + r[9] + ' เครื่อง');
+  const sum = (rs, i) => rs.reduce((a, r) => a + (Number(r[i]) || 0), 0);
+  const places = (rs) => new Set(rs.map(r => String(r[3]).trim()).filter(Boolean)).size;
+  // แยกตามงาน เพราะแต่ละงานมีหน่วยนับของตัวเอง (เครื่อง ถัง รายการ)
+  const jobs = [];
+  rows.forEach(r => { if (jobs.indexOf(r[1]) < 0) jobs.push(r[1]); });
+  const byJob = jobs.map(j => {
+    const rs = rows.filter(r => r[1] === j), u = unit_(j);
+    return '• ' + j + ': ' + places(rs) + ' แห่ง · ' + sum(rs, 7) + ' ราย · ตรวจ ' + sum(rs, 10) + ' ' + u
+      + ' (ผ่าน ' + sum(rs, 8) + ' ไม่ผ่าน ' + sum(rs, 9) + ' ' + u + ')';
+  });
+  const lines = rows.map(r => '• ' + r[3] + ' (' + r[1] + ') ' + r[7] + ' ราย · ตรวจ ' + r[10] + ' ' + unit_(r[1]) + ' ไม่ผ่าน ' + r[9]);
   const url = ss.getUrl() + '#gid=' + ack.getSheetId();
   const d = thai_(today);
   const body = (rows.length ? 'ผลการตรวจสอบวันที่ ' + d + '\n'
-      + rows.length + ' แห่ง · ' + sum(7) + ' ราย · ' + sum(10) + ' เครื่อง (ถูก ' + sum(8) + ' ผิด ' + sum(9) + ')\n\n'
-      + lines.join('\n') + '\n\n' : '')
+      + 'รวม ' + places(rows) + ' แห่ง (นับไม่ซ้ำ) · ' + sum(rows, 7) + ' ราย\n' + byJob.join('\n')
+      + '\n\nรายสถานที่\n' + lines.join('\n') + '\n\n' : '')
     + (redo.length ? 'วันที่มีข้อมูลเปลี่ยนแปลงหลังรับทราบ กรุณารับทราบใหม่\n' + redo.join('\n') + '\n\n' : '')
     + 'เปิดชีตเพื่อดูรายงานและกดรับทราบ: ' + url;
   MailApp.sendEmail({ to: c.director, subject: 'สรุปผลตรวจสอบเครื่องชั่งตวงวัด วันที่ ' + d, body: body });
