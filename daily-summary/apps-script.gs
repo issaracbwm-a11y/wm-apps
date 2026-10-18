@@ -28,6 +28,7 @@ const ACK = 'รับทราบ';
 const CFG = 'ตั้งค่า';
 const HIST = 'ประวัติ';
 const SENDERS = 'ผู้ส่งข้อมูล';
+const DASH = 'Dashboard';
 const REJECT = 'ข้อมูลที่ไม่รับ';
 const APPS = ['market-scale-inspect', 'market-scale-vol', 'fuel-dispenser-inspect', 'truck-scale-inspect', 'lpg-cylinder-inspect'];
 const PDF_MAX_BYTES = 10 * 1024 * 1024;
@@ -43,6 +44,8 @@ const PLACES = ['ตลาดสด', 'ตลาดนัด', 'ร้านค�
 // หน่วยนับตามงาน งานที่ไม่อยู่ในรายการนับเป็น เครื่อง
 const UNIT = { 'ก๊าซหุงต้มบรรจุถัง': 'ถัง', 'สินค้าหีบห่อ': 'รายการ' };
 const UNITS = ['เครื่อง', 'ถัง', 'รายการ'];
+const PROVINCES = ['สุราษฎร์ธานี', 'ชุมพร', 'นครศรีธรรมราช', 'ระนอง', 'พังงา', 'ภูเก็ต', 'กระบี่', 'ตรัง', 'พัทลุง', 'สงขลา', 'สตูล', 'ปัตตานี', 'ยะลา', 'นราธิวาส'];
+const STATUSES = ['รอ ผอ.รับทราบ', 'รับทราบแล้ว รอลงระบบ', 'ลงระบบแล้ว', 'มีข้อมูลเปลี่ยนแปลง'];
 const unit_ = (job) => UNIT[job] || 'เครื่อง';
 
 const SUM = 'สรุปรายวัน';
@@ -50,7 +53,8 @@ const LOG_HEAD = [
   'วันที่ตรวจ', 'งาน', 'ประเภทสถานประกอบการ', 'ชื่อสถานประกอบการ', 'ผู้ตรวจ', 'ประเภทเจ้าหน้าที่', 'พร้อมด้วย',
   'จำนวนราย', 'ผ่าน', 'ไม่ผ่าน', ['รวมที่ตรวจ', '={"รวมที่ตรวจ";ARRAYFORMULA(IF(LEN(A2:A),I2:I+J2:J,))}'],
   'รายละเอียด', 'การดำเนินการ', 'ลิงก์รายงาน PDF', 'ส่งข้อมูลเมื่อ', 'แอปที่ส่ง', 'รหัสรายการ', 'แก้ไขล่าสุด (เวลา · ผู้แก้)',
-  ['หน่วยนับ', '={"หน่วยนับ";ARRAYFORMULA(IF(LEN(A2:A),IF(B2:B="ก๊าซหุงต้มบรรจุถัง","ถัง",IF(B2:B="สินค้าหีบห่อ","รายการ","เครื่อง")),))}']
+  ['หน่วยนับ', '={"หน่วยนับ";ARRAYFORMULA(IF(LEN(A2:A),IF(B2:B="ก๊าซหุงต้มบรรจุถัง","ถัง",IF(B2:B="สินค้าหีบห่อ","รายการ","เครื่อง")),))}'],
+  'จังหวัด'
 ];
 // ยอดต่อวันในแท็บ รับทราบ: แห่งนับชื่อสถานที่ไม่ซ้ำ ส่วนจำนวนที่ตรวจและไม่ผ่านแยกตามหน่วยนับ เช่น "45 เครื่อง · 120 ถัง"
 const LQ = "'" + LOG + "'!";
@@ -143,9 +147,10 @@ function checkStructure_(ss) {
   head(sheet(LOG), LOG_HEAD);
   head(sheet(ACK), ACK_HEAD);
   head(sheet(SENDERS), ['ชื่อผู้ส่ง', 'รหัสผู้ส่ง', 'ใช้งาน', 'ส่งข้อมูลล่าสุด']);
-  head(sheet(REJECT), ['เวลา', 'เหตุผล', 'แอป', 'ผู้ส่ง', 'วันที่ตรวจ', 'สถานที่', 'ข้อมูลที่ส่งมา']);
+  head(sheet(REJECT), ['เวลา', 'เหตุผล', 'แอป', 'ผู้ส่ง', 'วันที่ตรวจ', 'สถานที่', 'ข้อมูลที่ส่งมา', 'จัดการแล้ว']);
   hist_();
   if (!ss.getSheetByName(SUM)) { buildSummary_(ss.insertSheet(SUM, 0)); made.push('สร้างแท็บ ' + SUM); }
+  if (!ss.getSheetByName(DASH)) { applySpec_(ss.insertSheet(DASH, 0), dashSpec_()); made.push('สร้างแท็บ ' + DASH); }
   else if (ss.getSheetByName(SUM).getRange('A2').getDisplayValue() !== 'วันที่ตรวจ')
     errs.push('แท็บ ' + SUM + ' ช่อง A2 ควรเป็น "วันที่ตรวจ" (ช่อง B2 คือวันที่ที่เลือกดู)');
 
@@ -206,6 +211,144 @@ function summaryTables_(sh) {
     + 'IF(u="","ยังไม่มีไฟล์",IF(LEFT(u,4)="http",HYPERLINK(u,"เปิดรายงาน"),u)))),"")');
   sh.getRange(r + 2, 11).setFormula('=IFERROR(FILTER(' + L + 'S2:S,' + L + 'A2:A=$B$2),"")');
   return r + 2;
+}
+
+/* ---------- แท็บ Dashboard สำหรับ ผอ. ----------
+ * เขียนเป็นข้อมูล (spec) ชุดเดียว ใช้ทั้งตอน setup สร้างในชีตเปล่า และตอนปรับชีตเดิม
+ * คอลัมน์ A:F แสดงผล คอลัมน์ Z:AL เป็นตัวช่วยคำนวณ (ซ่อน)
+ * Z:AF = แถวจากแท็บ รายการตรวจ ที่ผ่านตัวกรอง งาน จังหวัด ผู้ตรวจ สถานะ (ยังไม่กรองวันที่)
+ *        Z รหัสวัน|สถานที่ (นับแห่งไม่ซ้ำต่อวัน ข้ามทุกงาน), AA ผู้ตรวจ, AB ราย, AC ไม่ผ่าน, AD รวมที่ตรวจ, AE หน่วย, AF วันที่
+ * AL1:AL2 = ช่วงวันที่ที่ใช้จริง (ช่องวันที่ว่าง = ต้นเดือนนี้ถึงวันนี้) */
+function dashSpec_() {
+  const L = LQ, K = "'" + ACK + "'!", R = "'" + REJECT + "'!";
+  const inR = '$AF$2:$AF>=$AL$1,$AF$2:$AF<=$AL$2';
+  const cells = {}, merges = [], styles = [], valid = [];
+  const put = (a1, v) => { cells[a1] = v; };
+  const GREY = '#f1f1ef', INK2 = '#5f5e5a', HEAD = '#dfe8f5';
+
+  put('A1', 'Dashboard ผลการตรวจสอบ'); merges.push('A1:D1');
+  styles.push({ r: 'A1', size: 18, bold: true });
+  put('A2', 'ข้อมูลจากแท็บ รายการตรวจ · เลือกตัวกรองด้านล่าง ช่องวันที่ว่าง = ต้นเดือนนี้ถึงวันนี้'); merges.push('A2:D2');
+  styles.push({ r: 'A2', size: 10, color: INK2, wrap: true });
+
+  put('A4', 'ตัวกรอง'); styles.push({ r: 'A4', bold: true });
+  put('B4', '="ช่วง "&TEXT($AL$1,"d mmm yyyy")&" ถึง "&TEXT($AL$2,"d mmm yyyy")'); merges.push('B4:D4');
+  styles.push({ r: 'B4', size: 10, color: INK2 });
+  [['A5', 'ตั้งแต่วันที่'], ['C5', 'ถึงวันที่'], ['A6', 'งาน'], ['C6', 'จังหวัด'], ['A7', 'ผู้ตรวจ'], ['C7', 'สถานะ']].forEach(([a, t]) => put(a, t));
+  styles.push({ r: 'A5:A7', color: INK2 }, { r: 'C5:C7', color: INK2 });
+  ['B6', 'D6', 'B7', 'D7'].forEach(a => put(a, 'ทั้งหมด'));
+  styles.push({ r: 'B5:B7', bg: '#fff8d6' }, { r: 'D5:D7', bg: '#fff8d6' }, { r: 'B5', num: 'd mmm yyyy' }, { r: 'D5', num: 'd mmm yyyy' });
+  valid.push({ r: 'B5', date: true }, { r: 'D5', date: true },
+    { r: 'B6', range: 'AH1:AH' }, { r: 'D6', range: 'AI1:AI' }, { r: 'B7', range: 'AJ1:AJ' }, { r: 'D7', range: 'AK1:AK' });
+
+  // ตัวช่วย: รายการตัวเลือก และช่วงวันที่
+  put('AH1', 'ทั้งหมด'); JOBS.forEach((j, i) => put('AH' + (i + 2), j));
+  put('AI1', 'ทั้งหมด'); PROVINCES.concat(['ไม่ระบุ']).forEach((p, i) => put('AI' + (i + 2), p));
+  put('AJ1', '={"ทั้งหมด";IFERROR(SORT(UNIQUE(FILTER(' + L + 'E2:E,' + L + 'E2:E<>""))),"")}');
+  put('AK1', 'ทั้งหมด'); STATUSES.forEach((t, i) => put('AK' + (i + 2), t));
+  put('AL1', '=IF(ISNUMBER($B$5),$B$5,EOMONTH(TODAY(),-1)+1)');
+  put('AL2', '=IF(ISNUMBER($D$5),$D$5,TODAY())');
+  ['Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF'].forEach((c, i) => put(c + '1', ['key', 'ผู้ตรวจ', 'ราย', 'ไม่ผ่าน', 'รวม', 'หน่วย', 'วันที่'][i]));
+  put('Z2', '=IFERROR(ARRAYFORMULA(LET(d,' + L + 'A2:A,st,IFERROR(VLOOKUP(d,{' + K + 'A2:A,' + K + 'M2:M},2,FALSE),""),'
+    + 'm,(LEN(d)>0)*((($B$6="ทั้งหมด")+(' + L + 'B2:B=$B$6))>0)'
+    + '*((($D$6="ทั้งหมด")+(' + L + 'T2:T=$D$6)+(($D$6="ไม่ระบุ")*(' + L + 'T2:T="")))>0)'
+    + '*((($B$7="ทั้งหมด")+(' + L + 'E2:E=$B$7))>0)'
+    + '*((($D$7="ทั้งหมด")+(st=$D$7)+(($D$7="มีข้อมูลเปลี่ยนแปลง")*REGEXMATCH(st,"เปลี่ยนแปลง|ปรับปรุง")))>0),'
+    + 'FILTER({TEXT(d,"yyyy-mm-dd")&"|"&' + L + 'D2:D,' + L + 'E2:E,' + L + 'H2:H,' + L + 'J2:J,' + L + 'K2:K,' + L + 'S2:S,d},m))),"")');
+
+  // ตัวเลขสำคัญ 8 ช่อง สองช่องต่อแถว
+  const sumU = (col, u) => '=IFERROR(SUM(FILTER($' + col + '$2:$' + col + ',' + inR + (u ? ',$AE$2:$AE="' + u + '"' : '') + ')),0)';
+  const tiles = [
+    ['สถานประกอบการ', '=IFERROR(ROWS(UNIQUE(FILTER($Z$2:$Z,' + inR + '))),0)', 'แห่ง (นับไม่ซ้ำต่อวัน ทุกงาน)'],
+    ['จำนวนราย', sumU('AB'), 'ราย'],
+    ['เครื่อง/มาตรวัด', sumU('AD', 'เครื่อง'), 'เครื่อง'],
+    ['ถังที่ตรวจ', sumU('AD', 'ถัง'), 'ถัง'],
+    ['สินค้าหีบห่อ', sumU('AD', 'รายการ'), 'รายการ'],
+    ['ไม่ผ่าน', '=LET(t,TEXTJOIN(" · ",TRUE,MAP({"' + UNITS.join('","') + '"},LAMBDA(u,LET(n,IFERROR(SUM(FILTER($AC$2:$AC,'
+      + inR + ',$AE$2:$AE=u)),0),IF(n,n&" "&u,""))))),IF(t="","0",t))', 'แยกตามหน่วยนับ'],
+    ['ผู้ตรวจที่ออกตรวจ', '=IFERROR(ROWS(UNIQUE(FILTER($AA$2:$AA,' + inR + ',$AA$2:$AA<>""))),0)', 'คน'],
+    ['วันที่ออกตรวจ', '=IFERROR(ROWS(UNIQUE(FILTER($AF$2:$AF,' + inR + '))),0)', 'วัน']
+  ];
+  tiles.forEach((t, i) => {
+    const row = 9 + Math.floor(i / 2) * 4, c = i % 2 ? ['C', 'D'] : ['A', 'B'];
+    const rg = (r) => c[0] + r + ':' + c[1] + r;
+    put(c[0] + row, t[0]); put(c[0] + (row + 1), t[1]); put(c[0] + (row + 2), t[2]);
+    merges.push(rg(row), rg(row + 1), rg(row + 2));
+    styles.push({ r: c[0] + row + ':' + c[1] + (row + 2), bg: GREY },
+      { r: rg(row), color: INK2, size: 11 },
+      { r: rg(row + 1), size: t[0] === 'ไม่ผ่าน' ? 15 : 26, bold: true, num: t[0] === 'ไม่ผ่าน' ? '' : '#,##0', align: 'LEFT' },
+      { r: rg(row + 2), color: INK2, size: 10 });
+  });
+
+  // รายการรอดำเนินการ ไม่ขึ้นกับตัวกรอง
+  put('A26', 'รายการรอดำเนินการ (ทุกวันที่)'); styles.push({ r: 'A26', bold: true, size: 13 });
+  put('A27', 'สถานะ'); put('D27', 'จำนวน'); merges.push('A27:C27');
+  styles.push({ r: 'A27:D27', bold: true, bg: HEAD });
+  const pend = [
+    ['รอผู้ช่วยตรวจสอบ (ข้อมูลที่ไม่รับจากแอป)', '=IFERROR(SUMPRODUCT((' + R + 'A2:A<>"")*(' + R + 'H2:H<>TRUE)),0)'],
+    ['รอผู้อำนวยการรับทราบ (วัน)', '=COUNTIF(' + K + 'M2:M,"รอ ผอ.รับทราบ")+COUNTIF(' + K + 'M2:M,"*รับทราบใหม่*")'],
+    ['รอบันทึกเข้าระบบงาน (วัน)', '=COUNTIF(' + K + 'M2:M,"รับทราบแล้ว รอลงระบบ")'],
+    ['ต้องปรับปรุงยอดในระบบงาน (วัน)', '=COUNTIF(' + K + 'M2:M,"*ปรับปรุงยอด*")']
+  ];
+  pend.forEach((p, i) => { const r = 28 + i; put('A' + r, p[0]); put('D' + r, p[1]); merges.push('A' + r + ':C' + r); });
+  styles.push({ r: 'D28:D31', bold: true, align: 'RIGHT' });
+
+  // ผลงานรายเดือน 12 เดือน ถึงเดือนของวันสุดท้ายที่เลือก ใช้ตัวกรองอื่นยกเว้นวันที่
+  put('A33', 'ผลงานรายเดือน (12 เดือนล่าสุด ตามตัวกรอง)'); styles.push({ r: 'A33', bold: true, size: 13 });
+  ['เดือน', 'แห่ง', 'ราย', 'เครื่อง', 'ถัง', 'รายการ'].forEach((h, i) => put('ABCDEF'[i] + '34', h));
+  styles.push({ r: 'A34:F34', bold: true, bg: HEAD });
+  for (let k = 0; k < 12; k++) {
+    const r = 35 + k, m = '$AF$2:$AF>=$A' + r + ',$AF$2:$AF<=EOMONTH($A' + r + ',0)';
+    put('A' + r, '=EOMONTH($AL$2,' + (k - 12) + ')+1');
+    put('B' + r, '=IFERROR(ROWS(UNIQUE(FILTER($Z$2:$Z,' + m + '))),0)');
+    put('C' + r, '=IFERROR(SUM(FILTER($AB$2:$AB,' + m + ')),0)');
+    UNITS.forEach((u, j) => put('DEF'[j] + r, '=IFERROR(SUM(FILTER($AD$2:$AD,' + m + ',$AE$2:$AE="' + u + '")),0)'));
+  }
+  styles.push({ r: 'A35:A46', num: 'mmm yyyy' }, { r: 'B35:F46', num: '#,##0' });
+
+  // วันที่ยังไม่ปิดงาน (ยังไม่ลงระบบ) วางท้ายสุดเพราะจำนวนแถวไม่คงที่
+  put('A67', 'วันที่ยังไม่ปิดงาน'); styles.push({ r: 'A67', bold: true, size: 13 });
+  ['วันที่ตรวจ', 'แห่ง', 'จำนวนที่ตรวจ', 'สถานะ'].forEach((h, i) => put('ABCD'[i] + '68', h));
+  styles.push({ r: 'A68:D68', bold: true, bg: HEAD }, { r: 'A69:A400', num: 'd mmm yyyy' }, { r: 'C69:D400', wrap: true });
+  put('A69', '=IFERROR(SORT(FILTER({' + K + 'A2:A,' + K + 'B2:B,' + K + 'D2:D,' + K + 'M2:M},' + K + 'A2:A<>"",' + K + 'M2:M<>"ลงระบบแล้ว"),1,FALSE),"ไม่มีวันที่ค้าง")');
+
+  return {
+    cells: cells, merges: merges, styles: styles, valid: valid,
+    widths: { A: 130, B: 120, C: 130, D: 150, E: 80, F: 80 }, hide: ['Z', 'AL'], frozen: 0,
+    chart: { title: 'สถานประกอบการที่ตรวจ รายเดือน (แห่ง)', domain: 'A34:A46', series: 'B34:B46', color: '#2a78d6', row: 48, col: 1, width: 520, height: 320 }
+  };
+}
+
+// นำ spec ไปสร้างแท็บ (ใช้ใน setup)
+function applySpec_(sh, sp) {
+  Object.keys(sp.cells).forEach(a => {
+    const v = sp.cells[a], g = sh.getRange(a);
+    if (typeof v === 'string' && v.charAt(0) === '=') g.setFormula(v); else g.setValue(v);
+  });
+  sp.merges.forEach(a => sh.getRange(a).merge());
+  sp.styles.forEach(st => {
+    const g = sh.getRange(st.r);
+    if (st.bg) g.setBackground(st.bg);
+    if (st.bold) g.setFontWeight('bold');
+    if (st.size) g.setFontSize(st.size);
+    if (st.color) g.setFontColor(st.color);
+    if (st.align) g.setHorizontalAlignment(st.align.toLowerCase());
+    if (st.num) g.setNumberFormat(st.num);
+    if (st.wrap) g.setWrap(true);
+  });
+  sp.valid.forEach(v => sh.getRange(v.r).setDataValidation(v.date
+    ? SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false).build()
+    : SpreadsheetApp.newDataValidation().requireValueInRange(sh.getRange(v.range), true).build()));
+  Object.keys(sp.widths).forEach(c => sh.setColumnWidth(sh.getRange(c + '1').getColumn(), sp.widths[c]));
+  const h0 = sh.getRange(sp.hide[0] + '1').getColumn(), h1 = sh.getRange(sp.hide[1] + '1').getColumn();
+  sh.hideColumns(h0, h1 - h0 + 1);
+  const ch = sp.chart;
+  sh.insertChart(sh.newChart().asColumnChart()
+    .addRange(sh.getRange(ch.domain)).addRange(sh.getRange(ch.series))
+    .setNumHeaders(1).setOption('title', ch.title).setOption('legend', { position: 'none' })
+    .setOption('colors', [ch.color]).setOption('width', ch.width).setOption('height', ch.height)
+    .setPosition(ch.row, ch.col, 0, 0).build());
+  sh.setHiddenGridlines(true);
 }
 
 function setup() {
@@ -278,6 +421,10 @@ function setup() {
   const list = (a) => SpreadsheetApp.newDataValidation().requireValueInList(a, true).setAllowInvalid(true).build();
   log.getRange('B2:B').setDataValidation(list(JOBS));
   log.getRange('C2:C').setDataValidation(list(PLACES));
+  log.getRange('T2:T').setDataValidation(list(PROVINCES));
+  // Dashboard เป็นแท็บแรก
+  ss.setActiveSheet(ss.getSheetByName(DASH));
+  ss.moveActiveSheet(1);
   // สูตรรวมที่ตรวจ หน่วยนับ และช่องบันทึกผู้แก้ไข ขึ้นคำเตือนเมื่อจะแก้ด้วยมือ (ไม่ล็อก เพื่อให้ลบแถวได้)
   log.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(p => p.remove());
   log.getRange('K:K').protect().setDescription('รวมที่ตรวจ คำนวณอัตโนมัติ').setWarningOnly(true);
@@ -398,8 +545,10 @@ function reject_(why, d, who) {
   const copy = Object.assign({}, d);
   delete copy.token; delete copy.sender;
   if (copy.data) copy.data = '(PDF ' + Math.round(String(copy.data).length * 0.75 / 1024) + ' KB)';
-  ss_().getSheetByName(REJECT).appendRow([Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'), why,
-    clip_(d.app, 40), clip_(who, 60), clip_(d.date, 20), clip_(d.place, 120), clip_(JSON.stringify(copy), 2000)]);
+  const rj = ss_().getSheetByName(REJECT);
+  rj.appendRow([Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'), why,
+    clip_(d.app, 40), clip_(who, 60), clip_(d.date, 20), clip_(d.place, 120), clip_(JSON.stringify(copy), 2000), false]);
+  rj.getRange(rj.getLastRow(), 8).insertCheckboxes();
 }
 
 function doGet() {
@@ -457,6 +606,7 @@ function upsert_(d, noSync) {
     clip_(d.detail, 1000), clip_(d.actionText, 500) || '-', link,
     sent + (d.senderName ? ' · ส่งโดย ' + d.senderName : ''), clip_(d.app, 60), String(d.submitId)
   ]]);
+  if (PROVINCES.indexOf(d.province) >= 0) sh.getRange(r, 20).setValue(d.province);
   sh.getRange(r, 1).setNumberFormat('dd/mm/yyyy');
   ensureAckDate_(date);
   if (!noSync) syncAck_('แอป ' + (d.app || ''));
