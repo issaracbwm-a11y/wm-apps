@@ -1035,8 +1035,8 @@ $("pdfBtn").addEventListener("click",async()=>{
 fillAll();
 /* ---------- ส่งผลเข้าชีตสรุปผลตรวจรายวันของศูนย์ฯ (ให้ ผอ. รับทราบ) ---------- */
 // หนึ่งแถวต่อสถานที่ ส่งซ้ำด้วยรหัสเดิมจะแทนแถวเดิม · เว้น DAILY_URL ว่างไว้ถ้ายังไม่ได้ติดตั้งชีต
-const DAILY_URL="";                       // URL เว็บแอป Apps Script ของชีตสรุปรายวัน (ลงท้าย /exec)
-const DAILY_TOKEN="";                     // รหัสแอปที่ได้จาก setup ของชีตสรุปรายวัน
+const DAILY_URL="https://script.google.com/macros/s/AKfycbytv9Mff87k7MXog6gu-B7m6do_eonryehO4Yk9aqMxplhiF8MB3FD8K2VCQ3jWZgdU/exec";                       // URL เว็บแอป Apps Script ของชีตสรุปรายวัน (ลงท้าย /exec)
+const DAILY_TOKEN="WUQ9JKJ396M82QBW8DN8768D";                     // รหัสแอปที่ได้จาก setup ของชีตสรุปรายวัน
 // รหัสผู้ส่งข้อมูลรายบุคคล (ขอจากผู้ช่วยนายตรวจ) ใส่ครั้งเดียว ใช้ร่วมกันทุกแอปในเว็บนี้
 const SENDER_KEY="wm-daily-sender";
 function dailySender(ask){

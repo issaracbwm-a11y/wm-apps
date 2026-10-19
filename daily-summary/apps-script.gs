@@ -91,11 +91,15 @@ function ss_() {
 }
 
 /* ---------- ตั้งค่า ---------- */
+// รายชื่ออีเมลในช่องเดียว คั่นด้วยจุลภาค เว้นวรรค หรือขึ้นบรรทัดใหม่ก็ได้
+const mails_ = (t) => String(t).split(/[,\s]+/).filter(Boolean);
+const isMail_ = (m) => /^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/.test(m);
+
 function cfg_() {
   const v = ss_().getSheetByName(CFG).getRange('B1:B7').getValues().map(r => String(r[0]).trim());
   return {
-    director: v[0], recorder: v[1], hour: Number(v[2]) || 17, folderId: v[3], marketSheetId: v[4],
-    assistants: v[5].split(/[,\s]+/).filter(Boolean), needSender: v[6] !== 'ไม่ใช่'
+    director: v[0], recorders: mails_(v[1]), hour: Number(v[2]) || 17, folderId: v[3], marketSheetId: v[4],
+    assistants: mails_(v[5]), needSender: v[6] !== 'ไม่ใช่'
   };
 }
 
@@ -375,7 +379,9 @@ function setup() {
   }
   const folder = folder_();
   folder.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
-  const people = [c.director, c.recorder].concat(c.assistants).filter(Boolean);
+  const all = [c.director].concat(c.recorders, c.assistants).filter(Boolean);
+  const people = all.filter((m, i) => isMail_(m) && all.indexOf(m) === i);
+  const badMail = all.filter(m => !isMail_(m));
   const shareErr = [];
   people.forEach(m => { try { folder.addViewer(m); } catch (err) { shareErr.push(m); } });
 
@@ -431,7 +437,7 @@ function setup() {
   log.getRange('R:S').protect().setDescription('แก้ไขล่าสุดและหน่วยนับ บันทึกอัตโนมัติ').setWarningOnly(true);
 
   // แชร์สิทธิ์แก้ไขให้ ผอ. เจ้าหน้าที่ลงระบบ และผู้ช่วยนายตรวจชั่งตวงวัด
-  [c.director, c.recorder].concat(c.assistants).filter(Boolean).forEach(m => ss.addEditor(m));
+  people.forEach(m => { try { ss.addEditor(m); } catch (err) { if (shareErr.indexOf(m) < 0) shareErr.push(m); } });
 
   // ทริกเกอร์: บันทึกผู้แก้ไขและเวลาที่ติ๊ก และส่งอีเมลสรุปทุกวัน
   ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
@@ -440,7 +446,8 @@ function setup() {
   ScriptApp.newTrigger('dailyEmail').timeBased().atHour(c.hour).everyDays(1).inTimezone(TZ).create();
   const warn = [];
   if (!c.director) warn.push('ยังไม่ได้กรอกอีเมล ผอ.ศูนย์ฯ (ตั้งค่า!B1) ช่อง ผอ.รับทราบ จึงยังไม่ล็อก และยังไม่ส่งอีเมลสรุป');
-  if (!c.recorder) warn.push('ยังไม่ได้กรอกอีเมลเจ้าหน้าที่ลงระบบ (ตั้งค่า!B2)');
+  if (badMail.length) warn.push('อีเมลไม่ถูกต้อง ข้ามไปก่อน แก้ในแท็บ ' + CFG + ': ' + badMail.join(', '));
+  if (!c.recorders.length) warn.push('ยังไม่ได้กรอกอีเมลเจ้าหน้าที่ลงระบบ (ตั้งค่า!B2)');
   if (!c.assistants.length) warn.push('ยังไม่ได้กรอกอีเมลผู้ช่วยนายตรวจชั่งตวงวัด (ตั้งค่า!B6)');
   if (shareErr.length) warn.push('แชร์โฟลเดอร์ PDF ให้อีเมลนี้ไม่ได้ (ต้องเป็นบัญชี Google): ' + shareErr.join(', '));
   if (c.needSender && snd.getLastRow() < 2) warn.push('ยังไม่มีผู้ส่งข้อมูล ใส่ชื่อผู้ตรวจในแท็บ ' + SENDERS + ' คอลัมน์ A แล้วเรียก setup ซ้ำเพื่อสร้างรหัส');
