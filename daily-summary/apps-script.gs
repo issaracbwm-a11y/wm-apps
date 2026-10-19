@@ -207,7 +207,6 @@ function checkStructure_(ss) {
 }
 
 // แท็บ สรุปรายวัน สำหรับชีตเปล่า (ชีตเดิมที่มีแท็บนี้แล้วไม่แตะ)
-// ตารางแรกแยกตามประเภทสถานประกอบการ (แห่ง ราย) ตารางที่สองแยกตามงานพร้อมหน่วยนับของงานนั้น
 function buildSummary_(sh) {
   const L = LQ, K = "'" + ACK + "'!";
   const ackF = (snapCol, okCol, atCol, okText, noText, changed) => '=IFERROR(LET(r,MATCH($B$2,' + K + '$A:$A,0),'
@@ -225,39 +224,18 @@ function buildSummary_(sh) {
   sh.setColumnWidth(1, 220);
 }
 
-// ตารางสรุปและรายการของวันที่เลือก เริ่มแถว 6 คืนค่าแถวสุดท้ายที่ใช้
+// รายการตรวจของวันที่เลือก เริ่มแถว 6 หนึ่งแถวต่อชนิดเครื่อง พร้อมลิงก์เปิดรายงาน PDF คืนค่าแถวแรกของรายการ
 function summaryTables_(sh) {
-  const L = LQ, day = L + '$A:$A,$B$2';
-  let r = 6;
-  sh.getRange(r, 1, 1, 3).setValues([['ประเภทสถานประกอบการ', 'จำนวนแห่ง', 'จำนวนราย']]).setFontWeight('bold');
-  const p0 = r + 1;
-  PLACES.forEach((p, i) => {
-    const q = p0 + i;
-    sh.getRange(q, 1, 1, 3).setValues([[p, '=COUNTUNIQUEIFS(' + L + 'D:D,' + day + ',' + L + 'C:C,$A' + q + ')',
-      '=SUMIFS(' + L + 'H:H,' + day + ',' + L + 'C:C,$A' + q + ')']]);
-  });
-  const po = p0 + PLACES.length, pt = po + 1;
-  sh.getRange(po, 1, 2, 3).setValues([
-    ['อื่น ๆ', '=COUNTUNIQUEIFS(' + L + 'D:D,' + day + ')-SUM(B' + p0 + ':B' + (po - 1) + ')', '=SUMIFS(' + L + 'H:H,' + day + ')-SUM(C' + p0 + ':C' + (po - 1) + ')'],
-    ['รวม (แห่งนับไม่ซ้ำ)', '=COUNTUNIQUEIFS(' + L + 'D:D,' + day + ')', '=SUM(C' + p0 + ':C' + po + ')']]);
-  sh.getRange(pt, 1, 1, 3).setFontWeight('bold');
-
-  r = pt + 2;
-  sh.getRange(r, 1, 1, 7).setValues([['งาน', 'จำนวนแห่ง', 'จำนวนราย', 'ผ่าน', 'ไม่ผ่าน', 'รวมที่ตรวจ', 'หน่วยนับ']]).setFontWeight('bold');
-  JOBS.forEach((j, i) => {
-    const q = r + 1 + i, by = day + ',' + L + 'B:B,$A' + q;
-    sh.getRange(q, 1, 1, 7).setValues([[j, '=COUNTUNIQUEIFS(' + L + 'D:D,' + by + ')', '=SUMIFS(' + L + 'H:H,' + by + ')',
-      '=SUMIFS(' + L + 'I:I,' + by + ')', '=SUMIFS(' + L + 'J:J,' + by + ')', '=SUMIFS(' + L + 'K:K,' + by + ')', unit_(j)]]);
-  });
-
-  r = r + JOBS.length + 2;
+  const L = LQ, r = 6;
   sh.getRange(r, 1).setValue('รายการตรวจของวันที่เลือก (คลิก เปิดรายงาน เพื่อดูผลละเอียด)').setFontWeight('bold');
-  sh.getRange(r + 1, 1, 1, 11).setValues([['งาน', 'ประเภทสถานประกอบการ', 'ชื่อสถานประกอบการ', 'ผู้ตรวจ', 'จำนวนราย',
-    'ผ่าน', 'ไม่ผ่าน', 'รวมที่ตรวจ', 'การดำเนินการ', 'รายงาน PDF', 'หน่วยนับ']]).setFontWeight('bold');
-  sh.getRange(r + 2, 1).setFormula('=IFERROR(FILTER({' + L + 'B2:E,' + L + 'H2:K,' + L + 'M2:M},' + L + 'A2:A=$B$2),"ไม่มีรายการในวันที่เลือก")');
+  sh.getRange(r + 1, 1, 1, 11).setValues([['งาน', 'ชนิดเครื่อง', 'ชื่อสถานประกอบการ', 'ผู้ตรวจ', 'จำนวนราย',
+    'ถูก (เครื่อง)', 'ผิด (เครื่อง)', 'รวม (เครื่อง)', 'หน่วยนับ', 'รายงาน PDF', 'การดำเนินการ']]).setFontWeight('bold');
+  sh.getRange(r + 2, 1).setFormula('=IFERROR(FILTER({' + L + 'B2:B,' + L + 'U2:U,' + L + 'D2:E,' + L + 'H2:K,' + L + 'S2:S},'
+    + L + 'A2:A=$B$2),"ไม่มีรายการในวันที่เลือก")');
   sh.getRange(r + 2, 10).setFormula('=IFERROR(ARRAYFORMULA(LET(u,FILTER(' + L + 'N2:N,' + L + 'A2:A=$B$2),'
     + 'IF(u="","ยังไม่มีไฟล์",IF(LEFT(u,4)="http",HYPERLINK(u,"เปิดรายงาน"),u)))),"")');
-  sh.getRange(r + 2, 11).setFormula('=IFERROR(FILTER(' + L + 'S2:S,' + L + 'A2:A=$B$2),"")');
+  sh.getRange(r + 2, 11).setFormula('=IFERROR(FILTER(' + L + 'M2:M,' + L + 'A2:A=$B$2),"")');
+  sh.setColumnWidth(2, 320);
   return r + 2;
 }
 
