@@ -435,13 +435,18 @@ function dailyLines(s){
 function sheetMsg(t,k){const el=$("sheetMsg");el.textContent=t;el.className="msg "+(k||"")}
 let flushing=false,retryTimer=null;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+// ตัดคำขอที่ค้างเกิน 60 วินาที ให้นับเป็นส่งไม่สำเร็จแล้วลองใหม่ ไม่ค้างที่ "กำลังส่ง…" ตลอดไป
+function tfetch(url,opt,ms=60000){
+  const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),ms);
+  return fetch(url,{...opt,signal:ctl.signal}).finally(()=>clearTimeout(t));
+}
 async function postItem(item){
   // ชีตสรุปรายวันต้องมีรหัสผู้ส่ง ยังไม่มีให้ค้างในคิวไว้ก่อน
   const daily=item._url&&item._url===DAILY_URL;
   if(daily&&!dailySender(false))return false;
   // ลองส่งสูงสุด 3 ครั้ง · keepalive ให้คำขอส่งต่อได้แม้หน้าเว็บถูกขัดจังหวะตอนบันทึก PDF
   for(let i=0;i<3;i++){
-    try{await fetch(item._url||SHEET_URL,{method:"POST",mode:"no-cors",keepalive:true,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...item,_url:undefined,...(daily?{sender:dailySender(false)}:{})})});return true}
+    try{await tfetch(item._url||SHEET_URL,{method:"POST",mode:"no-cors",keepalive:true,headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...item,_url:undefined,...(daily?{sender:dailySender(false)}:{})})});return true}
     catch(e){await sleep(1500*(i+1))}
   }
   return false;
