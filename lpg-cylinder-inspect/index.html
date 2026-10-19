@@ -160,6 +160,7 @@ table.sum td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
     <div class="grid2">
       <label class="field">ชื่อสถานที่ตรวจ<input id="shop" type="text" autocomplete="off" placeholder="เช่น ร้านก๊าซ มะขามเตี้ย"></label>
       <label class="field">ที่อยู่<input id="address" type="text" autocomplete="off" placeholder="เลขที่ ตำบล อำเภอ จังหวัด"></label>
+      <label class="field">จังหวัด<select id="province"><option>สุราษฎร์ธานี</option><option>นครศรีธรรมราช</option></select></label>
       <label class="field">วันที่ตรวจ<input id="date" type="date"></label>
       <label class="field">นายตรวจชั่งตวงวัด<select id="inspector"><option value="">— เลือกนายตรวจชั่งตวงวัด —</option><option value="นายอิสระ รัตนวัย">นายอิสระ รัตนวัย (นักวิชาการชั่งตวงวัดชำนาญการพิเศษ)</option><option value="นายปราโมช บ้านนบ">นายปราโมช บ้านนบ (นักวิชาการชั่งตวงวัดชำนาญการ)</option><option value="นายวสันต์ ดิลกสัมพันธ์">นายวสันต์ ดิลกสัมพันธ์ (นักวิชาการชั่งตวงวัดชำนาญการ)</option><option value="ว่าที่ ร.ต.หญิงวรรณนิศา จันทระ">ว่าที่ ร.ต.หญิงวรรณนิศา จันทระ (นักวิชาการชั่งตวงวัดชำนาญการ)</option><option value="นายสุภชัย สืบน้อย">นายสุภชัย สืบน้อย (เจ้าพนักงานชั่งตวงวัดชำนาญงาน)</option></select></label>
     </div>
@@ -459,7 +460,7 @@ function exampleState(){
   ]};
 }
 function blankState(prev){
-  return {example:false,shop:'',address:'',date:today(),inspector:prev?prev.inspector:'',cur:0,lots:[newLot({mode:prev&&prev.lots&&prev.lots[0]?prev.lots[0].mode:'gt'})]};
+  return {example:false,shop:'',address:'',date:today(),inspector:prev?prev.inspector:'',province:prev?prev.province||'':'',cur:0,lots:[newLot({mode:prev&&prev.lots&&prev.lots[0]?prev.lots[0].mode:'gt'})]};
 }
 function load(){
   try{
@@ -467,7 +468,7 @@ function load(){
     if(raw){const s=JSON.parse(raw);if(s&&Array.isArray(s.lots)&&s.lots.length){s.lots.forEach(l=>{l.id=++uid;(l.rows||[]).forEach(r=>{r.id=++uid;});});if(!(s.cur>=0&&s.cur<s.lots.length))s.cur=0;return s;}}
     const old=localStorage.getItem(OLD_KEY);
     if(old){const o=JSON.parse(old);if(o&&Array.isArray(o.rows)){o.rows.forEach(r=>{r.id=++uid;});
-      return {example:!!o.example,shop:o.shop||'',address:o.address||'',date:o.date||today(),inspector:o.inspector||'',cur:0,
+      return {example:!!o.example,shop:o.shop||'',address:o.address||'',province:o.province||'',date:o.date||today(),inspector:o.inspector||'',cur:0,
         lots:[newLot({size:o.size,custom:o.custom,N:o.N,mode:o.mode,brand:o.brand,rows:o.rows})]};}}
   }catch(e){}
   return null;
@@ -759,8 +760,8 @@ function startNew(btn){
 $('startNew1').onclick=()=>startNew($('startNew1'));
 $('startNew2').onclick=()=>startNew($('startNew2'));
 
-function initFields(){['shop','address','date','inspector'].forEach(k=>{$(k).value=S[k]||'';});}
-['shop','address','date','inspector'].forEach(k=>{const el=$(k);const h=()=>{S[k]=el.value;update();};el.addEventListener('input',h);if(el.tagName==='SELECT')el.addEventListener('change',h);});
+function initFields(){['shop','address','province','date','inspector'].forEach(k=>{$(k).value=S[k]||(k==='province'?'สุราษฎร์ธานี':'');});}
+['shop','address','province','date','inspector'].forEach(k=>{const el=$(k);const h=()=>{S[k]=el.value;update();};el.addEventListener('input',h);if(el.tagName==='SELECT')el.addEventListener('change',h);});
 $('brand').addEventListener('input',e=>{cur().brand=e.target.value;update();});
 $('lotN').addEventListener('input',e=>{
   const L=cur();L.N=e.target.value.replace(/[^\d]/g,'');
@@ -832,7 +833,7 @@ function sendDailyLpg(items){
   if(!S.sessionId){S.sessionId=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);save()}
   const Rr=items.map(it=>it.R),fail=Rr.filter(R=>R.v==='bad').reduce((a,R)=>a+(R.n||0),0);
   const tanks=Rr.reduce((a,R)=>a+(R.n||0),0),pass=Rr.filter(R=>R.v==='ok').reduce((a,R)=>a+(R.n||0),0),warn=Rr.reduce((a,R)=>a+(R.nWarn||0),0),bad=Rr.reduce((a,R)=>a+(R.nBad||0),0);
-  sendDaily({app:'lpg-cylinder-inspect',job:'ก๊าซหุงต้มบรรจุถัง',submitId:S.sessionId,date:S.date,placeType:'ร้านค้า',
+  sendDaily({app:'lpg-cylinder-inspect',job:'ก๊าซหุงต้มบรรจุถัง',submitId:S.sessionId,date:S.date,placeType:'ร้านค้า',province:S.province||$('province').value,
     place:String(S.shop||'').trim(),officerType:'นายตรวจชั่งตวงวัด',officerName:S.inspector||'',team:'',units:1,pass,fail,
     detail:Rr.length+' กอง ('+Rr.map(R=>R.sizeTxt).join(', ')+') · ชั่ง '+tanks+' ถัง · ขาดเกิน T1 '+warn+' ถัง · เกิน T2 '+bad+' ถัง',
     actionText:fail?'กองที่ไม่ผ่าน '+Rr.filter(R=>R.v==='bad').length+' กอง ('+fail+' ถัง)':'-',

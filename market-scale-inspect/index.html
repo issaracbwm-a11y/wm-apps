@@ -153,6 +153,12 @@ footer{font-size:12px;color:var(--muted);line-height:1.6}
           <option>สถานที่รับซื้อสินค้าเกษตร</option>
         </select>
       </label>
+      <label class="f full">จังหวัด <small>ใช้กรองยอดใน Dashboard ของชีตสรุปรายวัน</small>
+        <select id="prov">
+          <option>สุราษฎร์ธานี</option>
+          <option>นครศรีธรรมราช</option>
+        </select>
+      </label>
       <label class="f">1. ประเภทเจ้าหน้าที่
         <select id="otype">
           <option value="inspector">นายตรวจชั่งตวงวัด</option>
@@ -362,10 +368,10 @@ function status(errG,mpe){const a=r1(Math.abs(errG));
 
 /* ---------- storage ---------- */
 function save(){try{localStorage.setItem(KEY,JSON.stringify({
-  market:$("market").value,ptype:$("ptype").value,otype:$("otype").value,date:$("date").value,
+  market:$("market").value,ptype:$("ptype").value,prov:$("prov").value,otype:$("otype").value,date:$("date").value,
   insp:$("inspName").value,vol:$("volName").value,team:$("team").value,records:state.records,sessionId:state.sessionId||"",totals:state.totals||{}}))}catch(e){}}
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY)||"null");if(!s)return;
-  $("market").value=s.market||"";if(s.ptype)$("ptype").value=s.ptype;$("otype").value=s.otype||"inspector";$("date").value=s.date||todayISO();
+  $("market").value=s.market||"";if(s.ptype)$("ptype").value=s.ptype;if(s.prov)$("prov").value=s.prov;$("otype").value=s.otype||"inspector";$("date").value=s.date||todayISO();
   if(s.insp!=null)$("inspName").value=s.insp;$("volName").value=s.vol||"";$("team").value=s.team||"";state.records=s.records||[];state.sessionId=s.sessionId||"";state.totals=s.totals||{};}catch(e){}}
 
 /* ---------- market totals (may exceed per-shop records) ---------- */
@@ -430,7 +436,7 @@ function buildSummary(){
 // แถวเดียวต่อตลาดในชีตสรุปรายวัน ใช้รหัสรายการเดียวกับชีตตลาดสด
 function buildDaily(s){
   return{_url:DAILY_URL,token:DAILY_TOKEN,kind:"summary",app:"market-scale-inspect",job:"เครื่องชั่งในตลาด",
-    submitId:s.submitId,date:s.date,placeType:$("ptype").value,place:s.market,officerType:s.officerType,
+    submitId:s.submitId,date:s.date,placeType:$("ptype").value,province:$("prov").value,place:s.market,officerType:s.officerType,
     officerName:s.officerName,team:s.team,units:s.shops,pass:s.springPass+s.digitalPass,fail:s.springFail+s.digitalFail,
     detail:`สปริง ถูก ${s.springPass} ผิด ${s.springFail} · ดิจิทัล ถูก ${s.digitalPass} ผิด ${s.digitalFail}`,actionText:s.actionText,
     lines:dailyLines(s)};
@@ -523,6 +529,7 @@ function syncOfficer(){const v=$("otype").value==="vol";$("wrapInsp").hidden=v;$
 $("otype").addEventListener("change",syncOfficer);
 ["market","date","inspName","volName","team"].forEach(id=>$(id).addEventListener("input",save));
 $("ptype").addEventListener("change",save);
+$("prov").addEventListener("change",save);
 // ชื่อที่มีคำว่า ตลาดนัด เลือกประเภทให้อัตโนมัติ แก้ทีหลังได้
 $("market").addEventListener("input",()=>{if(/ตลาดนัด/.test($("market").value)&&$("ptype").value==="ตลาดสด"){$("ptype").value="ตลาดนัด";save()}});
 
