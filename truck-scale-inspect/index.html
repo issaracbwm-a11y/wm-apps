@@ -1039,13 +1039,15 @@ const DAILY_URL="https://script.google.com/macros/s/AKfycbytv9Mff87k7MXog6gu-B7m
 const DAILY_TOKEN="WUQ9JKJ396M82QBW8DN8768D";                     // รหัสแอปที่ได้จาก setup ของชีตสรุปรายวัน
 // รหัสผู้ส่งข้อมูลรายบุคคล (ขอจากผู้ช่วยนายตรวจ) ใส่ครั้งเดียว ใช้ร่วมกันทุกแอปในเว็บนี้
 const SENDER_KEY="wm-daily-sender";
+const NEED_SENDER=true;                 // false = ไม่ถามรหัสผู้ส่ง (ต้องตั้ง ตั้งค่า B7 ของชีตเป็น ไม่ใช่ ด้วย)
 function dailySender(ask){
   let c="";try{c=localStorage.getItem(SENDER_KEY)||""}catch(e){}
+  if(!NEED_SENDER)return c||"-";
   if(!c&&ask){c=(prompt("ใส่รหัสผู้ส่งข้อมูลของท่าน (ขอได้จากผู้ช่วยนายตรวจชั่งตวงวัด)\nใส่ครั้งเดียว ใช้ได้กับทุกแอป")||"").trim().toUpperCase();if(c)try{localStorage.setItem(SENDER_KEY,c)}catch(e){}}
   return c;
 }
 function addSenderLink(id){
-  const el=document.getElementById(id);if(!el||!DAILY_URL)return;
+  const el=document.getElementById(id);if(!el||!DAILY_URL||!NEED_SENDER)return;
   const a=document.createElement("a");a.href="#";a.textContent="เปลี่ยนรหัสผู้ส่งข้อมูล";a.style.cssText="display:inline-block;margin-top:4px;font-size:.85em";
   a.addEventListener("click",e=>{e.preventDefault();try{localStorage.removeItem(SENDER_KEY)}catch(_){}dailySender(true)});
   el.after(a);
