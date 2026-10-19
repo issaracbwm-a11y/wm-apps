@@ -244,7 +244,7 @@ function summaryTables_(sh) {
 /* ---------- แท็บ Dashboard สำหรับ ผอ. ----------
  * เขียนเป็นข้อมูล (spec) ชุดเดียว ใช้ทั้งตอน setup สร้างในชีตเปล่า และตอนปรับชีตเดิม
  * คอลัมน์ A:F แสดงผล คอลัมน์ Z:AL เป็นตัวช่วยคำนวณ (ซ่อน)
- * Z:AF = แถวจากแท็บ รายการตรวจ ที่ผ่านตัวกรอง งาน จังหวัด ผู้ตรวจ สถานะ (ยังไม่กรองวันที่)
+ * Z:AF = แถวจากแท็บ รายการตรวจ ที่ผ่านตัวกรอง จังหวัด สถานะ (ยังไม่กรองวันที่)
  *        Z รหัสวัน|สถานที่ (นับแห่งไม่ซ้ำต่อวัน ข้ามทุกงาน), AA ผู้ตรวจ, AB ราย, AC ไม่ผ่าน, AD รวมที่ตรวจ, AE หน่วย, AF วันที่
  * AL1:AL2 = ช่วงวันที่ที่ใช้จริง (ช่องวันที่ว่าง = ต้นเดือนนี้ถึงวันนี้) */
 function dashSpec_() {
@@ -262,26 +262,22 @@ function dashSpec_() {
   put('A4', 'ตัวกรอง'); styles.push({ r: 'A4', bold: true });
   put('B4', '="ช่วง "&TEXT($AL$1,"d mmm yyyy")&" ถึง "&TEXT($AL$2,"d mmm yyyy")'); merges.push('B4:D4');
   styles.push({ r: 'B4', size: 10, color: INK2 });
-  [['A5', 'ตั้งแต่วันที่'], ['C5', 'ถึงวันที่'], ['A6', 'งาน'], ['C6', 'จังหวัด'], ['A7', 'ผู้ตรวจ'], ['C7', 'สถานะ']].forEach(([a, t]) => put(a, t));
-  styles.push({ r: 'A5:A7', color: INK2 }, { r: 'C5:C7', color: INK2 });
-  ['B6', 'D6', 'B7', 'D7'].forEach(a => put(a, 'ทั้งหมด'));
-  styles.push({ r: 'B5:B7', bg: '#fff8d6' }, { r: 'D5:D7', bg: '#fff8d6' }, { r: 'B5', num: 'd mmm yyyy' }, { r: 'D5', num: 'd mmm yyyy' });
-  valid.push({ r: 'B5', date: true }, { r: 'D5', date: true },
-    { r: 'B6', range: 'AH1:AH' }, { r: 'D6', range: 'AI1:AI' }, { r: 'B7', range: 'AJ1:AJ' }, { r: 'D7', range: 'AK1:AK' });
+  [['A5', 'ตั้งแต่วันที่'], ['C5', 'ถึงวันที่'], ['A6', 'จังหวัด'], ['C6', 'สถานะ']].forEach(([a, t]) => put(a, t));
+  styles.push({ r: 'A5:A6', color: INK2 }, { r: 'C5:C6', color: INK2 });
+  ['B6', 'D6'].forEach(a => put(a, 'ทั้งหมด'));
+  styles.push({ r: 'B5:B6', bg: '#fff8d6' }, { r: 'D5:D6', bg: '#fff8d6' }, { r: 'B5', num: 'd mmm yyyy' }, { r: 'D5', num: 'd mmm yyyy' });
+  valid.push({ r: 'B5', date: true }, { r: 'D5', date: true }, { r: 'B6', range: 'AI1:AI' }, { r: 'D6', range: 'AK1:AK' });
 
   // ตัวช่วย: รายการตัวเลือก และช่วงวันที่
-  put('AH1', 'ทั้งหมด'); JOBS.forEach((j, i) => put('AH' + (i + 2), j));
   put('AI1', 'ทั้งหมด'); PROVINCES.concat(['ไม่ระบุ']).forEach((p, i) => put('AI' + (i + 2), p));
-  put('AJ1', '={"ทั้งหมด";IFERROR(SORT(UNIQUE(FILTER(' + L + 'E2:E,' + L + 'E2:E<>""))),"")}');
   put('AK1', 'ทั้งหมด'); STATUSES.forEach((t, i) => put('AK' + (i + 2), t));
   put('AL1', '=IF(ISNUMBER($B$5),$B$5,EOMONTH(TODAY(),-1)+1)');
   put('AL2', '=IF(ISNUMBER($D$5),$D$5,TODAY())');
   ['Z', 'AA', 'AB', 'AC', 'AD', 'AE', 'AF'].forEach((c, i) => put(c + '1', ['key', 'ผู้ตรวจ', 'ราย', 'ไม่ผ่าน', 'รวม', 'หน่วย', 'วันที่'][i]));
   put('Z2', '=IFERROR(ARRAYFORMULA(LET(d,' + L + 'A2:A,st,IFERROR(VLOOKUP(d,{' + K + 'A2:A,' + K + 'M2:M},2,FALSE),""),'
-    + 'm,(LEN(d)>0)*((($B$6="ทั้งหมด")+(' + L + 'B2:B=$B$6))>0)'
-    + '*((($D$6="ทั้งหมด")+(' + L + 'T2:T=$D$6)+(($D$6="ไม่ระบุ")*(' + L + 'T2:T="")))>0)'
-    + '*((($B$7="ทั้งหมด")+(' + L + 'E2:E=$B$7))>0)'
-    + '*((($D$7="ทั้งหมด")+(st=$D$7)+(($D$7="มีข้อมูลเปลี่ยนแปลง")*REGEXMATCH(st,"เปลี่ยนแปลง|ปรับปรุง")))>0),'
+    + 'm,(LEN(d)>0)'
+    + '*((($B$6="ทั้งหมด")+(' + L + 'T2:T=$B$6)+(($B$6="ไม่ระบุ")*(' + L + 'T2:T="")))>0)'
+    + '*((($D$6="ทั้งหมด")+(st=$D$6)+(($D$6="มีข้อมูลเปลี่ยนแปลง")*REGEXMATCH(st,"เปลี่ยนแปลง|ปรับปรุง")))>0),'
     + 'FILTER({TEXT(d,"yyyy-mm-dd")&"|"&' + L + 'D2:D,' + L + 'E2:E,' + L + 'H2:H,' + L + 'J2:J,' + L + 'K2:K,' + L + 'S2:S,d},m))),"")');
 
   // ตัวเลขสำคัญ 8 ช่อง สองช่องต่อแถว
