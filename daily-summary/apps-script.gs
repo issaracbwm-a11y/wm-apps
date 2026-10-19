@@ -609,14 +609,34 @@ function doPost(e) {
     return out_({ ok: false, error: 'bad token' });
   }
 
+  // ไฟล์ PDF บันทึกลง Drive ได้เลยไม่ต้องรอคิว (แอปส่ง PDF มาพร้อมกับตัวเลข และการบันทึกตัวเลขใช้เวลานาน)
+  let pdf = null;
+  if (data.kind === 'pdf') {
+    try {
+      const sender = checkSender_(data.sender);
+      const bad = sender.error || validate_(data);
+      if (bad) { reject_(bad, data, sender.name); return out_({ ok: false, error: bad }); }
+      data.senderName = sender.name;
+      pdf = savePdf_(data);
+    } catch (err) {
+      const msg = String(err && err.message || err);
+      try { reject_('บันทึกไฟล์ PDF ไม่สำเร็จ: ' + msg, data, data.senderName || ''); } catch (e2) { }
+      return out_({ ok: false, error: msg });
+    }
+  }
+
   const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  if (!lock.tryLock(240000)) {
+    // ลิงก์ PDF ที่ยังไม่ได้ใส่ จะเติมให้เองเมื่อแอปส่งตัวเลขรายการนี้มาอีกครั้ง หรือเมื่อเรียก fillPdfLinks
+    if (!pdf) try { reject_('ระบบไม่ว่าง (มีข้อมูลอื่นกำลังบันทึก) แอปจะส่งซ้ำให้เอง', data, ''); } catch (e2) { }
+    return out_(pdf || { ok: false, error: 'busy' });
+  }
   try {
+    if (pdf) { linkPdf_(data.submitId, pdf.url); return out_(pdf); }
     const sender = checkSender_(data.sender);
     const bad = sender.error || validate_(data);
     if (bad) { reject_(bad, data, sender.name); return out_({ ok: false, error: bad }); }
     data.senderName = sender.name;
-    if (data.kind === 'pdf') return out_(savePdf_(data));
     upsert_(data);
     return out_({ ok: true });
   } catch (err) {
@@ -813,9 +833,28 @@ function savePdf_(d) {
   const base = String(d.filename || 'รายงาน.pdf').replace(/\.pdf$/i, '').replace(/[^\w\u0E00-\u0E7F .()\-]/g, '_').slice(0, 120);
   const blob = Utilities.newBlob(Utilities.base64Decode(d.data), 'application/pdf', base + '_' + id + '.pdf');
   const file = folder.createFile(blob);   // สิทธิ์ตามโฟลเดอร์ ไม่เปิดลิงก์สาธารณะ
-  const sh = ss_().getSheetByName(LOG);
-  rowsOf_(sh, id).forEach(r => sh.getRange(r, COL.link).setValue(file.getUrl()));
   return { ok: true, url: file.getUrl() };
+}
+
+function linkPdf_(id, url) {
+  const sh = ss_().getSheetByName(LOG);
+  rowsOf_(sh, String(id).replace(/'/g, '')).forEach(r => sh.getRange(r, COL.link).setValue(url));
+}
+
+// เติมลิงก์ PDF ให้แถวที่ยังว่าง จากไฟล์ที่อยู่ในโฟลเดอร์แล้ว (เรียกเองจากเมนู Apps Script ได้)
+function fillPdfLinks() {
+  const sh = ss_().getSheetByName(LOG);
+  const last = sh.getLastRow();
+  if (last < 2) return;
+  const ids = sh.getRange(2, COL.id, last - 1, 1).getValues();
+  const links = sh.getRange(2, COL.link, last - 1, 1).getValues();
+  let n = 0;
+  ids.forEach((v, i) => {
+    if (links[i][0] || !v[0]) return;
+    const url = pdfLink_(String(v[0]).split('#')[0]);
+    if (url) { sh.getRange(i + 2, COL.link).setValue(url); n++; }
+  });
+  Logger.log('เติมลิงก์ PDF ' + n + ' แถว');
 }
 
 /* ---------- แท็บ รับทราบ: หนึ่งแถวต่อวัน เรียงตามวันที่ ---------- */
