@@ -603,7 +603,11 @@ function doPost(e) {
   let data;
   try { data = JSON.parse(e.postData.contents); } catch (err) { return out_({ ok: false, error: 'bad json' }); }
   const token = PropertiesService.getScriptProperties().getProperty('TOKEN');
-  if (!data || !token || data.token !== token) return out_({ ok: false, error: 'bad token' });
+  if (!data || !token || data.token !== token) {
+    // บันทึกเฉพาะคำขอที่มาจากแอปของศูนย์ฯ จะได้เห็นว่าแอปใช้รหัสแอปเก่าอยู่ (ไม่บันทึกรหัสที่ส่งมา)
+    if (data && APPS.indexOf(data.app) >= 0) try { reject_('รหัสแอปไม่ตรง (แอปยังใช้รหัสเก่า หรือ setup สร้างรหัสใหม่)', data, ''); } catch (err) { }
+    return out_({ ok: false, error: 'bad token' });
+  }
 
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -616,7 +620,9 @@ function doPost(e) {
     upsert_(data);
     return out_({ ok: true });
   } catch (err) {
-    return out_({ ok: false, error: String(err && err.message || err) });
+    const msg = String(err && err.message || err);
+    try { reject_('ระบบบันทึกไม่สำเร็จ: ' + msg, data, data.senderName || ''); } catch (e2) { }
+    return out_({ ok: false, error: msg });
   } finally {
     lock.releaseLock();
   }
