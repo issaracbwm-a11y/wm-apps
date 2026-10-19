@@ -407,7 +407,7 @@ function rptSpec_() {
   put('F' + FT, 'ความเห็น/คำสั่ง'); merges.push('F' + FT + ':I' + FT);
   put('F' + (FT + 1), '=IFERROR(LET(r,MATCH($B$1,' + K + '$A:$A,0),IF(INDEX(' + K + '$F:$F,r)=TRUE,"ผอ. รับทราบแล้ว "&INDEX(' + K + '$G:$G,r),"ยังไม่รับทราบ (ติ๊กในแท็บ รับทราบ)")),"")');
   merges.push('F' + (FT + 1) + ':I' + (FT + 2)); styles.push({ r: 'F' + (FT + 1), wrap: true, color: INK2 });
-  put('F' + (FT + 4), '(                                        )'); merges.push('F' + (FT + 4) + ':I' + (FT + 4));
+  put('F' + (FT + 4), '(นายอิสระ รัตนวัย)'); merges.push('F' + (FT + 4) + ':I' + (FT + 4));
   put('F' + (FT + 5), 'ผู้อำนวยการศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)'); merges.push('F' + (FT + 5) + ':I' + (FT + 5));
   styles.push({ r: 'F' + (FT + 4) + ':F' + (FT + 5), align: 'CENTER' });
 
