@@ -85,15 +85,17 @@ const UNIT = { 'ก๊าซหุงต้มบรรจุถัง': 'ถั
 const UNITS = ['เครื่อง', 'ถัง', 'รายการ'];
 const PROVINCES = ['สุราษฎร์ธานี', 'นครศรีธรรมราช'];
 const STATUSES = ['รอ ผอ.รับทราบ', 'รับทราบแล้ว รอลงระบบ', 'ลงระบบแล้ว', 'มีข้อมูลเปลี่ยนแปลง'];
-const unit_ = (job) => UNIT[job] || 'เครื่อง';
+// รับได้ทั้งชื่องานจากแอปและชื่อแถวในแบบฟอร์ม (คอลัมน์ งาน ในแท็บ รายการตรวจ)
+const unit_ = (j) => UNIT[j] || (/ก๊าซหุงต้ม/.test(j) ? 'ถัง' : /สินค้าหีบห่อ/.test(j) ? 'รายการ' : 'เครื่อง');
 
 const SUM = 'สรุปรายวัน';
 const LOG_HEAD = [
   'วันที่ตรวจ', 'งาน', 'ประเภทสถานประกอบการ', 'ชื่อสถานประกอบการ', 'ผู้ตรวจ', 'ประเภทเจ้าหน้าที่', 'พร้อมด้วย',
   'จำนวนราย', 'ผ่าน', 'ไม่ผ่าน', ['รวมที่ตรวจ', '={"รวมที่ตรวจ";ARRAYFORMULA(IF(LEN(A2:A),I2:I+J2:J,))}'],
   'รายละเอียด', 'การดำเนินการ', 'ลิงก์รายงาน PDF', 'ส่งข้อมูลเมื่อ', 'แอปที่ส่ง', 'รหัสรายการ', 'แก้ไขล่าสุด (เวลา · ผู้แก้)',
-  ['หน่วยนับ', '={"หน่วยนับ";ARRAYFORMULA(IF(LEN(A2:A),IF(B2:B="ก๊าซหุงต้มบรรจุถัง","ถัง",IF(B2:B="สินค้าหีบห่อ","รายการ","เครื่อง")),))}'],
-  'จังหวัด', 'แถวในแบบฟอร์ม', 'ผูกบัตร', 'ยึด', 'คดี', 'อำเภอ'
+  ['หน่วยนับ', '={"หน่วยนับ";ARRAYFORMULA(IF(LEN(A2:A),IF(REGEXMATCH(B2:B,"ก๊าซหุงต้ม"),"ถัง",IF(REGEXMATCH(B2:B,"สินค้าหีบห่อ"),"รายการ","เครื่อง")),))}'],
+  // คอลัมน์ งาน (B) คือรายการตามแบบฟอร์มรายงานประจำวัน คอลัมน์ U คัดลอกจาก B ให้สูตรรายงานใช้
+  'จังหวัด', ['แถวในแบบฟอร์ม', '={"แถวในแบบฟอร์ม";ARRAYFORMULA(IF(LEN(A2:A),B2:B,))}'], 'ผูกบัตร', 'ยึด', 'คดี', 'อำเภอ'
 ];
 // ยอดต่อวันในแท็บ รับทราบ: แห่งนับชื่อสถานที่ไม่ซ้ำ ส่วนจำนวนที่ตรวจและไม่ผ่านแยกตามหน่วยนับ เช่น "45 เครื่อง · 120 ถัง"
 const LQ = "'" + LOG + "'!";
@@ -223,21 +225,21 @@ function buildSummary_(sh) {
   sh.getRange('B3').setFormula(ackF('K', 'F', 'G', 'รับทราบแล้ว', 'ยังไม่รับทราบ', 'มีข้อมูลเปลี่ยนแปลง รอรับทราบใหม่ (ยอดที่เคยรับทราบ'));
   sh.getRange('B4').setFormula(ackF('L', 'H', 'I', 'ลงระบบแล้ว', 'ยังไม่ได้ลงระบบ', 'ต้องตรวจสอบและปรับปรุงยอดในระบบงาน (ยอดที่ลงระบบไว้'));
   summaryTables_(sh);
-  sh.setColumnWidth(1, 220);
+  sh.setColumnWidth(1, 320);
 }
 
-// รายการตรวจของวันที่เลือก เริ่มแถว 6 หนึ่งแถวต่อชนิดเครื่อง พร้อมลิงก์เปิดรายงาน PDF คืนค่าแถวแรกของรายการ
+// รายการตรวจของวันที่เลือก เริ่มแถว 6 หนึ่งแถวต่อรายการในแบบฟอร์ม พร้อมลิงก์เปิดรายงาน PDF คืนค่าแถวแรกของรายการ
 function summaryTables_(sh) {
   const L = LQ, r = 6;
   sh.getRange(r, 1).setValue('รายการตรวจของวันที่เลือก (คลิก เปิดรายงาน เพื่อดูผลละเอียด)').setFontWeight('bold');
-  sh.getRange(r + 1, 1, 1, 11).setValues([['งาน', 'ชนิดเครื่อง', 'ชื่อสถานประกอบการ', 'ผู้ตรวจ', 'จำนวนราย',
+  sh.getRange(r + 1, 1, 1, 10).setValues([['งาน', 'ชื่อสถานประกอบการ', 'ผู้ตรวจ', 'จำนวนราย',
     'ถูก (เครื่อง)', 'ผิด (เครื่อง)', 'รวม (เครื่อง)', 'หน่วยนับ', 'รายงาน PDF', 'การดำเนินการ']]).setFontWeight('bold');
-  sh.getRange(r + 2, 1).setFormula('=IFERROR(FILTER({' + L + 'B2:B,' + L + 'U2:U,' + L + 'D2:E,' + L + 'H2:K,' + L + 'S2:S},'
+  sh.getRange(r + 2, 1).setFormula('=IFERROR(FILTER({' + L + 'B2:B,' + L + 'D2:E,' + L + 'H2:K,' + L + 'S2:S},'
     + L + 'A2:A=$B$2),"ไม่มีรายการในวันที่เลือก")');
-  sh.getRange(r + 2, 10).setFormula('=IFERROR(ARRAYFORMULA(LET(u,FILTER(' + L + 'N2:N,' + L + 'A2:A=$B$2),'
+  sh.getRange(r + 2, 9).setFormula('=IFERROR(ARRAYFORMULA(LET(u,FILTER(' + L + 'N2:N,' + L + 'A2:A=$B$2),'
     + 'IF(u="","ยังไม่มีไฟล์",IF(LEFT(u,4)="http",HYPERLINK(u,"เปิดรายงาน"),u)))),"")');
-  sh.getRange(r + 2, 11).setFormula('=IFERROR(FILTER(' + L + 'M2:M,' + L + 'A2:A=$B$2),"")');
-  sh.setColumnWidth(2, 320);
+  sh.getRange(r + 2, 10).setFormula('=IFERROR(FILTER(' + L + 'M2:M,' + L + 'A2:A=$B$2),"")');
+  sh.setColumnWidth(1, 320);
   return r + 2;
 }
 
@@ -524,11 +526,10 @@ function setup() {
   const log = ss.getSheetByName(LOG);
   log.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(p => p.remove());
   const list = (a) => SpreadsheetApp.newDataValidation().requireValueInList(a, true).setAllowInvalid(true).build();
-  log.getRange('B2:B').setDataValidation(list(JOBS));
+  log.getRange('B2:B').setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInRange(ss.getSheetByName(FROWS).getRange('A2:A'), true).setAllowInvalid(true).build());
   log.getRange('C2:C').setDataValidation(list(PLACES));
   log.getRange('T2:T').setDataValidation(list(PROVINCES));
-  log.getRange('U2:U').setDataValidation(SpreadsheetApp.newDataValidation()
-    .requireValueInRange(ss.getSheetByName(FROWS).getRange('A2:A'), true).setAllowInvalid(true).build());
   // Dashboard เป็นแท็บแรก
   ss.setActiveSheet(ss.getSheetByName(DASH));
   ss.moveActiveSheet(1);
@@ -769,7 +770,7 @@ function upsertLine_(sh, d, baseId) {
   sh.getRange(r, 15, 1, 3).setNumberFormat('@');
   const placeType = PLACES.indexOf(d.placeType) >= 0 ? d.placeType : 'อื่น ๆ';
   sh.getRange(r, 1, 1, 10).setValues([[
-    date, clip_(d.job, 60), placeType, clip_(d.place, 200), clip_(d.officerName, 100), clip_(d.officerType, 60), clip_(d.team, 300),
+    date, clip_(d.formRow || d.job, 120), placeType, clip_(d.place, 200), clip_(d.officerName, 100), clip_(d.officerType, 60), clip_(d.team, 300),
     Number(d.units) || 0, pass, fail
   ]]);
   const sent = clip_(d.sentAt, 30) || Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm');
@@ -779,7 +780,7 @@ function upsertLine_(sh, d, baseId) {
   ]]);
   if (PROVINCES.indexOf(d.province) >= 0) sh.getRange(r, 20).setValue(d.province);
   const n = (k) => Number(d[k]) || 0;
-  sh.getRange(r, 21, 1, 4).setValues([[clip_(d.formRow, 120), n('tagged'), n('seized'), n('cases')]]);
+  sh.getRange(r, 22, 1, 3).setValues([[n('tagged'), n('seized'), n('cases')]]);
   if (d.amphoe) sh.getRange(r, 25).setValue(clip_(d.amphoe, 60));
   sh.getRange(r, 1).setNumberFormat('dd/mm/yyyy');
   ensureAckDate_(date);
