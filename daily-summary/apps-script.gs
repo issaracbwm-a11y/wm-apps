@@ -30,6 +30,8 @@ const HIST = 'ประวัติ';
 const SENDERS = 'ผู้ส่งข้อมูล';
 const DASH = 'Dashboard';
 const REJECT = 'ข้อมูลที่ไม่รับ';
+const FROWS = 'แถวแบบฟอร์ม';
+const RPT = 'รายงานประจำวัน';
 const APPS = ['market-scale-inspect', 'market-scale-vol', 'fuel-dispenser-inspect', 'truck-scale-inspect', 'lpg-cylinder-inspect'];
 const PDF_MAX_BYTES = 10 * 1024 * 1024;
 const COL = { date: 1, total: 11, link: 14, id: 17, edited: 18 };
@@ -41,6 +43,41 @@ const STATUS_F = '={"สถานะ";ARRAYFORMULA(IF(LEN(A2:A)=0,,LET(cur,B2:B&
   + 'IF(k,"มีข้อมูลเปลี่ยนแปลง รอรับทราบใหม่",IF(H2:H=TRUE,"ลงระบบแล้ว",IF(F2:F=TRUE,"รับทราบแล้ว รอลงระบบ","รอ ผอ.รับทราบ"))))))))}';
 const JOBS = ['เครื่องชั่งในตลาด', 'เครื่องชั่ง', 'เครื่องตวง', 'มาตรวัดน้ำมันเชื้อเพลิง', 'ก๊าซหุงต้มบรรจุถัง', 'เครื่องชั่งรถยนต์', 'สินค้าหีบห่อ'];
 const PLACES = ['ตลาดสด', 'ตลาดนัด', 'ร้านค้า', 'สถานที่รับซื้อสินค้าเกษตร', 'สถานีบริการน้ำมัน', 'โรงงาน'];
+// แถวในบันทึกข้อความรายงานผลการตรวจสอบประจำวัน (แบบฟอร์มกระดาษ) เรียงตามแบบฟอร์ม
+// เป็นค่าเริ่มต้นของแท็บ แถวแบบฟอร์ม แก้ เพิ่ม หรือสลับลำดับในแท็บนั้นได้ เช่น แถวตามฤดูกาล
+const FORM_ROWS = [
+  'เครื่องชั่งแบบคำนวณราคาได้ พิกัดน้อยกว่าหรือเท่ากับ 30 กก.',
+  'เครื่องชั่งสปริง พิกัดไม่เกิน 60 กก. ตลาดสด-นัด',
+  'เครื่องชั่งสปริง พิกัดไม่เกิน 60 กก. ร้านรับซื้อน้ำยางสด/เศษยาง',
+  'เครื่องชั่งแขวนหน้าปัดกลม 100 กก. สถานรับซื้อน้ำยางสด',
+  'เครื่องชั่งสปริง พิกัดไม่เกิน 60 กก. ล้งทุเรียน',
+  'เครื่องชั่งสปริง-ดิจิทัล ล้ง/แผงรับซื้อมังคุด',
+  'เครื่องชั่งแท่นชั่ง แบบคันคู่ พิกัด 50-500 กก.',
+  'เครื่องชั่งแท่นชั่ง แบบตุ้มถ่วง พิกัด 50-500 กก.',
+  'เครื่องชั่งแท่นชั่ง แบบตุ้มถ่วง พิกัด 1,000-5,000 กก.',
+  'เครื่องชั่งแท่นชั่ง แบบหน้าปัดกลม พิกัด 50-500 กก.',
+  'เครื่องชั่งแท่นชั่ง แบบอิเล็กทรอนิกส์ พิกัด 150 กก.',
+  'เครื่องชั่งแท่นชั่ง แบบอิเล็กทรอนิกส์ พิกัด 3,000 กก.',
+  'เครื่องชั่งรถยนต์ แบบคันชั่ง',
+  'เครื่องชั่งรถยนต์ แบบคันชั่งพ่วงโหลดเซลล์',
+  'เครื่องชั่งรถยนต์ แบบอิเล็กทรอนิกส์ พิกัดน้อยกว่า 50,000 กก.',
+  'เครื่องชั่งรถยนต์ แบบอิเล็กทรอนิกส์ พิกัด 50,000 กก. ขึ้นไป',
+  'ตุ้มเหล็กหล่อ, ตุ้มเคาน์เตอร์พอยส์',
+  'มาตรวัดน้ำมันเชื้อเพลิงสถานีบริการ',
+  'มาตรวัดปริมาตรก๊าซปิโตรเลียมเหลว (LPG) ตามสถานีบริการ',
+  'มาตรวัดมวลโดยตรง (NGV) ตามสถานีบริการ',
+  'โรงบรรจุสินค้าหีบห่อ',
+  'ผู้จำหน่ายสินค้าหีบห่อ',
+  'โรงบรรจุก๊าซหุงต้ม',
+  'ร้านจำหน่ายก๊าซหุงต้ม'
+];
+// แถวในแบบฟอร์มเมื่อแอปไม่ได้ระบุมา
+const JOB_ROW = {
+  'เครื่องชั่งในตลาด': FORM_ROWS[1], 'มาตรวัดน้ำมันเชื้อเพลิง': FORM_ROWS[17],
+  'เครื่องชั่งรถยนต์': FORM_ROWS[14], 'ก๊าซหุงต้มบรรจุถัง': FORM_ROWS[23]
+};
+const RPT_MAX = 30;   // จำนวนแถวรายการที่รายงานประจำวันเว้นที่ไว้
+
 // หน่วยนับตามงาน งานที่ไม่อยู่ในรายการนับเป็น เครื่อง
 const UNIT = { 'ก๊าซหุงต้มบรรจุถัง': 'ถัง', 'สินค้าหีบห่อ': 'รายการ' };
 const UNITS = ['เครื่อง', 'ถัง', 'รายการ'];
@@ -54,7 +91,7 @@ const LOG_HEAD = [
   'จำนวนราย', 'ผ่าน', 'ไม่ผ่าน', ['รวมที่ตรวจ', '={"รวมที่ตรวจ";ARRAYFORMULA(IF(LEN(A2:A),I2:I+J2:J,))}'],
   'รายละเอียด', 'การดำเนินการ', 'ลิงก์รายงาน PDF', 'ส่งข้อมูลเมื่อ', 'แอปที่ส่ง', 'รหัสรายการ', 'แก้ไขล่าสุด (เวลา · ผู้แก้)',
   ['หน่วยนับ', '={"หน่วยนับ";ARRAYFORMULA(IF(LEN(A2:A),IF(B2:B="ก๊าซหุงต้มบรรจุถัง","ถัง",IF(B2:B="สินค้าหีบห่อ","รายการ","เครื่อง")),))}'],
-  'จังหวัด'
+  'จังหวัด', 'แถวในแบบฟอร์ม', 'ผูกบัตร', 'ยึด', 'คดี', 'อำเภอ'
 ];
 // ยอดต่อวันในแท็บ รับทราบ: แห่งนับชื่อสถานที่ไม่ซ้ำ ส่วนจำนวนที่ตรวจและไม่ผ่านแยกตามหน่วยนับ เช่น "45 เครื่อง · 120 ถัง"
 const LQ = "'" + LOG + "'!";
@@ -153,9 +190,16 @@ function checkStructure_(ss) {
   head(sheet(SENDERS), ['ชื่อผู้ส่ง', 'รหัสผู้ส่ง', 'ใช้งาน', 'ส่งข้อมูลล่าสุด']);
   head(sheet(REJECT), ['เวลา', 'เหตุผล', 'แอป', 'ผู้ส่ง', 'วันที่ตรวจ', 'สถานที่', 'ข้อมูลที่ส่งมา', 'จัดการแล้ว']);
   hist_();
+  const fr = sheet(FROWS);
+  if (!fr.getRange('A1').getValue()) {
+    fr.getRange(1, 1, FORM_ROWS.length + 1, 1).setValues([['รายการที่ตรวจสอบ (เรียงตามแบบฟอร์มรายงานประจำวัน แก้ เพิ่ม หรือสลับลำดับได้ ไม่เกิน ' + RPT_MAX + ' แถว)']].concat(FORM_ROWS.map(r => [r])));
+    fr.getRange('A1').setFontWeight('bold');
+    fr.setColumnWidth(1, 520);
+  }
   if (!ss.getSheetByName(SUM)) { buildSummary_(ss.insertSheet(SUM, 0)); made.push('สร้างแท็บ ' + SUM); }
   if (!ss.getSheetByName(DASH)) { applySpec_(ss.insertSheet(DASH, 0), dashSpec_()); made.push('สร้างแท็บ ' + DASH); }
-  else if (ss.getSheetByName(SUM).getRange('A2').getDisplayValue() !== 'วันที่ตรวจ')
+  if (!ss.getSheetByName(RPT)) { applySpec_(ss.insertSheet(RPT, 1), rptSpec_()); made.push('สร้างแท็บ ' + RPT); }
+  if (ss.getSheetByName(SUM).getRange('A2').getDisplayValue() !== 'วันที่ตรวจ')
     errs.push('แท็บ ' + SUM + ' ช่อง A2 ควรเป็น "วันที่ตรวจ" (ช่อง B2 คือวันที่ที่เลือกดู)');
 
   if (errs.length) throw new Error('ชีตยังไม่พร้อม แก้ตามรายการนี้แล้วเรียก setup ซ้ำ:\n- ' + errs.join('\n- '));
@@ -324,6 +368,80 @@ function dashSpec_() {
 }
 
 // นำ spec ไปสร้างแท็บ (ใช้ใน setup)
+// แท็บ รายงานประจำวัน: บันทึกข้อความรายงานผลการตรวจสอบประจำวัน หนึ่งฉบับต่อหัวหน้าทีมต่อวัน จัดหน้าตามแบบฟอร์มกระดาษ
+// เลือกวันที่ (B1) และหัวหน้าทีม (E1) แล้วตารางเติมจากแท็บ รายการตรวจ ตามคอลัมน์ U (แถวในแบบฟอร์ม)
+function rptSpec_() {
+  const L = LQ, F = "'" + FROWS + "'!", K = "'" + ACK + "'!";
+  const cells = {}, merges = [], styles = [], valid = [], borders = [];
+  const put = (a1, v) => { cells[a1] = v; };
+  const INK2 = '#5f5e5a', PICK = '#fff8d6';
+  const sel = L + '$A$2:$A=$B$1,' + L + '$E$2:$E=$E$1';
+  const thai = (c) => 'DAY(' + c + ')&" "&CHOOSE(MONTH(' + c + '),"มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม")&" พ.ศ. "&(YEAR(' + c + ')+543)';
+  const rows = 'FILTER(' + F + '$A$2:$A,' + F + '$A$2:$A<>"")';
+  const T0 = 12, T1 = T0 + RPT_MAX - 1, FT = T1 + 2;
+
+  put('A1', 'วันที่ตรวจ'); put('D1', 'หัวหน้าทีม');
+  styles.push({ r: 'A1', color: INK2, align: 'RIGHT' }, { r: 'D1', color: INK2, align: 'RIGHT' },
+    { r: 'B1:C1', bg: PICK, num: 'd mmmm yyyy' }, { r: 'E1:G1', bg: PICK });
+  merges.push('B1:C1', 'E1:G1');
+  valid.push({ r: 'B1', range: "'" + CFG + "'!E2:E" }, { r: 'E1', range: 'K1:K' });
+  put('K1', '=IFERROR(SORT(UNIQUE(FILTER(' + L + '$E$2:$E,' + L + '$A$2:$A=$B$1,' + L + '$E$2:$E<>""))),"")');
+  put('A2', 'เลือกวันที่และหัวหน้าทีมจากช่องสีเหลือง พิมพ์หรือบันทึกเป็น PDF ได้จากเมนู ไฟล์ > พิมพ์ (เลือกช่วง A3:I' + (FT + 6) + ')');
+  merges.push('A2:I2'); styles.push({ r: 'A2', size: 9, color: INK2 });
+
+  put('A3', 'บันทึกข้อความ'); merges.push('A3:I3'); styles.push({ r: 'A3', size: 20, bold: true, align: 'CENTER' });
+  put('A4', 'ส่วนราชการ  ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)'); merges.push('A4:I4');
+  put('A5', 'ที่  พณ 0407/สฎ/'); put('E5', '=IF($B$1="","","วันที่  "&' + thai('$B$1') + ')'); merges.push('A5:D5', 'E5:I5');
+  put('A6', 'เรื่อง  รายงานผลการตรวจสอบเครื่องชั่งตวงวัดประจำวัน'); merges.push('A6:I6');
+  put('A7', 'เรียน  ผู้อำนวยการศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)'); merges.push('A7:I7');
+  // ผู้ร่วมทีมจากช่อง พร้อมด้วย ของทุกแถวของทีมนั้นในวันนั้น คั่นด้วย , หรือขึ้นบรรทัดใหม่
+  put('A8', '=IF(OR($B$1="",$E$1=""),"",LET(t,IFERROR(FILTER(' + L + '$G$2:$G,' + sel + ',' + L + '$G$2:$G<>""),""),'
+    + 'n,IFERROR(UNIQUE(TOCOL(TRIM(SPLIT(TEXTJOIN(",",TRUE,t),",;"&CHAR(10))),1)),""),k,IF(INDEX(n,1)="",0,ROWS(n)),'
+    + 'a,IFERROR(TEXTJOIN(", ",TRUE,UNIQUE(FILTER(' + L + '$Y$2:$Y,' + sel + ',' + L + '$Y$2:$Y<>""))),"…"),'
+    + 'p,IFERROR(TEXTJOIN(", ",TRUE,UNIQUE(FILTER(' + L + '$T$2:$T,' + sel + ',' + L + '$T$2:$T<>""))),"…"),'
+    + '"          ตามที่สั่งการให้ข้าพเจ้า"&IF(k,"พร้อมด้วย "&TEXTJOIN(", ",TRUE,n)&" รวม "&(k+1)&" คน","")&" ออกปฏิบัติงานตรวจสอบเครื่องชั่งตวงวัดและสินค้าหีบห่อนั้น '
+    + 'ข้าพเจ้าขอรายงานผลการตรวจสอบในเขตท้องที่ อำเภอ "&a&" จังหวัด "&p&" ประจำวันที่ "&' + thai('$B$1') + '&" ดังต่อไปนี้"))');
+  merges.push('A8:I9'); styles.push({ r: 'A8', wrap: true });
+  put('A10', '=IF(OR($B$1="",$E$1=""),"",LET(c,COUNTIFS(' + L + '$A$2:$A,$B$1,' + L + '$E$2:$E,$E$1,' + L + '$U$2:$U,""),'
+    + 'IF(c,"มี "&c&" แถวในแท็บ รายการตรวจ ที่ยังไม่ได้เลือกแถวในแบบฟอร์ม (คอลัมน์ U) จึงยังไม่อยู่ในตาราง","")))');
+  merges.push('A10:I10'); styles.push({ r: 'A10', size: 9, color: '#b3261e' });
+
+  ['รายการที่ตรวจสอบ', 'ราย', 'จำนวน', 'ถูก', 'ผิด', 'ผูกบัตร', 'ยึด', 'คดี', 'หมายเหตุ']
+    .forEach((h, i) => put(String.fromCharCode(65 + i) + '11', h));
+  styles.push({ r: 'A11:I11', bold: true, align: 'CENTER', bg: '#eeeeee' });
+  put('A' + T0, '=IFERROR(' + rows + ',"")');
+  // ราย จำนวน ถูก ผิด ผูกบัตร ยึด คดี จากคอลัมน์ H K I J V W X ของแท็บ รายการตรวจ
+  ['H', 'K', 'I', 'J', 'V', 'W', 'X'].forEach((c, i) => put(String.fromCharCode(66 + i) + T0,
+    '=IF(OR($B$1="",$E$1=""),"",IFERROR(MAP(' + rows + ',LAMBDA(r,LET(v,SUMIFS(' + L + '$' + c + '$2:$' + c + ',' + L + '$A$2:$A,$B$1,'
+    + L + '$E$2:$E,$E$1,' + L + '$U$2:$U,r),IF(v=0,"-",v)))),""))'));
+  put('I' + T0, '=IF(OR($B$1="",$E$1=""),"",IFERROR(MAP(' + rows + ',LAMBDA(r,IFERROR(TEXTJOIN(", ",TRUE,UNIQUE(FILTER(' + L + '$M$2:$M,'
+    + sel + ',' + L + '$U$2:$U=r,' + L + '$M$2:$M<>"-",' + L + '$M$2:$M<>""))),""))),""))');
+  styles.push({ r: 'B' + T0 + ':H' + T1, align: 'CENTER' }, { r: 'A' + T0 + ':A' + T1, wrap: true }, { r: 'I' + T0 + ':I' + T1, wrap: true, size: 9 });
+  borders.push('A11:I' + T1);
+
+  put('A' + FT, 'ตามรายงานการตรวจสอบ ซึ่งแนบมาพร้อมนี้'); merges.push('A' + FT + ':D' + FT);
+  put('A' + (FT + 1), '          จึงเรียนมาเพื่อโปรดทราบ'); merges.push('A' + (FT + 1) + ':D' + (FT + 1));
+  put('A' + (FT + 4), '=IF($E$1="","(                                        )","("&$E$1&")")'); merges.push('A' + (FT + 4) + ':D' + (FT + 4));
+  put('A' + (FT + 5), 'พนักงานเจ้าหน้าที่/นายตรวจชั่งตวงวัด'); merges.push('A' + (FT + 5) + ':D' + (FT + 5));
+  styles.push({ r: 'A' + (FT + 4) + ':A' + (FT + 5), align: 'CENTER' });
+  put('F' + FT, 'ความเห็น/คำสั่ง'); merges.push('F' + FT + ':I' + FT);
+  put('F' + (FT + 1), '=IFERROR(LET(r,MATCH($B$1,' + K + '$A:$A,0),IF(INDEX(' + K + '$F:$F,r)=TRUE,"ผอ. รับทราบแล้ว "&INDEX(' + K + '$G:$G,r),"ยังไม่รับทราบ (ติ๊กในแท็บ รับทราบ)")),"")');
+  merges.push('F' + (FT + 1) + ':I' + (FT + 2)); styles.push({ r: 'F' + (FT + 1), wrap: true, color: INK2 });
+  put('F' + (FT + 4), '(                                        )'); merges.push('F' + (FT + 4) + ':I' + (FT + 4));
+  put('F' + (FT + 5), 'ผู้อำนวยการศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)'); merges.push('F' + (FT + 5) + ':I' + (FT + 5));
+  styles.push({ r: 'F' + (FT + 4) + ':F' + (FT + 5), align: 'CENTER' });
+
+  put('A' + (FT + 7), 'รายงานการตรวจสอบที่แนบ (ไฟล์ PDF จากแอป)'); styles.push({ r: 'A' + (FT + 7), bold: true });
+  put('A' + (FT + 8), '=IF(OR($B$1="",$E$1=""),"",IFERROR(UNIQUE(FILTER({' + L + '$D$2:$D,' + L + '$N$2:$N},' + sel + ',' + L + '$N$2:$N<>"")),"ยังไม่มีไฟล์ PDF"))');
+
+  return {
+    cells, merges, styles, valid, borders,
+    widths: { A: 330, B: 50, C: 55, D: 50, E: 50, F: 55, G: 45, H: 45, I: 170, K: 160 },
+    hide: ['K', 'K'],
+    values: [['B1', toISO_(new Date())]]
+  };
+}
+
 function applySpec_(sh, sp) {
   Object.keys(sp.cells).forEach(a => {
     const v = sp.cells[a], g = sh.getRange(a);
@@ -342,12 +460,17 @@ function applySpec_(sh, sp) {
   });
   sp.valid.forEach(v => sh.getRange(v.r).setDataValidation(v.date
     ? SpreadsheetApp.newDataValidation().requireDate().setAllowInvalid(false).build()
-    : SpreadsheetApp.newDataValidation().requireValueInRange(sh.getRange(v.range), true).build()));
+    : SpreadsheetApp.newDataValidation().requireValueInRange(
+      v.range.indexOf('!') > 0 ? sh.getParent().getRange(v.range) : sh.getRange(v.range), true).build()));
   Object.keys(sp.widths).forEach(c => sh.setColumnWidth(sh.getRange(c + '1').getColumn(), sp.widths[c]));
-  const h0 = sh.getRange(sp.hide[0] + '1').getColumn(), h1 = sh.getRange(sp.hide[1] + '1').getColumn();
-  sh.hideColumns(h0, h1 - h0 + 1);
+  if (sp.hide) {
+    const h0 = sh.getRange(sp.hide[0] + '1').getColumn(), h1 = sh.getRange(sp.hide[1] + '1').getColumn();
+    sh.hideColumns(h0, h1 - h0 + 1);
+  }
+  (sp.borders || []).forEach(a => sh.getRange(a).setBorder(true, true, true, true, true, true));
+  (sp.values || []).forEach(([a, v]) => sh.getRange(a).setValue(v));
   const ch = sp.chart;
-  sh.insertChart(sh.newChart().asColumnChart()
+  if (ch) sh.insertChart(sh.newChart().asColumnChart()
     .addRange(sh.getRange(ch.domain)).addRange(sh.getRange(ch.series))
     .setNumHeaders(1).setOption('title', ch.title).setOption('legend', { position: 'none' })
     .setOption('colors', [ch.color]).setOption('width', ch.width).setOption('height', ch.height)
@@ -428,6 +551,8 @@ function setup() {
   log.getRange('B2:B').setDataValidation(list(JOBS));
   log.getRange('C2:C').setDataValidation(list(PLACES));
   log.getRange('T2:T').setDataValidation(list(PROVINCES));
+  log.getRange('U2:U').setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInRange(ss.getSheetByName(FROWS).getRange('A2:A'), true).setAllowInvalid(true).build());
   // Dashboard เป็นแท็บแรก
   ss.setActiveSheet(ss.getSheetByName(DASH));
   ss.moveActiveSheet(1);
@@ -538,6 +663,16 @@ function validate_(d) {
     const v = Number(d[k] || 0);
     if (!Number.isInteger(v) || v < 0 || v > 100000) return 'จำนวน ' + k + ' ไม่ถูกต้อง';
   }
+  if (d.lines != null) {
+    if (!Array.isArray(d.lines) || d.lines.length > 30) return 'รายการแยกตามแบบฟอร์มไม่ถูกต้อง';
+    for (const ln of d.lines) {
+      if (!ln || typeof ln !== 'object' || !String(ln.row || '').trim()) return 'รายการแยกตามแบบฟอร์มไม่มีชื่อแถว';
+      for (const k of ['units', 'pass', 'fail', 'tagged', 'seized', 'cases']) {
+        const v = Number(ln[k] || 0);
+        if (!Number.isInteger(v) || v < 0 || v > 100000) return 'จำนวน ' + k + ' ในรายการแยกตามแบบฟอร์มไม่ถูกต้อง';
+      }
+    }
+  }
   return '';
 }
 
@@ -587,14 +722,41 @@ function findRow_(sh, id) {
   return 0;
 }
 
-// หนึ่งแถวต่อสถานที่ที่ตรวจ ส่งซ้ำด้วยรหัสเดิมให้แทนที่แถวเดิม
+// แถวทั้งหมดของรายการที่ส่งครั้งเดียว: รหัสรายการ และ รหัสรายการ#2, #3 ... (หนึ่งแถวต่อแถวในแบบฟอร์ม)
+function rowsOf_(sh, id) {
+  const last = sh.getLastRow();
+  if (last < 2) return [];
+  const ids = sh.getRange(2, COL.id, last - 1, 1).getValues(), out = [];
+  ids.forEach((v, i) => { const t = String(v[0]); if (t === String(id) || t.indexOf(String(id) + '#') === 0) out.push(i + 2); });
+  return out;
+}
+
+// หนึ่งแถวต่อสถานที่ต่อแถวในแบบฟอร์ม ส่งซ้ำด้วยรหัสเดิมให้แทนที่แถวเดิม
+// แอปที่ส่ง lines มา (เช่น ตลาดที่มีทั้งสปริงและดิจิทัล) แยกเป็นหลายแถว รหัส #2 #3 ต่อท้าย
 function upsert_(d, noSync) {
   const sh = ss_().getSheetByName(LOG);
+  const lines = Array.isArray(d.lines) && d.lines.length ? d.lines
+    : [{ row: d.formRow || JOB_ROW[d.job] || '', units: d.units, pass: d.pass, fail: d.fail }];
+  const ids = lines.map((_, i) => i ? d.submitId + '#' + (i + 1) : String(d.submitId));
+  lines.forEach((ln, i) => upsertLine_(sh, Object.assign({}, d, {
+    submitId: ids[i], formRow: ln.row, units: ln.units, pass: ln.pass, fail: ln.fail,
+    tagged: ln.tagged, seized: ln.seized, cases: ln.cases,
+    // การดำเนินการของแถวนั้น ถ้าแอปไม่ได้แยกมา ใส่ไว้ที่แถวแรกแถวเดียว ไม่ให้หมายเหตุซ้ำ
+    actionText: ln.note != null ? ln.note : (i ? '-' : d.actionText)
+  }), String(d.submitId)));
+  // ส่งซ้ำแล้วแถวในแบบฟอร์มน้อยลง ลบแถวที่เกิน (ยกเว้นแถวที่มีคนแก้ไขแล้ว)
+  rowsOf_(sh, d.submitId).filter(r => ids.indexOf(String(sh.getRange(r, COL.id).getValue())) < 0)
+    .reverse().forEach(r => { if (!sh.getRange(r, COL.edited).getValue()) sh.deleteRow(r); });
+  if (!noSync) syncAck_('แอป ' + (d.app || ''));
+}
+
+// หนึ่งแถวในแท็บ รายการตรวจ
+function upsertLine_(sh, d, baseId) {
   const date = toISO_(d.date);
   if (!date) throw new Error('bad date');
   const pass = Number(d.pass) || 0, fail = Number(d.fail) || 0;
   const row = findRow_(sh, d.submitId);
-  const link = (row && sh.getRange(row, COL.link).getValue()) || pdfLink_(d.submitId);
+  const link = (row && sh.getRange(row, COL.link).getValue()) || pdfLink_(baseId);
   // แถวที่มีคนแก้ไขแล้ว ไม่ให้แอปส่งซ้ำมาเขียนทับตัวเลข เติมเฉพาะลิงก์ PDF ที่ยังว่าง
   if (row && sh.getRange(row, COL.edited).getValue()) {
     if (link) sh.getRange(row, COL.link).setValue(link);
@@ -614,9 +776,11 @@ function upsert_(d, noSync) {
     sent + (d.senderName ? ' · ส่งโดย ' + d.senderName : ''), clip_(d.app, 60), String(d.submitId)
   ]]);
   if (PROVINCES.indexOf(d.province) >= 0) sh.getRange(r, 20).setValue(d.province);
+  const n = (k) => Number(d[k]) || 0;
+  sh.getRange(r, 21, 1, 4).setValues([[clip_(d.formRow, 120), n('tagged'), n('seized'), n('cases')]]);
+  if (d.amphoe) sh.getRange(r, 25).setValue(clip_(d.amphoe, 60));
   sh.getRange(r, 1).setNumberFormat('dd/mm/yyyy');
   ensureAckDate_(date);
-  if (!noSync) syncAck_('แอป ' + (d.app || ''));
 }
 
 /* ---------- ไฟล์รายงาน PDF ---------- */
@@ -644,8 +808,7 @@ function savePdf_(d) {
   const blob = Utilities.newBlob(Utilities.base64Decode(d.data), 'application/pdf', base + '_' + id + '.pdf');
   const file = folder.createFile(blob);   // สิทธิ์ตามโฟลเดอร์ ไม่เปิดลิงก์สาธารณะ
   const sh = ss_().getSheetByName(LOG);
-  const row = findRow_(sh, id);
-  if (row) sh.getRange(row, COL.link).setValue(file.getUrl());
+  rowsOf_(sh, id).forEach(r => sh.getRange(r, COL.link).setValue(file.getUrl()));
   return { ok: true, url: file.getUrl() };
 }
 
@@ -824,6 +987,8 @@ function importMarketHistory() {
       placeType: /ตลาดนัด/.test(r[2]) ? 'ตลาดนัด' : 'ตลาดสด', place: r[2], officerType: r[3],
       officerName: r[13], team: r[14], units: r[4], pass: sp + dp, fail: sf + df,
       detail: 'สปริง ถูก ' + sp + ' ผิด ' + sf + ' · ดิจิทัล ถูก ' + dp + ' ผิด ' + df,
+      lines: [{ row: FORM_ROWS[1], units: r[4], pass: sp, fail: sf }]
+        .concat(dp + df ? [{ row: FORM_ROWS[0], units: r[4], pass: dp, fail: df }] : []),
       actionText: r[12], sentAt: r[18] instanceof Date ? Utilities.formatDate(r[18], TZ, 'dd/MM/yyyy HH:mm') : r[18]
     }, true);
     n++;

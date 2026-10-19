@@ -801,10 +801,13 @@ function sendDailyFuel(){
   const m=S.meta,ins=INSPECTORS[+m.inspector]||INSPECTORS[0];
   const ev=S.rows.map(evalRow),pass=ev.filter(e=>e.st==="pass").length,fail=ev.filter(e=>e.st==="fail").length;
   const acts=[...new Set(ev.map(e=>e.act).filter(Boolean))];
+  const nAct=re=>ev.filter(e=>e.st==="fail"&&re.test(e.act||"")).length;
   sendDaily({app:"fuel-dispenser-inspect",job:"มาตรวัดน้ำมันเชื้อเพลิง",submitId:S.sessionId,date:m.date,
     placeType:"สถานีบริการน้ำมัน",place:m.station.trim(),officerType:"นายตรวจชั่งตวงวัด",officerName:ins.n,team:m.team||"",
     units:1,pass,fail,detail:"หัวจ่าย "+S.rows.length+" หัว"+(S.rows.length>pass+fail?" (ไม่ได้ตรวจ "+(S.rows.length-pass-fail)+")":"")+(m.company?" · "+m.company:""),
-    actionText:acts.length?acts.join(", "):"-"});
+    actionText:acts.length?acts.join(", "):"-",amphoe:m.amphoe||"",province:m.province||"",
+    // แถวในแบบฟอร์มรายงานประจำวัน
+    lines:[{row:"มาตรวัดน้ำมันเชื้อเพลิงสถานีบริการ",units:1,pass,fail,tagged:nAct(/ผูกบัตร/),seized:nAct(/ยึด/)}]});
 }
 
 /* ---------- current location → LAT / LNG ---------- */

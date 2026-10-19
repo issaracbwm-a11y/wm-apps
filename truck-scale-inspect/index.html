@@ -1096,11 +1096,16 @@ function sendDailyTruck(){
   const m=S.meta,i1=INSPECTORS[+m.ins1]||INSPECTORS[0],n=S.machines.length;
   const vs=S.machines.map((_,i)=>verdictAt(i)),pass=vs.filter(v=>v.st==="pass").length,fail=vs.filter(v=>v.st==="fail").length;
   const biz=String(S.site.biz||"").trim();
+  // แถวในแบบฟอร์มรายงานประจำวัน แยกตามพิกัด (เครื่องชั่งรถยนต์ในแอปเป็นแบบอิเล็กทรอนิกส์)
+  const BIG="เครื่องชั่งรถยนต์ แบบอิเล็กทรอนิกส์ พิกัด 50,000 กก. ขึ้นไป",SMALL="เครื่องชั่งรถยนต์ แบบอิเล็กทรอนิกส์ พิกัดน้อยกว่า 50,000 กก.";
+  const by={};S.machines.forEach((mc,i)=>{const k=(+mc.scale.max||0)>=50000?BIG:SMALL;const g=by[k]||(by[k]={row:k,units:1,pass:0,fail:0});
+    if(vs[i].st==="pass")g.pass++;else if(vs[i].st==="fail")g.fail++});
+  const lines=Object.values(by);if(!lines.length)lines.push({row:SMALL,units:1,pass:0,fail:0});
   const placeType=/ลาน|รับซื้อ/.test(biz)?"สถานที่รับซื้อสินค้าเกษตร":/โรงงาน|โรงสี/.test(biz)?"โรงงาน":"อื่น ๆ";
   sendDaily({app:"truck-scale-inspect",job:"เครื่องชั่งรถยนต์",submitId:S.sessionId,date:m.date,placeType,
     place:S.site.name.trim(),officerType:"นายตรวจชั่งตวงวัด",officerName:i1.n,team:m.team||"",units:1,pass,fail,
     detail:"เครื่องชั่งรถยนต์ "+n+" เครื่อง"+(n>pass+fail?" (ยังสรุปผลไม่ได้ "+(n-pass-fail)+")":"")+(biz?" · "+biz:""),
-    actionText:fail?"เครื่องที่ผิด "+fail+" เครื่อง":"-"});
+    actionText:fail?"เครื่องที่ผิด "+fail+" เครื่อง":"-",amphoe:S.site.amphoe||"",province:S.site.province||"",lines});
 }
 })();
 

@@ -835,7 +835,8 @@ function sendDailyLpg(items){
   sendDaily({app:'lpg-cylinder-inspect',job:'ก๊าซหุงต้มบรรจุถัง',submitId:S.sessionId,date:S.date,placeType:'ร้านค้า',
     place:String(S.shop||'').trim(),officerType:'นายตรวจชั่งตวงวัด',officerName:S.inspector||'',team:'',units:1,pass,fail,
     detail:Rr.length+' กอง ('+Rr.map(R=>R.sizeTxt).join(', ')+') · ชั่ง '+tanks+' ถัง · ขาดเกิน T1 '+warn+' ถัง · เกิน T2 '+bad+' ถัง',
-    actionText:fail?'กองที่ไม่ผ่าน '+Rr.filter(R=>R.v==='bad').length+' กอง ('+fail+' ถัง)':'-'});
+    actionText:fail?'กองที่ไม่ผ่าน '+Rr.filter(R=>R.v==='bad').length+' กอง ('+fail+' ถัง)':'-',
+    lines:[{row:'ร้านจำหน่ายก๊าซหุงต้ม',units:1,pass,fail}]});
 }
 function blobToB64(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(b)})}
 })();

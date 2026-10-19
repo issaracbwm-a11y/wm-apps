@@ -432,7 +432,22 @@ function buildDaily(s){
   return{_url:DAILY_URL,token:DAILY_TOKEN,kind:"summary",app:"market-scale-inspect",job:"เครื่องชั่งในตลาด",
     submitId:s.submitId,date:s.date,placeType:$("ptype").value,place:s.market,officerType:s.officerType,
     officerName:s.officerName,team:s.team,units:s.shops,pass:s.springPass+s.digitalPass,fail:s.springFail+s.digitalFail,
-    detail:`สปริง ถูก ${s.springPass} ผิด ${s.springFail} · ดิจิทัล ถูก ${s.digitalPass} ผิด ${s.digitalFail}`,actionText:s.actionText};
+    detail:`สปริง ถูก ${s.springPass} ผิด ${s.springFail} · ดิจิทัล ถูก ${s.digitalPass} ผิด ${s.digitalFail}`,actionText:s.actionText,
+    lines:dailyLines(s)};
+}
+// แถวในแบบฟอร์มรายงานประจำวัน: สปริงในตลาด และเครื่องชั่งดิจิทัล (คำนวณราคาได้) แยกกัน
+// ราย = ร้านที่มีเครื่องชนิดนั้น ถ้าตลาดมีเครื่องชนิดเดียวใช้จำนวนร้านทั้งหมด
+function dailyLines(s){
+  const shopsOf=t=>new Set((state.records||[]).filter(r=>r.type===t).map(r=>String(r.shop||"").trim().replace(/\s+/g," ").toLowerCase())).size;
+  const sp=s.springPass+s.springFail,dg=s.digitalPass+s.digitalFail,one=!sp||!dg;
+  const L=[];
+  if(sp||!dg)L.push({row:"เครื่องชั่งสปริง พิกัดไม่เกิน 60 กก. ตลาดสด-นัด",units:one?s.shops:(shopsOf("spring")||s.shops),
+    pass:s.springPass,fail:s.springFail,seized:s.seized||0,
+    note:s.seized?`ยึด ${s.seized} เครื่อง`:s.notified&&s.springFail?`แจ้งนายตรวจชั่งตวงวัด ${s.springFail} เครื่อง`:"-"});
+  if(dg)L.push({row:"เครื่องชั่งแบบคำนวณราคาได้ พิกัดน้อยกว่าหรือเท่ากับ 30 กก.",units:one?s.shops:(shopsOf("digital")||s.shops),
+    pass:s.digitalPass,fail:s.digitalFail,tagged:s.tagged||0,
+    note:s.tagged?`ผูกบัตรห้ามใช้/สั่งแก้ไข ${s.tagged} เครื่อง`:s.notified&&s.digitalFail?`แจ้งนายตรวจชั่งตวงวัด ${s.digitalFail} เครื่อง`:"-"});
+  return L;
 }
 function sheetMsg(t,k){const el=$("sheetMsg");el.textContent=t;el.className="msg "+(k||"")}
 let flushing=false,retryTimer=null;
