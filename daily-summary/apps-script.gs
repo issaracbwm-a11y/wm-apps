@@ -35,7 +35,8 @@ const RPT = 'รายงานประจำวัน';
 const APPS = ['market-scale-inspect', 'market-scale-vol', 'fuel-dispenser-inspect', 'truck-scale-inspect', 'lpg-cylinder-inspect'];
 const PDF_MAX_BYTES = 10 * 1024 * 1024;
 const UPLOAD_MAX_BYTES = 20 * 1024 * 1024;   // ไฟล์สแกนที่แนบจากชีต
-const ROOT_NAME = 'ไฟล์ตรวจสอบรายวัน';       // โฟลเดอร์หลักของ PDF มีโฟลเดอร์ย่อยตามวันที่ตรวจ (ปปปป-ดด-วว)
+const ROOT_NAME = 'ไฟล์ตรวจสอบรายวัน';
+const DONE_NAME = 'ลงระบบแล้ว';               // ติ๊กลงระบบแล้ว ย้ายโฟลเดอร์วันที่มาไว้ในนี้ (ใต้โฟลเดอร์หลัก)       // โฟลเดอร์หลักของ PDF มีโฟลเดอร์ย่อยตามวันที่ตรวจ (ปปปป-ดด-วว)
 // URL เว็บแอปของสคริปต์นี้ (Deploy เป็น New version แล้ว URL เดิม) ใช้ตอนแนบไฟล์จากชีต
 // ให้บันทึกไฟล์ด้วยสิทธิ์เจ้าของโฟลเดอร์ เจ้าหน้าที่อื่นมีสิทธิ์แค่ดูโฟลเดอร์
 const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbytv9Mff87k7MXog6gu-B7m6do_eonryehO4Yk9aqMxplhiF8MB3FD8K2VCQ3jWZgdU/exec';
@@ -121,7 +122,8 @@ const CFG_ROWS = [
   ['รหัสโฟลเดอร์เก็บรายงาน PDF', '', 'ฟังก์ชัน setup กรอกให้เอง'],
   ['รหัสชีตตลาดสดเดิม', '1DyiPbe3H-tWHOHgs0WaVBVKVgtUWwOcGszz_WT_o5ew', 'ใช้กับฟังก์ชัน importMarketHistory เพื่อนำเข้าข้อมูลเก่า'],
   ['อีเมลผู้ช่วยนายตรวจชั่งตวงวัด', '', 'คนรวมตัวเลขเสนอ ผอ. ใส่ได้หลายคน คั่นด้วยจุลภาค (,)'],
-  ['ต้องใช้รหัสผู้ส่งข้อมูล', 'ใช่', 'ใช่ = รับเฉพาะข้อมูลที่มีรหัสผู้ส่งที่เปิดใช้งานในแท็บ ผู้ส่งข้อมูล']
+  ['ต้องใช้รหัสผู้ส่งข้อมูล', 'ใช่', 'ใช่ = รับเฉพาะข้อมูลที่มีรหัสผู้ส่งที่เปิดใช้งานในแท็บ ผู้ส่งข้อมูล'],
+  ['ลบไฟล์ PDF หลังย้ายไปโฟลเดอร์ ลงระบบแล้ว (วัน)', '', 'เว้นว่างหรือ 0 = ไม่ลบ · ไฟล์ที่ลบไปอยู่ในถังขยะของ Drive กู้คืนได้ภายใน 30 วัน']
 ];
 const DATES_F = "=IFERROR(SORT(UNIQUE(FILTER('" + LOG + "'!A2:A,'" + LOG + "'!A2:A<>\"\")),1,FALSE),\"\")";
 
@@ -142,10 +144,10 @@ const mails_ = (t) => String(t).split(/[,\s]+/).filter(Boolean);
 const isMail_ = (m) => /^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/.test(m);
 
 function cfg_() {
-  const v = ss_().getSheetByName(CFG).getRange('B1:B7').getValues().map(r => String(r[0]).trim());
+  const v = ss_().getSheetByName(CFG).getRange('B1:B8').getValues().map(r => String(r[0]).trim());
   return {
     director: v[0], recorders: mails_(v[1]), hour: Number(v[2]) || 17, folderId: v[3], marketSheetId: v[4],
-    assistants: mails_(v[5]), needSender: v[6] !== 'ไม่ใช่'
+    assistants: mails_(v[5]), needSender: v[6] !== 'ไม่ใช่', purgeDays: Math.max(0, Math.floor(Number(v[7]) || 0))
   };
 }
 
@@ -823,8 +825,50 @@ function folder_() {
 // โฟลเดอร์ย่อยตามวันที่ตรวจ ใต้โฟลเดอร์หลัก ไฟล์ได้สิทธิ์ตามโฟลเดอร์หลัก
 function dayFolder_(iso) {
   const root = folder_();
-  const it = root.getFoldersByName(iso);
-  return it.hasNext() ? it.next() : root.createFolder(iso);
+  return findFolder_(root, iso) || findFolder_(doneFolder_(), iso) || root.createFolder(iso);
+}
+
+function findFolder_(parent, name) {
+  const it = parent.getFoldersByName(name);
+  while (it.hasNext()) { const f = it.next(); if (!f.isTrashed()) return f; }
+  return null;
+}
+
+function doneFolder_() {
+  const root = folder_();
+  return findFolder_(root, DONE_NAME) || root.createFolder(DONE_NAME);
+}
+
+// ติ๊กลงระบบแล้ว: ย้ายโฟลเดอร์วันที่ไปไว้ใน ลงระบบแล้ว และจดวันที่ย้ายไว้ในคำอธิบายโฟลเดอร์ (ใช้นับวันลบ)
+// เอาติ๊กออก (เองหรือเพราะยอดเปลี่ยน): ย้ายกลับมาที่โฟลเดอร์หลัก
+function moveDay_(date, done) {
+  try {
+    const iso = toISO_(date);
+    if (!iso) return;
+    const root = folder_(), dn = doneFolder_();
+    const f = done ? findFolder_(root, iso) : findFolder_(dn, iso);
+    if (!f) return;
+    f.moveTo(done ? dn : root);
+    f.setDescription(done ? 'ย้ายเมื่อ ' + Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd') : '');
+  } catch (err) { Logger.log('ย้ายโฟลเดอร์ ' + date + ' ไม่สำเร็จ: ' + err); }
+}
+
+// ลบโฟลเดอร์วันที่ใน ลงระบบแล้ว ที่ย้ายมาครบจำนวนวันในแท็บ ตั้งค่า (เรียกทุกวันจาก dailyEmail)
+function purgeDone_() {
+  const days = cfg_().purgeDays;
+  if (!days) return;
+  const it = doneFolder_().getFolders(), now = new Date();
+  while (it.hasNext()) {
+    const f = it.next();
+    const m = String(f.getDescription() || '').match(/(\d{4}-\d{2}-\d{2})/);
+    if (!m) continue;
+    const age = (now - new Date(m[1] + 'T00:00:00+07:00')) / 86400000;
+    if (age < days) continue;
+    const n = (() => { let k = 0; const fs = f.getFiles(); while (fs.hasNext()) { fs.next(); k++; } return k; })();
+    f.setTrashed(true);
+    logHist_(f.getName(), 'ลบไฟล์ PDF ' + n + ' ไฟล์ (ครบ ' + days + ' วันหลังลงระบบ ไฟล์อยู่ในถังขยะ Drive 30 วัน)', '',
+      Utilities.formatDate(now, TZ, 'dd/MM/yyyy HH:mm') + ' · ระบบ');
+  }
 }
 
 // วันที่ของไฟล์จากแอป: วันที่ที่แอปส่งมา หรือวันที่ของรายการในชีต หรือวันที่ในชื่อไฟล์ หรือวันนี้
@@ -891,6 +935,10 @@ function tidyPdfFolders() {
   if (last >= 2) sh.getRange(2, 1, last - 1, COL.link).getValues().forEach(v => {
     try { if (v[COL.link - 1] && fileToDay_(v[COL.link - 1], toISO_(v[0]))) n++; } catch (err) { }
   });
+  // วันที่ติ๊กลงระบบแล้วไว้ก่อน ย้ายโฟลเดอร์ไปไว้ใน ลงระบบแล้ว
+  const ack = ss_().getSheetByName(ACK);
+  if (ack.getLastRow() >= 2) ack.getRange(2, 1, ack.getLastRow() - 1, A.done).getValues()
+    .forEach(v => { if (v[0] && v[A.done - 1] === true) moveDay_(v[0], true); });
   const msg = 'ย้ายไฟล์ PDF เข้าโฟลเดอร์ตามวันที่ตรวจแล้ว ' + n + ' ไฟล์';
   try { SpreadsheetApp.getUi().alert(msg); } catch (err) { Logger.log(msg); }
 }
@@ -1064,7 +1112,7 @@ function onSheetEdit(e) {
 }
 
 // ติ๊กช่อง ผอ.รับทราบ (F) หรือ ลงระบบแล้ว (H): ลงเวลาและผู้กด และเก็บยอดของวันนั้นไว้ (K หรือ L)
-// เพื่อให้รู้ภายหลังว่ารับทราบหรือลงระบบยอดใดไป ไฟล์ PDF เก็บไว้ตามเดิม ไม่ลบ
+// เพื่อให้รู้ภายหลังว่ารับทราบหรือลงระบบยอดใดไป ลงระบบแล้วย้าย PDF ของวันนั้นไปโฟลเดอร์ ลงระบบแล้ว
 function onAckEdit_(e) {
   const r = e.range, sh = r.getSheet();
   if (r.getRow() < 2 || r.getNumRows() > 1) return;
@@ -1082,6 +1130,7 @@ function onAckEdit_(e) {
   }
   const what = c === A.ack ? (on ? 'ผอ.รับทราบ' : 'ยกเลิก ผอ.รับทราบ') : (on ? 'ลงระบบงานแล้ว' : 'ยกเลิกลงระบบงาน');
   logHist_(v[0], what, snap, st);
+  if (c === A.done) moveDay_(v[0], on);
 }
 
 function snap_(v) {
@@ -1109,6 +1158,7 @@ function syncAck_(by) {
     if (v[A.done - 1] === true && v[A.doneSnap - 1] && v[A.doneSnap - 1] !== cur) {
       sh.getRange(row, A.done, 1, 2).setValues([[false, '']]);
       logHist_(v[0], 'มีข้อมูลเปลี่ยนแปลงหลังลงระบบงาน (ยอดที่ลงระบบ ' + v[A.doneSnap - 1] + ')', cur, now);
+      moveDay_(v[0], false);
     }
   });
 }
@@ -1154,6 +1204,7 @@ function onSheetChange(e) {
 
 /* ---------- อีเมลสรุปถึง ผอ. ทุกวัน ---------- */
 function dailyEmail() {
+  try { purgeDone_(); } catch (err) { Logger.log('ลบไฟล์ PDF ไม่สำเร็จ: ' + err); }
   const c = cfg_();
   if (!c.director) return;
   const ss = ss_();
