@@ -595,7 +595,7 @@ $("pdfBtn").addEventListener("click",async()=>{
 });
 
 // clear sample flag once the user edits anything real
-document.addEventListener("input",()=>{if(S.sample){S.sample=false;$("sampleBanner").hidden=true;save()}},{capture:true});
+document.addEventListener("input",e=>{if(e.target&&e.target.type==="file")return;if(S.sample){S.sample=false;$("sampleBanner").hidden=true;save()}},{capture:true});
 
 
 /* ---------- QR scan + screenshot reading ---------- */
@@ -853,14 +853,30 @@ async function fileToCanvases(file){
   pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS+"pdf.worker.min.js";
   const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
   const out=[];
+  try{out.lines=await pdfLines(pdf)}catch(e){out.lines=[]}
   for(let i=1;i<=Math.min(pdf.numPages,8);i++){const pg=await pdf.getPage(i);const v0=pg.getViewport({scale:1});const vp=pg.getViewport({scale:2000/v0.width});
     const c=document.createElement("canvas");c.width=Math.round(vp.width);c.height=Math.round(vp.height);const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);
     await pg.render({canvasContext:x,viewport:vp}).promise;out.push(c)}
   return out;
 }
+// ข้อความใน PDF ที่มีชั้นข้อความ (เช่น คำขอ ชว. 3010 จากระบบออนไลน์) เรียงเป็นบรรทัดตามตำแหน่งบนหน้า
+async function pdfLines(pdf){
+  const out=[];
+  for(let i=1;i<=Math.min(pdf.numPages,8);i++){
+    const items=(await (await pdf.getPage(i)).getTextContent()).items.filter(t=>t.str&&t.str.trim());
+    const rows=[];
+    for(const t of items){const y=t.transform[5],x=t.transform[4];let r=rows.find(q=>Math.abs(q.y-y)<3);if(!r){r={y,items:[]};rows.push(r)}r.items.push({x,w:t.width||0,s:t.str})}
+    rows.sort((a,b)=>b.y-a.y).forEach(r=>{r.items.sort((a,b)=>a.x-b.x);let s="",end=null;
+      for(const t of r.items){if(end!=null&&t.x-end>2&&!/\s$/.test(s))s+=" ";s+=t.s;end=t.x+t.w}
+      out.push(s.replace(/\s+/g," ").trim())});
+  }
+  return out;
+}
 const canvasBlob=c=>new Promise(r=>c.toBlob(b=>r(b),"image/jpeg",0.88));
-const IMP_PROMPT='ภาพที่แนบเป็นหน้าของไฟล์ "บันทึกการตรวจสอบมาตรวัดปริมาณน้ำมันเชื้อเพลิงตามสถานีบริการ" และ "รายงานการตรวจสอบมาตรวัด..." จากระบบของกรมการค้าภายใน '+
- 'อ่านแล้วตอบเป็น JSON เท่านั้น รูปแบบ {"station":{"name":"","address":"","tambon":"","amphoe":"","province":"","zip":"","phone":""},"rows":[{"sn":"","oil":"","brand":"","model":"","e5":"","e20":"","expiry":"","clamp":"","seal":""}]} โดย '+
+const IMP_PROMPT='ภาพที่แนบเป็นหน้าของไฟล์แบบใดแบบหนึ่งต่อไปนี้: (1) "บันทึกการตรวจสอบมาตรวัดปริมาณน้ำมันเชื้อเพลิงตามสถานีบริการ" กับ "รายงานการตรวจสอบมาตรวัด..." จากระบบของกรมการค้าภายใน '+
+ '(2) "รายงานตรวจสอบมาตรวัดปริมาตรน้ำมันเชื้อเพลิงตามสถานีบริการ" ที่ตารางมีหมายเลขประจำเครื่องเก่าและใหม่ ให้ใช้เลขใหม่ ถ้าว่างใช้เลขเก่า และมีช่อง เลขประจำตัวผู้เสียภาษี (taxId) บริษัท (company) LAT LNG '+
+ '(3) "คำขอตรวจสอบเพื่อให้คำรับรองเครื่องชั่งตวงวัด" แบบ ชว. 3010 ให้ใช้ชื่อและที่อยู่จากช่อง สถานที่ติดตั้งเครื่องชั่งตวงวัด และ sn จากคอลัมน์ เลขลำดับประจำเครื่อง (ไม่ใช่เลขในวงเล็บใต้เลขนั้น) ช่องอื่นของเครื่องเว้นว่าง; '+
+ 'อ่านแล้วตอบเป็น JSON เท่านั้น รูปแบบ {"station":{"name":"","address":"","tambon":"","amphoe":"","province":"","zip":"","phone":"","taxId":"","company":"","lat":"","lng":""},"rows":[{"sn":"","oil":"","brand":"","model":"","e5":"","e20":"","expiry":"","clamp":"","seal":""}]} โดย '+
  'station มาจากช่อง ชื่อสถานีบริการ (หรือ ชื่อสถานประกอบการ) และช่อง ตั้งอยู่เลขที่/หมู่/ถนน/ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์/โทร ของสถานประกอบการ (ไม่ใช่ที่อยู่ของผู้ยื่นคำขอหรือผู้ติดตั้ง และไม่ใช่ที่อยู่ของกองชั่งตวงวัดที่หัวกระดาษ); '+
  'address = เลขที่ หมู่ ถนน รวมกัน เช่น "54/9 ถ.พัฒนาการคูขวาง"; rows มาจากตารางรายงานผล หนึ่งแถวต่อหนึ่งเครื่องตามลำดับในตาราง: sn = หมายเลขประจำเครื่อง (W&M No.) รวมขีด ไม่เว้นวรรค, '+
  'oil = ชนิดน้ำมัน, brand = เครื่องหมายการค้า, model = ข้อความในช่อง รุ่น (Model) คัดลอกตามที่เห็นแม้ตัวอักษรจะเล็กหรือถูกตัดขอบไม่ครบ (ตัดส่วน "(S/N ..." ท้ายข้อความออก) ห้ามปล่อยว่างถ้าช่องมีข้อความ, e5 = ค่าความคลาดเคลื่อนช่อง 5 L, e20 = ค่าความคลาดเคลื่อนช่อง 20 L (ตัวเลขพร้อมเครื่องหมายตามที่แสดง หน่วยมิลลิลิตร), '+
@@ -870,9 +886,9 @@ function similar(a,b){a=String(a||"");b=String(b||"");if(!a||!b)return 0;const m
 function bestGeo(list,v){if(!v)return "";let best="",sc=0;for(const x of list){const s=x===v?2:similar(x,v);if(s>sc){sc=s;best=x}}return sc>=0.8?best:v}
 function normNum(t){t=String(t||"").replace(/[−–—]/g,"-").replace(/\s+/g,"").replace(/[oO]/g,"0");const m=t.match(/^[+-]?\d{1,4}(?:\.\d+)?$/);return m?m[0]:""}
 function cleanModel(t){return String(t||"").replace(/\(?\s*[S5$]\s*\/\s*N.*$/i,"").replace(/\s+/g,"").replace(/[^A-Za-z0-9\-\/\.]/g,"")}
-function matchOil(t){t=String(t||"").replace(/\s+/g," ").trim();if(!t)return "";
+function matchOil(t){t=String(t||"").replace(/[£€]/g,"E").replace(/\s+/g," ").trim();if(!t)return "";
   const exact=OILS.find(o=>o===t);if(exact)return exact;
-  if(/ดีเซล|ดีเชล/.test(t)){if(/B\s*20|บี\s*20/i.test(t))return "ดีเซล B20";if(/พรีเมียม|พาวเวอร์|เพาเวอร์|premium/i.test(t))return "ดีเซลพรีเมียม";return "ดีเซล"}
+  if(/ด[ีิ]?เ[ซช]ล/.test(t)){if(/B\s*20|บี\s*20/i.test(t))return "ดีเซล B20";if(/พรีเมียม|พาวเวอร์|เพาเวอร์|premium/i.test(t))return "ดีเซลพรีเมียม";return "ดีเซล"}
   if(/E\s*85/i.test(t))return "แก๊สโซฮอล์ E85";if(/E\s*20/i.test(t))return "แก๊สโซฮอล์ E20";
   if(/91/.test(t))return "แก๊สโซฮอล์ 91";if(/95/.test(t))return /เบนซิน/.test(t)?"เบนซิน 95":"แก๊สโซฮอล์ 95";
   return t}
@@ -880,9 +896,16 @@ function gridDetect(img){
   const {data,width:W,height:H}=img;const dark=i=>(data[i]+data[i+1]+data[i+2])<300;
   const hs=[];for(let y=0;y<H;y++){let run=0,best=0,i=y*W*4;for(let x=0;x<W;x++,i+=4){if(dark(i)){if(++run>best)best=run}else run=0}if(best>W*0.5)hs.push(y)}
   const merge=a=>{const o=[];for(const v of a){if(o.length&&v-o[o.length-1].e<=3)o[o.length-1].e=v;else o.push({s:v,e:v})}return o.map(q=>Math.round((q.s+q.e)/2))};
-  const rows=merge(hs);if(rows.length<3)return null;const top=rows[0],bot=rows[rows.length-1];
-  const vs=[];for(let x=0;x<W;x++){let c=0;for(let y=top;y<=bot;y++)if(dark((y*W+x)*4))c++;if(c>(bot-top)*0.8)vs.push(x)}
-  return {rows,cols:merge(vs)};
+  const rows=merge(hs);if(rows.length<3)return null;const bot=rows[rows.length-1];
+  // เส้นขีดกรอกข้อมูลเหนือตาราง (แบบรายงานตรวจสอบ) ก็ยาวเกินครึ่งหน้า เลื่อนขอบบนลงจนเจอเส้นตั้งของตาราง
+  // เส้นแบ่ง 5 ลิตร/20 ลิตร/ถูก/ผิด ไม่ยาวถึงหัวตาราง จึงนับเส้นที่ยาวเกิน 55% ของความสูงตาราง
+  for(let k=0;k<=rows.length-3;k++){const top=rows[k];
+    const vs=[];for(let x=0;x<W;x++){let c=0;for(let y=top;y<=bot;y++)if(dark((y*W+x)*4))c++;if(c>(bot-top)*0.55)vs.push(x)}
+    const cols=merge(vs);if(cols.length<8)continue;
+    // เก็บเฉพาะเส้นนอนที่เส้นตั้งของตารางมาชนจริง ตัดเส้นขีดกรอกข้อมูลที่อยู่เหนือตารางออก
+    const hit=y=>cols.filter(x=>[y-4,y+4].some(v=>v>=0&&v<H&&[x-1,x,x+1].some(u=>dark((v*W+u)*4)))).length>=cols.length*0.5;
+    const tr=rows.slice(k).filter(hit);return {rows:tr.length>=2?tr:rows.slice(k),cols}}
+  return {rows,cols:[]};
 }
 function tableZoom(c){
   try{const ctx=c.getContext("2d",{willReadFrequently:true});const g=gridDetect(ctx.getImageData(0,0,c.width,c.height));
@@ -894,14 +917,35 @@ function tableZoom(c){
     const sc=Math.min(3,2400/(x1-x0));const z=document.createElement("canvas");z.width=Math.round((x1-x0)*sc);z.height=Math.round((y1-y0)*sc);
     if(z.height>6000)return null;const zx=z.getContext("2d");zx.imageSmoothingQuality="high";zx.drawImage(c,x0,y0,x1-x0,y1-y0,0,0,z.width,z.height);return z}
   catch(e){return null}}
+// ไฟล์ที่รองรับ 3 แบบ (kind):
+//  rec = บันทึกการตรวจสอบมาตรวัดปริมาณน้ำมันฯ (ระบบของกรมฯ) หน้า 1 ข้อมูลสถานี หน้า 2 ตารางผลตรวจ
+//  rpt = รายงานตรวจสอบมาตรวัดปริมาตรน้ำมันฯ (แบบที่กรอกข้อมูลเครื่องไว้ล่วงหน้า) ข้อมูลสถานีอยู่เหนือตาราง มีหมายเลขเครื่องเก่า/ใหม่
+//  req = คำขอตรวจสอบเพื่อให้คำรับรองฯ (แบบ ชว. 3010) มีเฉพาะหมายเลขเครื่องและสถานที่ติดตั้ง
+const SN_RE=/\d-\d{4,7}-\d-\d{4,5}-\d{4,7}-\d{2}/;
+const COLMAP={rec:{sn:1,oil:2,brand:3,model:4,e5:7,e20:8,exp:9,clamp:10},rpt:{old:1,sn:2,brand:3,oil:4,clamp:5,seal:6,exp:7,e5:8,e20:9}};
+const thNorm=t=>String(t||"").replace(/ํ\s*า/g,"ำ").replace(/[ \t]+/g," ");
+function docKind(t){t=thNorm(t);
+  if(/3010|๓๐๑๐|คำขอตรวจสอบเพื่อให้คำรับรอง/.test(t))return "req";
+  if(/สถานีบริการของ|ผู้เสียภาษี|ประจำเครื่อง\s*\(?ใหม่/.test(t))return "rpt";
+  return "rec"}
+function numDate(t){const m=String(t||"").replace(/\s+/g,"").match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/);if(!m)return "";
+  let y=+m[3];if(y>2400)y-=543;const d=+m[1],mo=+m[2];if(d<1||d>31||mo<1||mo>12)return "";
+  return y+"-"+String(mo).padStart(2,"0")+"-"+String(d).padStart(2,"0")}
 async function importOCR(canvases,msg){
   OCR_OK=true;const W=await ocrWorkers(null,msg);
-  const res={station:{},rows:[]};let stationText="";
+  const res={station:{},rows:[]};let stationText="",latinName="",kind=docKind((canvases.lines||[]).join("\n"));
   for(let pi=0;pi<canvases.length;pi++){
     const c=canvases[pi];msg("กำลังอ่านหน้า "+(pi+1)+"/"+canvases.length+"…");
     const ctx=c.getContext("2d",{willReadFrequently:true});const img=ctx.getImageData(0,0,c.width,c.height);
-    const g=gridDetect(img);
+    const g=kind==="req"?null:gridDetect(img);
     if(g&&g.cols.length>=12&&g.rows.length>=3){
+      // ข้อความเหนือตาราง (แบบรายงานตรวจสอบ มีข้อมูลสถานีอยู่ตรงนี้)
+      if(g.rows[0]>c.height*0.15){const h=document.createElement("canvas");h.width=c.width;h.height=g.rows[0];h.getContext("2d").drawImage(c,0,0);const r=await W.th.recognize(h);stationText+="\n"+(r.data.text||"");kind=docKind(stationText);
+        // ชื่อสถานีที่เป็นอักษรอังกฤษ (เช่น SUSCO) อ่านซ้ำด้วยตัวอ่านภาษาอังกฤษ
+        const ln=(r.data.lines||[]).find(l=>/บริการของ/.test(thNorm(l.text)));
+        if(ln&&ln.bbox){const b=ln.bbox,q=document.createElement("canvas");q.width=b.x1-b.x0+8;q.height=b.y1-b.y0+8;q.getContext("2d").drawImage(h,b.x0-4,b.y0-4,q.width,q.height,0,0,q.width,q.height);
+          await W.en.setParameters({tessedit_pageseg_mode:"7"});try{latinName=((await W.en.recognize(q)).data.text||"")}finally{await W.en.setParameters({tessedit_pageseg_mode:"3"})}}}
+      const M=COLMAP[kind]||COLMAP.rec;
       const C=g.cols,D=img.data,Wd=img.width;
       const ink=r=>{let n=0;for(let y=r.top;y<r.top+r.height;y++)for(let x=r.left;x<r.left+r.width;x++){const i=(y*Wd+x)*4;if(D[i]+D[i+1]+D[i+2]<300)n++}return n};
       await W.th.setParameters({tessedit_pageseg_mode:"7"});await W.en.setParameters({tessedit_pageseg_mode:"7"});
@@ -909,39 +953,85 @@ async function importOCR(canvases,msg){
         for(let i=1;i<g.rows.length-1;i++){
           const y0=g.rows[i]+4,y1=g.rows[i+1]-3;if(y1-y0<10)continue;
           const cell=k=>({left:C[k]+4,top:y0,width:C[k+1]-C[k]-8,height:y1-y0});
-          if(ink(cell(1))<40)continue;
-          const rd=async(w,k)=>{if(k+1>=C.length)return "";const r=cell(k);if(ink(r)<15)return "";return ((await w.recognize(c,{rectangle:r})).data.text||"").trim()};
+          const rd=async(w,k)=>{if(k==null||k+1>=C.length)return "";const r=cell(k);if(ink(r)<15)return "";return ((await w.recognize(c,{rectangle:r})).data.text||"").trim()};
+          // หมายเลขเครื่องในแบบรายงานตรวจสอบขึ้นบรรทัดใหม่กลางเลข อ่านเป็นหลายบรรทัด
+          const rdSN=async k=>{if(k==null||k+1>=C.length||ink(cell(k))<40)return "";
+            if(kind!=="rpt")return (await rd(W.en,k)).replace(/\s+/g,"");
+            await W.en.setParameters({tessedit_pageseg_mode:"6"});try{return (await rd(W.en,k)).replace(/\s+/g,"")}finally{await W.en.setParameters({tessedit_pageseg_mode:"7"})}};
+          if(ink(cell(M.sn))<40&&(M.old==null||ink(cell(M.old))<40))continue;
           msg("กำลังอ่านหน้า "+(pi+1)+" แถวที่ "+(res.rows.length+1)+"…");
-          const sn=(await rd(W.en,1)).replace(/\s+/g,"");if(!/\d-\d{4,7}-\d-\d{4}-\d{4,7}-\d{2}/.test(sn))continue;
-          res.rows.push({sn:sn.match(/\d-\d{4,7}-\d-\d{4}-\d{4,7}-\d{2}/)[0],oil:await rd(W.th,2),brand:(await rd(W.en,3)).replace(/[^A-Za-z0-9 \-]/g,"").trim(),model:cleanModel(await rd(W.en,4)),
-            e5:normNum(await rd(W.en,7)),e20:normNum(await rd(W.en,8)),expiry:(thaiDates((await rd(W.th,9)).replace(/,/g,"."))[0]||""),clamp:(await rd(W.en,10)).replace(/[^0-9A-Za-z]/g,""),seal:""});
+          let sn=(await rdSN(M.sn)).match(SN_RE);if(!sn&&M.old!=null)sn=(await rdSN(M.old)).match(SN_RE);if(!sn)continue;
+          const exp=await rd(W.th,M.exp);
+          res.rows.push({sn:sn[0],oil:await rd(W.th,M.oil),brand:(await rd(W.en,M.brand)).replace(/[^A-Za-z0-9 \-]/g,"").trim(),model:cleanModel(await rd(W.en,M.model)),
+            e5:normNum(await rd(W.en,M.e5)),e20:normNum(await rd(W.en,M.e20)),expiry:numDate(exp)||thaiDates(exp.replace(/,/g,"."))[0]||"",
+            clamp:(await rd(W.en,M.clamp)).replace(/[^0-9A-Za-z]/g,""),seal:(await rd(W.en,M.seal)).replace(/[^0-9A-Za-z]/g,"")});
         }
       }finally{await W.th.setParameters({tessedit_pageseg_mode:"3"});await W.en.setParameters({tessedit_pageseg_mode:"3"})}
     }else{
-      const r=await W.th.recognize(c);stationText+="\n"+(r.data.text||"");
+      const r=await W.th.recognize(c);stationText+="\n"+(r.data.text||"");if(pi===0&&kind==="rec")kind=docKind(stationText);
     }
   }
   // model: ใช้ค่าที่พบบ่อยที่สุดเมื่ออ่านเพี้ยนเล็กน้อย
   const cnt={};res.rows.forEach(r=>{if(r.model)cnt[r.model]=(cnt[r.model]||0)+1});
   const top=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
   if(top&&cnt[top]>=2)res.rows.forEach(r=>{if(r.model!==top&&similar(r.model,top)>=0.75)r.model=top});
-  // station (หน้า 1)
-  const T=stationText.replace(/[ \t]+/g," ");
-  const line=re=>{const m=T.match(re);return m?m[1].trim():""};
-  let name=line(/[ชซ][ืิ]?่?อ\s*สถานี\s*บริการ\s*(.+?)(?:\s+ผู้แทน|\n|$)/)||line(/[ชซ][ืิ]?่?อ\s*สถานประกอบการ\s*(.+?)(?:\s+[ชซ][ืิ]?่?อผู้ครอบครอง|\n|$)/);
-  let loc=line(/ต[ั]?[้]?งอยู่เลขที่\s*(.+)/);
-  loc=loc.replace(/(?:^|\s)(หมู่|ถนน|ซอย)(?=\s+(?:หมู่|ถนน|ซอย|ต[ํำ]าบล|ตำบล|ต\.)|\s*$)/g," ").replace(/ต[ํ]าบล/g,"ตำบล").replace(/อ[ํ]าเภอ/g,"อำเภอ").replace(/\s+/g," ").trim();
-  const zip=line(/รหัสไปรษณีย์\s*(\d{5})/);const phone=line(/รหัสไปรษณีย์[^\n]*?โทร\.?\s*([0-9][0-9\- ]{7,13}[0-9])/);
-  const pl=parsePlace((name?name+" ":"")+loc);
-  res.station={name,address:pl.address,tambon:pl.tambon,amphoe:pl.amphoe,province:pl.province,zip,phone:phone.replace(/\s+/g,"")};
+  // ไม่มีตาราง (คำขอ ชว. 3010): หมายเลขเครื่องจากชั้นข้อความของ PDF (ตรงตัว) หรือจากข้อความที่อ่านได้
+  if(!res.rows.length){const src=(canvases.lines||[]).join("\n")+"\n"+stationText;const seen=new Set();
+    (src.replace(/[ \t]/g,"").match(new RegExp(SN_RE.source,"g"))||[]).forEach(sn=>{if(!seen.has(sn)){seen.add(sn);res.rows.push({sn})}})}
+  res.station=parseStation(stationText,canvases.lines||[],kind,latinName);res.kind=kind;
   return res;
 }
+function parseStation(text,lines,kind,latin){
+  const T=thNorm(text);const L=lines.join("\n");
+  const line=(re,src)=>{const m=(src||T).match(re);return m?m[1].trim():""};
+  const thWord=t=>(String(t||"").match(/[ก-๙]{2,}/)||[""])[0];
+  const phoneOf=src=>line(/โทร(?:ศัพท์|\.)?\s*(0\d{1,2}-?\d{3}-?\d{3,4})(?!\d)/,src);
+  let name="",loc="",zip="",phone="",taxId="",company="",lat="",lng="";
+  if(kind==="req"){
+    // ใช้ช่อง สถานที่ติดตั้งเครื่องชั่งตวงวัด (ไม่ใช่ที่อยู่ผู้ยื่นคำขอ) ถ้าอ่านไม่ได้ใช้ชื่อเจ้าของ/ผู้ครอบครอง
+    const at=T.search(/ติด\S{0,4}\s*ตั?้?ง\S{0,12}\/สถาน/);const B=at>=0?T.slice(at):T;
+    name=line(/\/สถาน\S{0,3}\s+(.+?\(\d{7}\))/,B)||line(/ครอบครอง\s+(.+?\(\d{7}\))/)||line(/(\S.{2,60}?\(\d{7}\))/,B);
+    name=name.replace(/^ห\S?จ\./,"หจ.").replace(/^บ\S?จ\./,"บจ.");
+    const house=line(/เลข\S{0,2}\s*(\d+(?:\/\d+)?)(?=\s)/,B);
+    const tl=L.split("\n");const k=tl.map(x=>/\(\d{7}\)/.test(x)).lastIndexOf(true);   // บรรทัดสถานที่ติดตั้งในชั้นข้อความ
+    const tHouse=k>=0?line(/(?:^|\s)(\d+(?:\/\d+)?)(?=\s)/,tl.slice(k+1,k+2).join(" ")):"";
+    const moo=line(/หมู่\S{0,2}\s*(\d{1,3})(?=\s)/,B);
+    // ชื่อถนนจากช่องสถานที่ติดตั้งและช่องเจ้าของ (มักเป็นที่เดียวกัน) เลือกคำที่อ่านได้ยาวที่สุด
+    const road=(T.match(/ถนน\s*[^\n]{0,30}/g)||[]).map(x=>(x.slice(3).match(/[ก-๙]{2,}/g)||[]).sort((a,b)=>b.length-a.length)[0]||"").sort((a,b)=>b.length-a.length)[0]||"";
+    loc=[tHouse||house,moo?"หมู่ที่ "+moo:"",road?"ถนน"+road:""].filter(Boolean).join(" ")+
+      " ตำบล"+thWord(line(/ตำบล\S{0,6}\s*([^\n]+)/,B))+" อำเภอ"+thWord(line(/อำเภอ\S{0,4}\s*[.\s]*([^\n]+)/,B))+" จังหวัด"+thWord(line(/จังหวัด\s*([^\n]+)/,B));
+    zip=line(/(?:^|\D)(\d{5})(?!\d)/,k>=0?tl.slice(k+1,k+4).join(" "):"")||line(/ไปรษณีย์\s*(\d{5})/,B);
+    phone=(k>=0?phoneOf(tl.slice(k+1,k+5).join(" ").replace(/\S*2\s(?=0)/," โทร ")):"")||(line(/(0\d{1,2}-\d{3}-?\d{3,4})(?!\d)/,k>=0?tl.slice(k+1,k+5).join(" "):"")||phoneOf(B));
+  }else if(kind==="rpt"){
+    name=line(/สถานีบริการของ\s*(.+?)\s*(?:\n|$)/);
+    // คำแรกของชื่ออ่านเป็นภาษาไทยปนตัวเลข แสดงว่าเป็นอักษรอังกฤษ ใช้ผลจากตัวอ่านภาษาอังกฤษแทน
+    const en=(String(latin||"").match(/([A-Za-z][A-Za-z0-9&.\-]{2,})\s*\//)||String(latin||"").match(/\b([A-Z][A-Za-z0-9&.\-]{2,})\b/)||[])[1];
+    const first=name.split(/[\/\s]/)[0];if(en&&/[ก-๙]/.test(first)&&/[0-9๐-๙]/.test(first))name=en+name.slice(first.length);
+    taxId=(line(/ผู้เสียภาษี\s*([\d\s]{13,24})/)||"").replace(/\s+/g,"").slice(0,13);
+    company=line(/^[ \t]*บริษัท[ \t]+([^\n]+)/m).replace(/^[\s_.]+|[\s_.]+$/g,"");
+    loc=line(/ตั้งอยู่\s*ณ?\s*เลขที่\s*([^\n]+)/);
+    zip=line(/(?:^|\s)(\d{5})(?:\s|$)/,loc);phone=line(/โทรศัพท์\s*([0-9][0-9\- ]{7,13}[0-9])/).replace(/\s+/g,"");
+    lat=line(/LAT\s*([0-9]{1,2}\.[0-9]+)/);lng=line(/LNG\s*([0-9]{2,3}\.[0-9]+)/);
+  }else{
+    name=line(/[ชซ][ืิ]?่?อ\s*สถานี\s*บริการ\s*(.+?)(?:\s+ผู้แทน|\n|$)/)||line(/[ชซ][ืิ]?่?อ\s*สถานประกอบการ\s*(.+?)(?:\s+[ชซ][ืิ]?่?อผู้ครอบครอง|\n|$)/);
+    loc=line(/ต[ั]?[้]?งอยู่เลขที่\s*(.+)/);
+    loc=loc.replace(/(?:^|\s)(หมู่|ถนน|ซอย)(?=\s+(?:หมู่|ถนน|ซอย|ต[ํำ]าบล|ตำบล|ต\.)|\s*$)/g," ").replace(/ต[ํ]าบล/g,"ตำบล").replace(/อ[ํ]าเภอ/g,"อำเภอ").replace(/\s+/g," ").trim();
+    zip=line(/รหัสไปรษณีย์\s*(\d{5})/);phone=line(/รหัสไปรษณีย์[^\n]*?โทร\.?\s*([0-9][0-9\- ]{7,13}[0-9])/).replace(/\s+/g,"");
+  }
+  const pl=parsePlace((name?name+" ":"")+loc);
+  return {name:name||pl.name,address:pl.address,tambon:pl.tambon,amphoe:pl.amphoe,province:pl.province,zip,phone,taxId,company,lat,lng};
+}
+window.__imp={pdfLines,fileToCanvases,ocrWorkers,gridDetect,get importOCR(){return importOCR}};
 let IMP_PENDING=null;
 function impMsg(t,err){const el=$("impMsg");el.hidden=!t;el.textContent=t||"";el.classList.toggle("err",!!err)}
 function hasRealRows(){return !S.sample&&S.rows.some(r=>(r.sn||r.r5||r.r20||r.brand||"").toString().trim())}
 function applyImport(d,mode){
   const st=d.station||{};const m=S.meta;const got=[];
+  if(st.name&&mode!=="append"&&String(st.name).trim()!==m.station.trim())["taxId","company","address","tambon","amphoe","phone","lat","lng","ownerName"].forEach(k=>m[k]="");
   if(st.name){m.station=String(st.name).trim();got.push("ชื่อสถานี")}
+  if(st.taxId&&/^\d{13}$/.test(st.taxId)){m.taxId=st.taxId;got.push("เลขผู้เสียภาษี")}
+  if(st.company){m.company=String(st.company).trim();got.push("บริษัท")}
+  if(st.lat&&st.lng){m.lat=st.lat;m.lng=st.lng;got.push("LAT/LNG")}
   if(st.address){m.address=String(st.address).trim();got.push("ที่อยู่")}
   if(st.province){const P=bestGeo(Object.keys(GEO),String(st.province).replace(/^จ(\.|ังหวัด)\s*/,""));m.province=P;
     const A=GEO[P]?Object.keys(GEO[P]):[];m.amphoe=bestGeo(A,String(st.amphoe||"").replace(/^อ(\.|ำเภอ)\s*/,""));
@@ -974,8 +1064,8 @@ async function handleImport(file){
     finishImport(d,"replace");
   }catch(err){const c=err&&err.code;impMsg(c==="not_granted"?"ยังไม่ได้อนุญาตให้ส่งภาพให้ Claude อ่าน":"นำเข้าไม่สำเร็จ ("+(c||err&&err.message||"error")+")",true)}
 }
-function finishImport(d,mode){const r=applyImport(d,mode);$("impChoice").hidden=true;IMP_PENDING=null;
-  impMsg("นำเข้าแล้ว: หัวจ่าย "+r.n+" เครื่อง"+(r.got.length?" · "+r.got.join(", "):"")+" — ตรวจทานข้อมูลทุกช่องก่อนส่งออก PDF (ซีลไม่มีในไฟล์ผลตรวจ กรอกเองถ้ามี)");}
+function finishImport(d,mode){const r=applyImport(d,mode);const K={rec:"บันทึกการตรวจสอบ",rpt:"รายงานตรวจสอบ",req:"คำขอ ชว. 3010"}[d&&d.kind];$("impChoice").hidden=true;IMP_PENDING=null;
+  impMsg("นำเข้าแล้ว"+(K?" ("+K+")":"")+": หัวจ่าย "+r.n+" เครื่อง"+(r.got.length?" · "+r.got.join(", "):"")+" — ตรวจทานข้อมูลทุกช่องก่อนส่งออก PDF"+(d&&d.kind==="req"?" (คำขอไม่มีชนิดน้ำมัน ยี่ห้อ คีม และวันหมดอายุ กรอกเอง)":d&&d.kind==="rpt"?"":" (ซีลไม่มีในไฟล์ผลตรวจ กรอกเองถ้ามี)"));}
 $("impReplace").onclick=()=>IMP_PENDING&&finishImport(IMP_PENDING,"replace");
 $("impAppend").onclick=()=>IMP_PENDING&&finishImport(IMP_PENDING,"append");
 $("impCancel").onclick=()=>{IMP_PENDING=null;$("impChoice").hidden=true;impMsg("ยกเลิกการนำเข้า")};
