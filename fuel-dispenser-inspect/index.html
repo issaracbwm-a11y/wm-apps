@@ -582,7 +582,7 @@ $("pdfBtn").addEventListener("click",async()=>{
     }
     $("pdfroot").innerHTML="";
     const name=("ผลตรวจมาตรวัดน้ำมัน_"+S.meta.station+"_"+shortDate(S.meta.date).replace(/\//g,"-")).replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g," ").trim()+".pdf";
-    sendDailyPdf(S.sessionId,name,pdf.output("datauristring").split(",")[1]);
+    if(!S.sample)sendDailyPdf(S.sessionId,name,pdf.output("datauristring").split(",")[1]); // ข้อมูลตัวอย่าง ไม่ส่งเข้าชีตสรุปรายวัน
     const dl=await getDownloads();
     if(dl===undefined){pdf.save(name);setMsg("บันทึก "+name+" แล้ว","ok")}
     else if(dl===null){setMsg("หน้านี้บันทึกไฟล์ไม่ได้ในมุมมองนี้ ลองเปิดแอปผ่านลิงก์ใน Claude","err")}

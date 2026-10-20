@@ -1022,7 +1022,7 @@ $("pdfBtn").addEventListener("click",async()=>{
       if(i)pdf.addPage();pdf.addImage(c.toDataURL("image/jpeg",0.92),"JPEG",0,0,210,297)}}
     finally{S.cur=cur;root.innerHTML=""}
     const name=("รายงานตรวจเครื่องชั่งรถยนต์_"+S.site.name+(n>1?"_"+n+" เครื่อง":(S.scale.serial?"_"+S.scale.serial:""))+"_"+shortDate(S.meta.date).replace(/\//g,"-")).replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g," ").trim()+".pdf";
-    sendDailyPdf(S.sessionId,name,pdf.output("datauristring").split(",")[1]);
+    if(!S.sample)sendDailyPdf(S.sessionId,name,pdf.output("datauristring").split(",")[1]); // ข้อมูลสาธิต ไม่ส่งเข้าชีตสรุปรายวัน
     const dl=await getDownloads();
     if(dl===undefined){pdf.save(name);setMsg("บันทึก "+name+" แล้ว ("+n+" หน้า)","ok")}
     else if(dl===null){setMsg("หน้านี้บันทึกไฟล์ไม่ได้ในมุมมองนี้ ลองเปิดแอปผ่านลิงก์ใน Claude","err")}
