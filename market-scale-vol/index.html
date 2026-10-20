@@ -460,8 +460,8 @@ function dailyLines(s){
 function sheetMsg(t,k){const el=$("sheetMsg");el.textContent=t;el.className="msg "+(k||"")}
 let flushing=false,retryTimer=null;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-// ตัดคำขอที่ค้างเกิน 60 วินาที ให้นับเป็นส่งไม่สำเร็จแล้วลองใหม่ ไม่ค้างที่ "กำลังส่ง…" ตลอดไป
-function tfetch(url,opt,ms=60000){
+// ตัดคำขอที่ค้างเกิน 2 นาที (ชีตอาจรอคิวบันทึกรายการอื่นอยู่) ให้นับเป็นส่งไม่สำเร็จแล้วลองใหม่ ไม่ค้างที่ "กำลังส่ง…" ตลอดไป
+function tfetch(url,opt,ms=120000){
   const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),ms);
   return fetch(url,{...opt,signal:ctl.signal}).finally(()=>clearTimeout(t));
 }

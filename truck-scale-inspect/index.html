@@ -1056,8 +1056,8 @@ const DAILY_Q="truck-daily-queue";
 function dailyMsg(t,k){const el=document.getElementById("dailyMsg");if(!el)return;el.textContent=t||"";el.className="msg"+(k?" "+k:"")}
 function dailyRead(){try{return JSON.parse(localStorage.getItem(DAILY_Q)||"[]")}catch(e){return[]}}
 function dailyWrite(q){try{localStorage.setItem(DAILY_Q,JSON.stringify(q))}catch(e){}}
-// ตัดคำขอที่ค้างเกิน 60 วินาที ให้นับเป็นส่งไม่สำเร็จแล้วลองใหม่ ไม่ค้างที่ "กำลังส่ง…" ตลอดไป
-function tfetch(url,opt,ms=60000){
+// ตัดคำขอที่ค้างเกิน 2 นาที (ชีตอาจรอคิวบันทึกรายการอื่นอยู่) ให้นับเป็นส่งไม่สำเร็จแล้วลองใหม่ ไม่ค้างที่ "กำลังส่ง…" ตลอดไป
+function tfetch(url,opt,ms=120000){
   const ctl=new AbortController();const t=setTimeout(()=>ctl.abort(),ms);
   return fetch(url,{...opt,signal:ctl.signal}).finally(()=>clearTimeout(t));
 }
@@ -1069,15 +1069,19 @@ async function dailyPost(item){
   }
   return false;
 }
-let dailyBusy=false;
+let dailyBusy=false,dailyRetry=null;
 async function flushDaily(ask){
   if(!DAILY_URL||dailyBusy||!dailyRead().length)return;
   if(!dailySender(ask))return dailyMsg("ยังไม่ได้ใส่รหัสผู้ส่งข้อมูล ผลยังไม่ได้ส่งเข้าชีตสรุปรายวัน กดส่งออกอีกครั้งเพื่อใส่รหัส","err");
   if(navigator.onLine===false)return dailyMsg("ยังไม่มีสัญญาณ รอส่งเข้าชีตสรุปรายวัน จะส่งให้อัตโนมัติเมื่อออนไลน์","err");
-  dailyBusy=true;
+  dailyBusy=true;clearTimeout(dailyRetry);
+  dailyMsg("กำลังส่งข้อมูลสรุปเข้าชีตสรุปรายวัน…","");
   try{for(const item of dailyRead()){const s=JSON.stringify(item);if(await dailyPost(item))dailyWrite(dailyRead().filter(x=>JSON.stringify(x)!==s))}}
   finally{dailyBusy=false}
-  dailyMsg(dailyRead().length?"ส่งเข้าชีตสรุปรายวันยังไม่สำเร็จ จะลองใหม่อัตโนมัติ":"ส่งผลเข้าชีตสรุปรายวันแล้ว",dailyRead().length?"err":"ok");
+  const left=dailyRead().length;
+  // ยังส่งไม่ได้ ลองใหม่เองทุก 30 วินาทีขณะเปิดแอปอยู่ ไม่ต้องรอเปิดแอปใหม่
+  if(left)dailyRetry=setTimeout(()=>flushDaily(false),30000);
+  dailyMsg(left?"ส่งข้อมูลสรุปเข้าชีตสรุปรายวันยังไม่สำเร็จ จะลองใหม่อัตโนมัติ":"ส่งข้อมูลสรุปเข้าชีตสรุปรายวันแล้ว",left?"err":"ok");
 }
 function sendDaily(row){
   if(!DAILY_URL||!row.submitId)return;
@@ -1091,6 +1095,7 @@ async function sendDailyPdf(submitId,filename,b64){
   if(navigator.onLine===false)return dailyMsg("ยังไม่มีสัญญาณ ไฟล์ PDF ยังไม่ได้ส่งเข้าชีตสรุปรายวัน กดส่งออก PDF อีกครั้งเมื่อออนไลน์","err");
   if(!dailySender(true))return dailyMsg("ยังไม่ได้ใส่รหัสผู้ส่งข้อมูล ผลยังไม่ได้ส่งเข้าชีตสรุปรายวัน กดส่งออกอีกครั้งเพื่อใส่รหัส","err");
   const ok=await dailyPost({token:DAILY_TOKEN,kind:"pdf",submitId,filename,data:b64});
+  if(ok&&(dailyBusy||dailyRead().length))return;   // ข้อมูลสรุปยังส่งอยู่ ให้ข้อความของข้อมูลสรุปแสดงต่อ
   dailyMsg(ok?"ส่งไฟล์ PDF เข้าชีตสรุปรายวันแล้ว":"ส่งไฟล์ PDF เข้าชีตสรุปรายวันไม่สำเร็จ กดส่งออก PDF อีกครั้งเมื่อสัญญาณดีขึ้น",ok?"ok":"err");
 }
 window.addEventListener("online",()=>flushDaily(false));
