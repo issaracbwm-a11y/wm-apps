@@ -458,11 +458,12 @@ async function flushQ(){
   flushing=true;sheetMsg("กำลังส่งข้อมูลสรุปเข้า Google Sheet…","");
   let failed=0;
   try{
-    for(const item of q){
+    // ส่งทุกรายการพร้อมกัน (ชีตสรุปรายวันกับชีตตลาดเดิม) ไม่ต้องรอกันทีละชีต
+    await Promise.all(q.map(async item=>{
       const sent=JSON.stringify(item);
       // ลบออกจากคิวเฉพาะฉบับที่ส่งไปจริง ถ้าระหว่างนั้นมีการกดส่งออกใหม่ ฉบับใหม่ยังอยู่ในคิว
       if(await postItem(item))writeQ(readQ().filter(x=>JSON.stringify(x)!==sent));else failed++;
-    }
+    }));
   }finally{flushing=false}
   const left=readQ().length;
   clearTimeout(retryTimer);

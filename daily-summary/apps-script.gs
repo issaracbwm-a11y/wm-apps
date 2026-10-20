@@ -34,6 +34,12 @@ const FROWS = 'แถวแบบฟอร์ม';
 const RPT = 'รายงานประจำวัน';
 const APPS = ['market-scale-inspect', 'market-scale-vol', 'fuel-dispenser-inspect', 'truck-scale-inspect', 'lpg-cylinder-inspect'];
 const PDF_MAX_BYTES = 10 * 1024 * 1024;
+const UPLOAD_MAX_BYTES = 20 * 1024 * 1024;   // ไฟล์สแกนที่แนบจากชีต
+const ROOT_NAME = 'ไฟล์ตรวจสอบรายวัน';
+const DONE_NAME = 'ลงระบบแล้ว';               // ติ๊กลงระบบแล้ว ย้ายโฟลเดอร์วันที่มาไว้ในนี้ (ใต้โฟลเดอร์หลัก)       // โฟลเดอร์หลักของ PDF มีโฟลเดอร์ย่อยตามวันที่ตรวจ (ปปปป-ดด-วว)
+// URL เว็บแอปของสคริปต์นี้ (Deploy เป็น New version แล้ว URL เดิม) ใช้ตอนแนบไฟล์จากชีต
+// ให้บันทึกไฟล์ด้วยสิทธิ์เจ้าของโฟลเดอร์ เจ้าหน้าที่อื่นมีสิทธิ์แค่ดูโฟลเดอร์
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbytv9Mff87k7MXog6gu-B7m6do_eonryehO4Yk9aqMxplhiF8MB3FD8K2VCQ3jWZgdU/exec';
 const COL = { date: 1, total: 11, link: 14, id: 17, edited: 18 };
 // แท็บ รับทราบ: F ผอ.รับทราบ, G เมื่อ, H ลงระบบแล้ว, I เมื่อ/โดย, J หมายเหตุ, K ยอดที่ ผอ.รับทราบ, L ยอดที่ลงระบบ, M สถานะ
 const A = { ack: 6, ackAt: 7, done: 8, doneAt: 9, ackSnap: 11, doneSnap: 12 };
@@ -116,7 +122,8 @@ const CFG_ROWS = [
   ['รหัสโฟลเดอร์เก็บรายงาน PDF', '', 'ฟังก์ชัน setup กรอกให้เอง'],
   ['รหัสชีตตลาดสดเดิม', '1DyiPbe3H-tWHOHgs0WaVBVKVgtUWwOcGszz_WT_o5ew', 'ใช้กับฟังก์ชัน importMarketHistory เพื่อนำเข้าข้อมูลเก่า'],
   ['อีเมลผู้ช่วยนายตรวจชั่งตวงวัด', '', 'คนรวมตัวเลขเสนอ ผอ. ใส่ได้หลายคน คั่นด้วยจุลภาค (,)'],
-  ['ต้องใช้รหัสผู้ส่งข้อมูล', 'ใช่', 'ใช่ = รับเฉพาะข้อมูลที่มีรหัสผู้ส่งที่เปิดใช้งานในแท็บ ผู้ส่งข้อมูล']
+  ['ต้องใช้รหัสผู้ส่งข้อมูล', 'ใช่', 'ใช่ = รับเฉพาะข้อมูลที่มีรหัสผู้ส่งที่เปิดใช้งานในแท็บ ผู้ส่งข้อมูล'],
+  ['ลบไฟล์ PDF หลังย้ายไปโฟลเดอร์ ลงระบบแล้ว (วัน)', '', 'เว้นว่างหรือ 0 = ไม่ลบ · ไฟล์ที่ลบไปอยู่ในถังขยะของ Drive กู้คืนได้ภายใน 30 วัน']
 ];
 const DATES_F = "=IFERROR(SORT(UNIQUE(FILTER('" + LOG + "'!A2:A,'" + LOG + "'!A2:A<>\"\")),1,FALSE),\"\")";
 
@@ -137,10 +144,10 @@ const mails_ = (t) => String(t).split(/[,\s]+/).filter(Boolean);
 const isMail_ = (m) => /^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/.test(m);
 
 function cfg_() {
-  const v = ss_().getSheetByName(CFG).getRange('B1:B7').getValues().map(r => String(r[0]).trim());
+  const v = ss_().getSheetByName(CFG).getRange('B1:B8').getValues().map(r => String(r[0]).trim());
   return {
     director: v[0], recorders: mails_(v[1]), hour: Number(v[2]) || 17, folderId: v[3], marketSheetId: v[4],
-    assistants: mails_(v[5]), needSender: v[6] !== 'ไม่ใช่'
+    assistants: mails_(v[5]), needSender: v[6] !== 'ไม่ใช่', purgeDays: Math.max(0, Math.floor(Number(v[7]) || 0))
   };
 }
 
@@ -475,10 +482,11 @@ function setup() {
   // โฟลเดอร์เก็บรายงาน PDF (สร้างครั้งแรกครั้งเดียว) ไม่เปิดลิงก์สาธารณะ
   // แชร์ให้ดูได้เฉพาะ ผอ. เจ้าหน้าที่ลงระบบ และผู้ช่วยนายตรวจ ไฟล์ในโฟลเดอร์ได้สิทธิ์ตามโฟลเดอร์
   if (!c.folderId) {
-    const f = DriveApp.createFolder('รายงานผลตรวจ PDF (สรุปรายวัน)');
+    const f = DriveApp.createFolder(ROOT_NAME);
     cs.getRange('B4').setValue(f.getId());
   }
   const folder = folder_();
+  if (folder.getName() !== ROOT_NAME) folder.setName(ROOT_NAME);
   folder.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.NONE);
   const all = [c.director].concat(c.recorders, c.assistants).filter(Boolean);
   const people = all.filter((m, i) => isMail_(m) && all.indexOf(m) === i);
@@ -586,6 +594,20 @@ function doPost(e) {
     return out_({ ok: false, error: 'bad token' });
   }
 
+  // ไฟล์ PDF ที่แนบจากชีต (เมนู ไฟล์ PDF) บันทึกเข้าโฟลเดอร์วันที่ตรวจ แล้วส่งลิงก์กลับ ชีตใส่ลิงก์เอง
+  if (data.kind === 'upload') {
+    try {
+      const iso = toISO_(data.date);
+      const bad = !iso ? 'วันที่ตรวจไม่ถูกต้อง' : pdfBad_(data.data, UPLOAD_MAX_BYTES);
+      if (bad) return out_({ ok: false, error: bad });
+      const name = safeName_(data.filename) + '_แนบจากชีต_' + Utilities.formatDate(new Date(), TZ, 'HHmmss') + '.pdf';
+      const file = dayFolder_(iso).createFile(Utilities.newBlob(Utilities.base64Decode(data.data), 'application/pdf', name));
+      return out_({ ok: true, url: file.getUrl() });
+    } catch (err) {
+      return out_({ ok: false, error: String(err && err.message || err) });
+    }
+  }
+
   // ไฟล์ PDF บันทึกลง Drive ได้เลยไม่ต้องรอคิว (แอปส่ง PDF มาพร้อมกับตัวเลข และการบันทึกตัวเลขใช้เวลานาน)
   let pdf = null;
   if (data.kind === 'pdf') {
@@ -643,17 +665,19 @@ function checkSender_(code) {
 }
 
 // ตรวจรูปแบบข้อมูลก่อนบันทึก คืนข้อความเหตุผลถ้าไม่ผ่าน
+function pdfBad_(data, max) {
+  const b64 = String(data || '');
+  if (!b64) return 'ไม่มีไฟล์ PDF';
+  if (b64.length > max * 4 / 3 + 4) return 'ไฟล์ PDF ใหญ่เกิน ' + (max / 1048576) + ' MB';
+  let head;
+  try { head = Utilities.base64Decode(b64.slice(0, 8)); } catch (err) { return 'ไฟล์ PDF เสียหาย'; }
+  if (String.fromCharCode.apply(null, head.slice(0, 5).map(x => (x + 256) % 256)) !== '%PDF-') return 'ไฟล์ไม่ใช่ PDF';
+  return '';
+}
+
 function validate_(d) {
   if (!/^[A-Za-z0-9_.:\-]{4,80}$/.test(String(d.submitId || ''))) return 'รหัสรายการไม่ถูกต้อง';
-  if (d.kind === 'pdf') {
-    const b64 = String(d.data || '');
-    if (!b64) return 'ไม่มีไฟล์ PDF';
-    if (b64.length > PDF_MAX_BYTES * 4 / 3 + 4) return 'ไฟล์ PDF ใหญ่เกิน ' + (PDF_MAX_BYTES / 1048576) + ' MB';
-    let head;
-    try { head = Utilities.base64Decode(b64.slice(0, 8)); } catch (err) { return 'ไฟล์ PDF เสียหาย'; }
-    if (String.fromCharCode.apply(null, head.slice(0, 5).map(x => (x + 256) % 256)) !== '%PDF-') return 'ไฟล์ไม่ใช่ PDF';
-    return '';
-  }
+  if (d.kind === 'pdf') return pdfBad_(d.data, PDF_MAX_BYTES);
   if (d.kind && d.kind !== 'summary') return 'ชนิดข้อมูลไม่ถูกต้อง';
   if (APPS.indexOf(d.app) < 0) return 'ไม่รู้จักแอป ' + clip_(d.app, 40);
   if (JOBS.indexOf(d.job) < 0) return 'ไม่รู้จักงาน ' + clip_(d.job, 40);
@@ -750,6 +774,11 @@ function upsert_(d, noSync) {
   // ส่งซ้ำแล้วแถวในแบบฟอร์มน้อยลง ลบแถวที่เกิน (ยกเว้นแถวที่มีคนแก้ไขแล้ว)
   rowsOf_(sh, d.submitId).filter(r => ids.indexOf(String(sh.getRange(r, COL.id).getValue())) < 0)
     .reverse().forEach(r => { if (!sh.getRange(r, COL.edited).getValue()) sh.deleteRow(r); });
+  // PDF ที่มาถึงก่อนตัวเลข อาจอยู่ผิดโฟลเดอร์วันที่ ย้ายให้ตรงวันที่ตรวจ
+  try {
+    const r = findRow_(sh, d.submitId), url = r && sh.getRange(r, COL.link).getValue();
+    if (url) fileToDay_(url, toISO_(d.date));
+  } catch (err) { }
   if (!noSync) syncAck_('แอป ' + (d.app || ''));
 }
 
@@ -793,25 +822,242 @@ function folder_() {
   return DriveApp.getFolderById(id);
 }
 
+// โฟลเดอร์ย่อยตามวันที่ตรวจ ใต้โฟลเดอร์หลัก ไฟล์ได้สิทธิ์ตามโฟลเดอร์หลัก
+function dayFolder_(iso) {
+  const root = folder_();
+  return findFolder_(root, iso) || findFolder_(doneFolder_(), iso) || root.createFolder(iso);
+}
+
+function findFolder_(parent, name) {
+  const it = parent.getFoldersByName(name);
+  while (it.hasNext()) { const f = it.next(); if (!f.isTrashed()) return f; }
+  return null;
+}
+
+function doneFolder_() {
+  const root = folder_();
+  return findFolder_(root, DONE_NAME) || root.createFolder(DONE_NAME);
+}
+
+// ติ๊กลงระบบแล้ว: ย้ายโฟลเดอร์วันที่ไปไว้ใน ลงระบบแล้ว และจดวันที่ย้ายไว้ในคำอธิบายโฟลเดอร์ (ใช้นับวันลบ)
+// เอาติ๊กออก (เองหรือเพราะยอดเปลี่ยน): ย้ายกลับมาที่โฟลเดอร์หลัก
+function moveDay_(date, done) {
+  try {
+    const iso = toISO_(date);
+    if (!iso) return;
+    const root = folder_(), dn = doneFolder_();
+    const f = done ? findFolder_(root, iso) : findFolder_(dn, iso);
+    if (!f) return;
+    f.moveTo(done ? dn : root);
+    f.setDescription(done ? 'ย้ายเมื่อ ' + Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd') : '');
+  } catch (err) { Logger.log('ย้ายโฟลเดอร์ ' + date + ' ไม่สำเร็จ: ' + err); }
+}
+
+// ลบโฟลเดอร์วันที่ใน ลงระบบแล้ว ที่ย้ายมาครบจำนวนวันในแท็บ ตั้งค่า (เรียกทุกวันจาก dailyEmail)
+function purgeDone_() {
+  const days = cfg_().purgeDays;
+  if (!days) return;
+  const it = doneFolder_().getFolders(), now = new Date();
+  while (it.hasNext()) {
+    const f = it.next();
+    const m = String(f.getDescription() || '').match(/(\d{4}-\d{2}-\d{2})/);
+    if (!m) continue;
+    const age = (now - new Date(m[1] + 'T00:00:00+07:00')) / 86400000;
+    if (age < days) continue;
+    const n = (() => { let k = 0; const fs = f.getFiles(); while (fs.hasNext()) { fs.next(); k++; } return k; })();
+    f.setTrashed(true);
+    logHist_(f.getName(), 'ลบไฟล์ PDF ' + n + ' ไฟล์ (ครบ ' + days + ' วันหลังลงระบบ ไฟล์อยู่ในถังขยะ Drive 30 วัน)', '',
+      Utilities.formatDate(now, TZ, 'dd/MM/yyyy HH:mm') + ' · ระบบ');
+  }
+}
+
+// วันที่ของไฟล์จากแอป: วันที่ที่แอปส่งมา หรือวันที่ของรายการในชีต หรือวันที่ในชื่อไฟล์ หรือวันนี้
+function pdfDate_(d) {
+  const own = toISO_(d.date);
+  if (own) return own;
+  try {
+    const sh = ss_().getSheetByName(LOG), r = findRow_(sh, d.submitId);
+    const v = r && toISO_(sh.getRange(r, COL.date).getValue());
+    if (v) return v;
+  } catch (err) { }
+  const m = String(d.filename || '').match(/20\d\d-\d\d-\d\d/);
+  return m ? m[0] : Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+}
+
+function safeName_(n) {
+  return String(n || 'รายงาน.pdf').replace(/\.pdf$/i, '').replace(/[^\w฀-๿ .()\-]/g, '_').slice(0, 120);
+}
+
+// ไฟล์ของรายการ ค้นจากรหัสรายการในชื่อไฟล์ (อยู่ในโฟลเดอร์วันที่ใดก็ได้)
+function pdfFiles_(id) {
+  return DriveApp.searchFiles("title contains '" + String(id).replace(/'/g, '') + "' and mimeType = 'application/pdf' and trashed = false");
+}
+
 function pdfLink_(id) {
   try {
-    const it = folder_().searchFiles("title contains '" + String(id).replace(/'/g, '') + "' and trashed = false");
+    const it = pdfFiles_(id);
     return it.hasNext() ? it.next().getUrl() : '';
   } catch (err) { return ''; }
 }
 
 function savePdf_(d) {
   if (!d.data) return { ok: false, error: 'no data' };
-  const folder = folder_();
   const id = String(d.submitId).replace(/'/g, '');
   // ส่งออกซ้ำ ให้แทนไฟล์เดิมของรายการเดียวกัน
-  const old = folder.searchFiles("title contains '" + id + "' and trashed = false");
+  const old = pdfFiles_(id);
   while (old.hasNext()) old.next().setTrashed(true);
-  const base = String(d.filename || 'รายงาน.pdf').replace(/\.pdf$/i, '').replace(/[^\w\u0E00-\u0E7F .()\-]/g, '_').slice(0, 120);
-  const blob = Utilities.newBlob(Utilities.base64Decode(d.data), 'application/pdf', base + '_' + id + '.pdf');
-  const file = folder.createFile(blob);   // สิทธิ์ตามโฟลเดอร์ ไม่เปิดลิงก์สาธารณะ
+  const blob = Utilities.newBlob(Utilities.base64Decode(d.data), 'application/pdf', safeName_(d.filename) + '_' + id + '.pdf');
+  const file = dayFolder_(pdfDate_(d)).createFile(blob);   // สิทธิ์ตามโฟลเดอร์ ไม่เปิดลิงก์สาธารณะ
   return { ok: true, url: file.getUrl() };
 }
+
+// ย้ายไฟล์ในโฟลเดอร์หลัก (หรือโฟลเดอร์วันที่อื่น) เข้าโฟลเดอร์วันที่ตรวจ ไฟล์ที่อยู่นอกโฟลเดอร์หลักไม่แตะ
+function fileToDay_(url, iso) {
+  const m = String(url).match(/\/d\/([\w-]{20,})/);
+  if (!m || !iso) return false;
+  const file = DriveApp.getFileById(m[1]), root = folder_(), rootId = root.getId();
+  const ps = file.getParents();
+  if (!ps.hasNext()) return false;
+  const p = ps.next();
+  if (p.getName() === iso) return false;
+  const inTree = p.getId() === rootId || (() => { const g = p.getParents(); return g.hasNext() && g.next().getId() === rootId; })();
+  if (!inTree) return false;
+  file.moveTo(dayFolder_(iso));
+  return true;
+}
+
+// จัดไฟล์ PDF เดิมเข้าโฟลเดอร์ตามวันที่ตรวจ และตั้งชื่อโฟลเดอร์หลัก (เรียกครั้งเดียวจากเมนู ไฟล์ PDF)
+function tidyPdfFolders() {
+  const root = folder_();
+  if (root.getName() !== ROOT_NAME) root.setName(ROOT_NAME);
+  const sh = ss_().getSheetByName(LOG), last = sh.getLastRow();
+  let n = 0;
+  if (last >= 2) sh.getRange(2, 1, last - 1, COL.link).getValues().forEach(v => {
+    try { if (v[COL.link - 1] && fileToDay_(v[COL.link - 1], toISO_(v[0]))) n++; } catch (err) { }
+  });
+  // วันที่ติ๊กลงระบบแล้วไว้ก่อน ย้ายโฟลเดอร์ไปไว้ใน ลงระบบแล้ว
+  const ack = ss_().getSheetByName(ACK);
+  if (ack.getLastRow() >= 2) ack.getRange(2, 1, ack.getLastRow() - 1, A.done).getValues()
+    .forEach(v => { if (v[0] && v[A.done - 1] === true) moveDay_(v[0], true); });
+  const msg = 'ย้ายไฟล์ PDF เข้าโฟลเดอร์ตามวันที่ตรวจแล้ว ' + n + ' ไฟล์';
+  try { SpreadsheetApp.getUi().alert(msg); } catch (err) { Logger.log(msg); }
+}
+
+/* ---------- แนบไฟล์ PDF จากชีต (เมนู ไฟล์ PDF) ---------- */
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('ไฟล์ PDF')
+    .addItem('แนบไฟล์ PDF (แถวที่เลือก หรือแถวใหม่)', 'pdfDialog')
+    .addSeparator()
+    .addItem('จัดไฟล์ PDF เดิมเข้าโฟลเดอร์ตามวันที่', 'tidyPdfFolders')
+    .addToUi();
+}
+
+function pdfDialog() {
+  const ss = SpreadsheetApp.getActive(), sh = ss.getActiveSheet();
+  let t = { row: 0 };
+  const r = sh.getName() === LOG ? sh.getActiveRange().getRow() : 0;
+  if (r >= 2 && r <= sh.getLastRow()) {
+    const v = sh.getRange(r, 1, 1, COL.id).getValues()[0];
+    if (String(v[3]).trim() || v[0]) t = { row: r, date: toISO_(v[0]), place: String(v[3]), job: String(v[1]), link: String(v[COL.link - 1]) };
+  }
+  const html = HtmlService.createTemplate(PDF_DIALOG);
+  html.target = JSON.stringify(t).replace(/</g, '\\u003c');
+  html.today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  html.maxMb = UPLOAD_MAX_BYTES / 1048576;
+  SpreadsheetApp.getUi().showModalDialog(html.evaluate().setWidth(480).setHeight(470), 'แนบไฟล์ PDF แบบฟอร์มรายงานผลการตรวจ');
+}
+
+// เรียกจากหน้าต่างแนบไฟล์: ส่งไฟล์ให้เว็บแอปบันทึกเข้าโฟลเดอร์วันที่ แล้วใส่ลิงก์ในคอลัมน์ N
+function uploadPdf(o) {
+  const iso = toISO_(o.date);
+  if (!iso) throw new Error('กรุณาใส่วันที่ตรวจ');
+  const token = PropertiesService.getScriptProperties().getProperty('TOKEN');
+  const res = UrlFetchApp.fetch(WEBAPP_URL, {
+    method: 'post', contentType: 'text/plain;charset=utf-8', muteHttpExceptions: true,
+    payload: JSON.stringify({ token: token, kind: 'upload', date: iso, filename: o.name, data: o.data })
+  });
+  let j;
+  try { j = JSON.parse(res.getContentText()); } catch (err) { throw new Error('เว็บแอปตอบกลับไม่ถูกต้อง (' + res.getResponseCode() + ') ตรวจ WEBAPP_URL'); }
+  if (!j.ok) throw new Error(j.error || 'บันทึกไฟล์ไม่สำเร็จ');
+  const sh = SpreadsheetApp.getActive().getSheetByName(LOG);
+  let rows;
+  if (o.row >= 2) {
+    // แถวจากแอปที่แยกหลายแถว (รหัส#2 #3) ใส่ลิงก์ให้ทุกแถวของรายการเดียวกัน
+    const id = String(sh.getRange(o.row, COL.id).getValue()).split('#')[0];
+    rows = id ? rowsOf_(sh, id) : [];
+    if (rows.indexOf(o.row) < 0) rows = [o.row];
+    if (!sh.getRange(o.row, 1).getValue()) { sh.getRange(o.row, 1).setValue(iso).setNumberFormat('dd/mm/yyyy'); ensureAckDate_(iso); }
+  } else {
+    const r = sh.getLastRow() + 1;
+    sh.getRange(r, 1).setValue(iso).setNumberFormat('dd/mm/yyyy');
+    sh.getRange(r, 15, 1, 2).setNumberFormat('@')
+      .setValues([[Utilities.formatDate(new Date(), TZ, 'dd/MM/yyyy HH:mm'), 'แนบจากชีต']]);
+    ensureAckDate_(iso);
+    rows = [r];
+  }
+  rows.forEach(r => sh.getRange(r, COL.link).setValue(j.url));
+  if (o.row < 2) sh.getRange(rows[0], 2).activate();
+  return { url: j.url, row: rows[0], added: o.row < 2, folder: iso };
+}
+
+const PDF_DIALOG = `<!doctype html><html><head><base target="_top"><style>
+body{font-family:Sarabun,Arial,sans-serif;font-size:14px;margin:0;color:#222}
+.t{background:#f3f6fb;border-radius:8px;padding:10px 12px;margin-bottom:12px;line-height:1.5}
+.w{color:#a15c00}
+#drop{border:2px dashed #8aa4c8;border-radius:10px;padding:28px 12px;text-align:center;cursor:pointer;color:#456}
+#drop.on{background:#eaf2ff;border-color:#2b6cb0}
+label{display:block;margin:12px 0 4px}
+input[type=date]{font-size:14px;padding:6px}
+button{margin-top:14px;font-size:15px;padding:8px 18px;border:0;border-radius:6px;background:#2b6cb0;color:#fff;cursor:pointer}
+button:disabled{background:#9ab}
+#msg{margin-top:10px;line-height:1.5}.ok{color:#18794e}.err{color:#c53030}
+</style></head><body>
+<div class="t" id="tgt"></div>
+<div id="drop">ลากไฟล์ PDF มาวางที่นี่<br>หรือคลิกเพื่อเลือกไฟล์<br><small>ไม่เกิน <?= maxMb ?> MB</small></div>
+<input type="file" id="f" accept="application/pdf,.pdf" hidden>
+<label for="d">วันที่ตรวจ (ไฟล์จะเก็บในโฟลเดอร์ของวันนี้)</label>
+<input type="date" id="d">
+<div><button id="go" disabled>บันทึกไฟล์</button></div>
+<div id="msg"></div>
+<script>
+var T=<?!= target ?>,file=null,$=function(i){return document.getElementById(i)};
+var th=function(iso){var p=iso.split('-');return p[2]+'/'+p[1]+'/'+(+p[0]+543)};
+if(T.row){
+  $('tgt').innerHTML='แนบกับแถวที่ '+T.row+': <b>'+esc(T.place||'-')+'</b><br>'+esc(T.job||'')+(T.date?' · '+th(T.date):'')+
+    (T.link?'<br><span class="w">แถวนี้มีลิงก์ PDF อยู่แล้ว ไฟล์ใหม่จะใช้แทนลิงก์เดิม (ไฟล์เดิมยังอยู่ใน Drive)</span>':'');
+}else{
+  $('tgt').innerHTML='ยังไม่ได้เลือกแถวในแท็บ รายการตรวจ<br>จะ<b>เพิ่มแถวใหม่</b>ท้ายตารางพร้อมลิงก์ PDF แล้วกรอกรายละเอียดในแถวนั้นต่อ';
+}
+$('d').value=T.date||'<?= today ?>';if(T.date)$('d').readOnly=true;
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function pick(f){
+  if(!f)return;
+  if(!/pdf$/i.test(f.type)&&!/\.pdf$/i.test(f.name))return say('เลือกได้เฉพาะไฟล์ PDF','err');
+  if(f.size><?= maxMb ?>*1048576)return say('ไฟล์ใหญ่เกิน <?= maxMb ?> MB','err');
+  file=f;$('drop').innerHTML='📄 '+esc(f.name)+'<br><small>คลิกเพื่อเปลี่ยนไฟล์</small>';$('go').disabled=false;say('','');
+}
+function say(t,c){$('msg').className=c;$('msg').innerHTML=t}
+$('drop').onclick=function(){$('f').click()};
+$('f').onchange=function(){pick(this.files[0])};
+['dragenter','dragover'].forEach(function(e){$('drop').addEventListener(e,function(ev){ev.preventDefault();$('drop').classList.add('on')})});
+['dragleave','drop'].forEach(function(e){$('drop').addEventListener(e,function(ev){ev.preventDefault();$('drop').classList.remove('on')})});
+$('drop').addEventListener('drop',function(ev){pick(ev.dataTransfer.files[0])});
+$('go').onclick=function(){
+  if(!file)return;if(!$('d').value)return say('กรุณาใส่วันที่ตรวจ','err');
+  $('go').disabled=true;say('กำลังบันทึกไฟล์…','');
+  var rd=new FileReader();
+  rd.onload=function(){
+    var b64=String(rd.result).split(',')[1];
+    google.script.run.withSuccessHandler(function(r){
+      say('บันทึกแล้วในโฟลเดอร์ '+r.folder+' และใส่ลิงก์ในแถวที่ '+r.row+' แล้ว'+
+        (r.added?'<br>กรอกงาน ชื่อสถานประกอบการ และผลตรวจในแถวนั้นต่อได้เลย':'')+
+        '<br><a href="'+r.url+'" target="_blank">เปิดไฟล์</a> · <a href="#" onclick="google.script.host.close()">ปิด</a>','ok');
+    }).withFailureHandler(function(e){$('go').disabled=false;say('ไม่สำเร็จ: '+esc(e.message||e),'err')})
+      .uploadPdf({row:T.row,date:$('d').value,name:file.name,data:b64});
+  };
+  rd.readAsDataURL(file);
+};
+</script></body></html>`;
 
 function linkPdf_(id, url) {
   const sh = ss_().getSheetByName(LOG);
@@ -866,7 +1112,7 @@ function onSheetEdit(e) {
 }
 
 // ติ๊กช่อง ผอ.รับทราบ (F) หรือ ลงระบบแล้ว (H): ลงเวลาและผู้กด และเก็บยอดของวันนั้นไว้ (K หรือ L)
-// เพื่อให้รู้ภายหลังว่ารับทราบหรือลงระบบยอดใดไป ไฟล์ PDF เก็บไว้ตามเดิม ไม่ลบ
+// เพื่อให้รู้ภายหลังว่ารับทราบหรือลงระบบยอดใดไป ลงระบบแล้วย้าย PDF ของวันนั้นไปโฟลเดอร์ ลงระบบแล้ว
 function onAckEdit_(e) {
   const r = e.range, sh = r.getSheet();
   if (r.getRow() < 2 || r.getNumRows() > 1) return;
@@ -884,6 +1130,7 @@ function onAckEdit_(e) {
   }
   const what = c === A.ack ? (on ? 'ผอ.รับทราบ' : 'ยกเลิก ผอ.รับทราบ') : (on ? 'ลงระบบงานแล้ว' : 'ยกเลิกลงระบบงาน');
   logHist_(v[0], what, snap, st);
+  if (c === A.done) moveDay_(v[0], on);
 }
 
 function snap_(v) {
@@ -911,6 +1158,7 @@ function syncAck_(by) {
     if (v[A.done - 1] === true && v[A.doneSnap - 1] && v[A.doneSnap - 1] !== cur) {
       sh.getRange(row, A.done, 1, 2).setValues([[false, '']]);
       logHist_(v[0], 'มีข้อมูลเปลี่ยนแปลงหลังลงระบบงาน (ยอดที่ลงระบบ ' + v[A.doneSnap - 1] + ')', cur, now);
+      moveDay_(v[0], false);
     }
   });
 }
@@ -956,6 +1204,7 @@ function onSheetChange(e) {
 
 /* ---------- อีเมลสรุปถึง ผอ. ทุกวัน ---------- */
 function dailyEmail() {
+  try { purgeDone_(); } catch (err) { Logger.log('ลบไฟล์ PDF ไม่สำเร็จ: ' + err); }
   const c = cfg_();
   if (!c.director) return;
   const ss = ss_();
