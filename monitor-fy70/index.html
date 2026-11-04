@@ -1,0 +1,1742 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ติดตามผลการตรวจสอบ ปีงบ 2570 · ชว.สุราษฎร์ธานี</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+:root {
+  --font-anthropic-sans: 'Sarabun', system-ui, sans-serif;
+  --font-anthropic-serif: 'Sarabun', Georgia, serif;
+  --cds-font-size-caption: 0.8125rem; --cds-font-size-body: 0.9375rem; --cds-font-size-heading: 1.125rem; --cds-font-size-title: 1.75rem;
+  --cds-font-weight-medium: 600;
+  --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 12px; --cds-gap-lg: 20px; --cds-gap-xl: 28px;
+  --cds-pad-xs: 4px; --cds-pad-sm: 8px; --cds-pad-md: 12px; --cds-pad-lg: 16px; --cds-pad-xl: 24px;
+  --cds-radius: 10px; --cds-dur-slow: 300ms; --cds-ease-out: cubic-bezier(.2,.7,.2,1);
+  --color-bg: #f6f7f9; --color-panel: #ffffff; --color-fg: #1d2330; --color-fg-muted: #667085; --color-border-line: #e3e6eb;
+  --color-ok: #1f8a4c; --color-warn: #b7791f; --color-bad: #c53030;
+  --cds-chart-muted: #c3c9d4; --cds-chart-grid: #eceef2; --cds-chart-axis: #b8bec9; --cds-chart-reference: #98a1b0;
+  --cds-surface-popover: #ffffff; --cds-border: #dde1e7; --cds-shadow-popover: 0 6px 20px rgba(16,24,40,.12); --cds-text-secondary: #667085;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #12151b; --color-panel: #1b2029; --color-fg: #e8ebf0; --color-fg-muted: #9aa3b2; --color-border-line: #2c3340;
+    --color-ok: #4cc38a; --color-warn: #e0b453; --color-bad: #f07171;
+    --cds-chart-muted: #4a5363; --cds-chart-grid: #262c37; --cds-chart-axis: #4a5363; --cds-chart-reference: #6b7486;
+    --cds-surface-popover: #232934; --cds-border: #343c4a; --cds-shadow-popover: 0 6px 20px rgba(0,0,0,.4); --cds-text-secondary: #9aa3b2;
+  }
+}
+html, body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-anthropic-sans); font-size: 16px; }
+#dash-root { padding: 20px clamp(16px, 4vw, 40px) 40px; }
+.dash-skeleton { color: transparent !important; position: relative; }
+.dash-skeleton::after { content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: min(6rem, 100%); height: .7em; border-radius: 6px; background: var(--color-border-line); animation: pulse 1.2s ease-in-out infinite; }
+.wm-chart.dash-skeleton::after, .wm-pv.dash-skeleton::after { top: 0; transform: none; width: 100%; height: 100%; min-height: 200px; }
+@keyframes pulse { 50% { opacity: .5; } }
+.pub-bar { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: center; justify-content: space-between; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); max-width: 84rem; margin: 0 auto 12px; }
+.pub-bar button { font: inherit; border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); border-radius: var(--cds-radius); padding: 4px 12px; cursor: pointer; }
+.pub-err { color: var(--color-bad); }
+.pub-foot { max-width: 84rem; margin: 24px auto 0; font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); line-height: 1.7; }
+</style>
+</head>
+<body>
+<div id="dash-root">
+<div class="pub-bar"><span>ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี) · กองชั่งตวงวัด กรมการค้าภายใน</span><span><span class="pub-status">กำลังโหลดข้อมูล…</span> <button type="button" class="pub-refresh">รีเฟรช</button></span></div>
+<script>
+// ===== ตั้งค่า: ลิงก์ CSV ของแท็บ "เผยแพร่" (Google Sheets > ไฟล์ > แชร์ > เผยแพร่ไปยังเว็บ) =====
+window.WM_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTMHyz3vXC2p_RiW96iGFmuQ-2-cqZtYMnimFW0NR_2tWa9DNNwrURG3f1TL_1I3RDAKuOz-bfychwk/pub?gid=344332348&single=true&output=csv';
+window.dash = (() => {
+  const loaders = {}, calcs = [], res = {}, listeners = [];
+  let params = { province: 'all' };
+  const colors = ['#2f6fdb', '#e0802e', '#2e9e6b', '#c2477a', '#7a5cc8', '#b08a1e', '#3a9fb5', '#8c6d5a'];
+  const fire = () => listeners.forEach((fn) => { try { fn(); } catch (e) { console.error(e); } });
+  let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fire, 150); });
+  const api = {
+    colors,
+    loader(id, o) { loaders[id] = o.fn; },
+    calc(id, o) { calcs.push({ id, ...o }); },
+    data(id) { return res[id] || { status: 'loading', data: [], columns: [], meta: [] }; },
+    onData(fn) { listeners.push(fn); try { fn(); } catch (e) { console.error(e); } },
+    params() { return params; },
+    setParams(p) { params = { ...params, ...p }; fire(); },
+    resetParams() { params = { province: 'all' }; fire(); },
+    setLink(name) { try { history.replaceState(null, '', '#' + name); } catch (e) {} },
+    refresh() { window.wmLoad(); },
+    _set(id, v) { res[id] = v; },
+    _loaders: loaders, _calcs: calcs, _fire: fire,
+  };
+  return api;
+})();
+</script>
+<script>
+dash.loader('equip', {
+  description: 'แปลงค่าเซลล์จาก Google Sheets เป็นตาราง: แถวแรกเป็นชื่อคอลัมน์ ตัวเลขเป็น number และ "-" เป็นค่าว่าง',
+  fn: ({ answer }) => {
+    let res = typeof answer === 'string' ? JSON.parse(answer) : answer;
+    if (res && Array.isArray(res.content) && res.content[0] && typeof res.content[0].text === 'string') res = JSON.parse(res.content[0].text);
+    if (res && res.error) throw new Error(res.error.message || JSON.stringify(res.error));
+    const values = (res && res.values) || [];
+    if (!values.length) throw new Error('No values in range ' + (res && res.range));
+    const columns = values[0].map(String);
+    const text = new Set(['กลุ่ม', 'ประเภท', 'สถานะ']);
+    const rows = values.slice(1).filter((r) => r.some((c) => c !== '')).map((r) => Object.fromEntries(columns.map((c, i) => {
+      const v = r[i] ?? '';
+      if (text.has(c)) return [c, String(v)];
+      return [c, v === '' || v === '-' ? null : Number(String(v).replace(/,/g, ''))];
+    })));
+    return { columns, rows };
+  },
+});
+dash.loader('places', {
+  description: 'แปลงค่าเซลล์จาก Google Sheets เป็นตาราง: แถวแรกเป็นชื่อคอลัมน์ ตัวเลขเป็น number และ "-" เป็นค่าว่าง',
+  fn: ({ answer }) => {
+    let res = typeof answer === 'string' ? JSON.parse(answer) : answer;
+    if (res && Array.isArray(res.content) && res.content[0] && typeof res.content[0].text === 'string') res = JSON.parse(res.content[0].text);
+    if (res && res.error) throw new Error(res.error.message || JSON.stringify(res.error));
+    const values = (res && res.values) || [];
+    if (!values.length) throw new Error('No values in range ' + (res && res.range));
+    const columns = values[0].map(String);
+    const text = new Set(['กลุ่ม', 'ประเภท', 'สถานะ']);
+    const rows = values.slice(1).filter((r) => r.some((c) => c !== '')).map((r) => Object.fromEntries(columns.map((c, i) => {
+      const v = r[i] ?? '';
+      if (text.has(c)) return [c, String(v)];
+      return [c, v === '' || v === '-' ? null : Number(String(v).replace(/,/g, ''))];
+    })));
+    return { columns, rows };
+  },
+});
+dash.loader('info', {
+  description: 'อ่านหัวตาราง: ชื่อเรื่อง วันที่ของข้อมูล เดือนที่ติดตาม และสัดส่วนวันที่ผ่านไปของเดือน',
+  fn: ({ answer }) => {
+    let res = typeof answer === 'string' ? JSON.parse(answer) : answer;
+    if (res && Array.isArray(res.content) && res.content[0] && typeof res.content[0].text === 'string') res = JSON.parse(res.content[0].text);
+    if (res && res.error) throw new Error(res.error.message || JSON.stringify(res.error));
+    const v = (res && res.values) || [];
+    if (v.length < 3) throw new Error('Header rows A1:E3 not found');
+    return {
+      columns: ['หัวเรื่อง', 'ข้อมูล ณ', 'เดือนที่ติดตาม', 'สัดส่วนวันของเดือน'],
+      rows: [{ 'หัวเรื่อง': String(v[0][0] ?? ''), 'ข้อมูล ณ': String(v[1][0] ?? ''), 'เดือนที่ติดตาม': Number(v[2][1]), 'สัดส่วนวันของเดือน': Number(v[2][3]) }],
+    };
+  },
+});
+dash.loader('notes', {
+  description: 'แยกบรรทัดข้อสังเกตตามหัวข้อ (บรรทัดที่ไม่ขึ้นต้นด้วย "-" คือหัวข้อ)',
+  fn: ({ answer }) => {
+    let res = typeof answer === 'string' ? JSON.parse(answer) : answer;
+    if (res && Array.isArray(res.content) && res.content[0] && typeof res.content[0].text === 'string') res = JSON.parse(res.content[0].text);
+    if (res && res.error) throw new Error(res.error.message || JSON.stringify(res.error));
+    const v = (res && res.values) || [];
+    let head = '';
+    const rows = [];
+    v.forEach((r) => {
+      const t = String(r[0] ?? '').trim();
+      if (!t) return;
+      if (t.startsWith('-')) rows.push({ 'หัวข้อ': head, 'ข้อความ': t.replace(/^-\s*/, '') });
+      else head = t;
+    });
+    return { columns: ['หัวข้อ', 'ข้อความ'], rows };
+  },
+});
+dash.loader('packaged', {
+  description: 'แปลงค่าเซลล์จาก Google Sheets เป็นตาราง: แถวแรกเป็นชื่อคอลัมน์ (ข้ามคอลัมน์ว่าง) ตัวเลขและร้อยละเป็น number และ "-" เป็นค่าว่าง',
+  fn: ({ answer }) => {
+    let res = typeof answer === 'string' ? JSON.parse(answer) : answer;
+    if (res && Array.isArray(res.content) && res.content[0] && typeof res.content[0].text === 'string') res = JSON.parse(res.content[0].text);
+    if (res && res.error) throw new Error(res.error.message || JSON.stringify(res.error));
+    const values = (res && res.values) || [];
+    if (!values.length) throw new Error('No values in range ' + (res && res.range));
+    const header = values[0].map(String);
+    const keep = header.map((c, i) => [c, i]).filter(([c]) => c.trim() !== '');
+    const numeric = new Set([]);
+    const isNum = (c) => c !== 'กลุ่ม' && c !== 'ประเภท';
+    const rows = values.slice(1).filter((r) => r.some((c) => c !== '') && true).map((r) => Object.fromEntries(keep.map(([c, i]) => {
+      const v = r[i] ?? '';
+      if (!isNum(c)) return [c, String(v)];
+      return [c, v === '' || v === '-' ? null : Number(String(v).replace(/[,%]/g, ''))];
+    })));
+    return { columns: keep.map(([c]) => c), rows };
+  },
+});
+dash.loader('cases', {
+  description: 'แปลงรายการคดีจาก Google Sheets เป็นตาราง: แถวแรกเป็นชื่อคอลัมน์ ข้ามแถวที่ไม่มีเลขที่ จำนวนและค่าปรับเป็น number',
+  fn: ({ answer }) => {
+    let res = typeof answer === 'string' ? JSON.parse(answer) : answer;
+    if (res && Array.isArray(res.content) && res.content[0] && typeof res.content[0].text === 'string') res = JSON.parse(res.content[0].text);
+    if (res && res.error) throw new Error(res.error.message || JSON.stringify(res.error));
+    const values = (res && res.values) || [];
+    if (!values.length) throw new Error('No values in range ' + (res && res.range));
+    const header = values[0].map(String);
+    const keep = header.map((c, i) => [c, i]).filter(([c]) => c.trim() !== '');
+    const numeric = new Set(['ที่', 'จำนวนที่พบผิด', 'เปรียบเทียบปรับ (บาท)', 'เดือนที่ (1=ต.ค.)']);
+    const isNum = (c) => numeric.has(c);
+    const rows = values.slice(1).filter((r) => r.some((c) => c !== '') && String(r[0] ?? '').trim() !== '').map((r) => Object.fromEntries(keep.map(([c, i]) => {
+      const v = r[i] ?? '';
+      if (!isNum(c)) return [c, String(v)];
+      return [c, v === '' || v === '-' ? null : Number(String(v).replace(/[,%]/g, ''))];
+    })));
+    return { columns: keep.map(([c]) => c), rows };
+  },
+});
+dash.loader('fy69_equip', {
+  description: 'แปลงค่าเซลล์จาก Google Sheets เป็นตาราง: แถวแรกเป็นชื่อคอลัมน์ ตัวเลขเป็น number',
+  fn: ({ answer }) => {
+    let res = typeof answer === 'string' ? JSON.parse(answer) : answer;
+    if (res && Array.isArray(res.content) && res.content[0] && typeof res.content[0].text === 'string') res = JSON.parse(res.content[0].text);
+    if (res && res.error) throw new Error(res.error.message || JSON.stringify(res.error));
+    const values = (res && res.values) || [];
+    if (!values.length) throw new Error('No values in range ' + (res && res.range));
+    const columns = values[0].map(String);
+    const text = new Set(['กลุ่มเปรียบเทียบ']);
+    const rows = values.slice(1).filter((r) => r.some((c) => c !== '')).map((r) => Object.fromEntries(columns.map((c, i) => {
+      const v = r[i] ?? '';
+      if (text.has(c)) return [c, String(v)];
+      return [c, v === '' || v === '-' ? null : Number(String(v).replace(/,/g, ''))];
+    })));
+    return { columns, rows };
+  },
+});
+dash.loader('fy69_places', {
+  description: 'แปลงค่าเซลล์จาก Google Sheets เป็นตาราง: แถวแรกเป็นชื่อคอลัมน์ ตัวเลขเป็น number',
+  fn: ({ answer }) => {
+    let res = typeof answer === 'string' ? JSON.parse(answer) : answer;
+    if (res && Array.isArray(res.content) && res.content[0] && typeof res.content[0].text === 'string') res = JSON.parse(res.content[0].text);
+    if (res && res.error) throw new Error(res.error.message || JSON.stringify(res.error));
+    const values = (res && res.values) || [];
+    if (!values.length) throw new Error('No values in range ' + (res && res.range));
+    const columns = values[0].map(String);
+    const text = new Set(['ประเภท', 'จังหวัด']);
+    const rows = values.slice(1).filter((r) => r.some((c) => c !== '')).map((r) => Object.fromEntries(columns.map((c, i) => {
+      const v = r[i] ?? '';
+      if (text.has(c)) return [c, String(v)];
+      return [c, v === '' || v === '-' ? null : Number(String(v).replace(/,/g, ''))];
+    })));
+    return { columns, rows };
+  },
+});
+</script>
+
+<style>
+#dash-root .wm { font-family: var(--font-anthropic-sans); display: flex; flex-direction: column; gap: var(--cds-gap-xl); max-width: 84rem; margin-inline: auto; }
+.wm h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; line-height: 1.3; }
+.wm h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+.wm h3 { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: 0; }
+.wm-asof { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin-top: var(--cds-gap-xs); }
+.wm-take { margin-top: var(--cds-gap-sm); line-height: 1.7; }
+.wm-take .wm-n { font-variant-numeric: tabular-nums; font-weight: var(--cds-font-weight-medium); }
+.wm-secnote { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin: var(--cds-gap-xs) 0 var(--cds-gap-md); }
+.wm-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: var(--cds-gap-md); }
+.wm-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); min-width: 0; }
+.wm-kpi-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+.wm-kpi-val { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; margin-top: var(--cds-gap-xs); line-height: 1.2; }
+.wm-kpi-sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-top: var(--cds-gap-xs); font-variant-numeric: tabular-nums; }
+.wm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); gap: var(--cds-gap-md); margin-top: var(--cds-gap-md); }
+.wm-cardnote { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin: var(--cds-gap-xs) 0 var(--cds-gap-md); }
+.wm-badge { display: inline-block; padding: 0 var(--cds-pad-sm); border-radius: 999px; font-size: var(--cds-font-size-caption); white-space: nowrap; line-height: 1.6; }
+.wm-ok { color: var(--color-ok); background: color-mix(in srgb, var(--color-ok) 14%, transparent); }
+.wm-warn { color: var(--color-warn); background: color-mix(in srgb, var(--color-warn) 16%, transparent); }
+.wm-bad { color: var(--color-bad); background: color-mix(in srgb, var(--color-bad) 14%, transparent); }
+.wm-na { color: var(--color-fg-muted); }
+.wm-chips { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); margin-bottom: var(--cds-gap-md); }
+.wm-chips .wm-badge { font-size: var(--cds-font-size-caption); }
+.wm-tablecard { container-type: inline-size; }
+.wm-tablewrap { overflow-x: auto; }
+.wm table { width: 100%; border-collapse: collapse; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+.wm th { text-align: left; font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.wm td { padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); vertical-align: middle; }
+.wm .wm-r { text-align: right; }
+.wm td.wm-type { min-width: 10rem; }
+.wm td.wm-grp { color: var(--color-fg-muted); }
+.wm-bar { position: relative; height: 0.5rem; border-radius: 999px; background: var(--cds-chart-grid); min-width: 6rem; margin-top: 3px; }
+.wm-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+.wm-bar b.wm-tick { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--color-fg); border-radius: 1px; }
+.wm-pcell { min-width: 8rem; }
+@container (max-width: 640px) { .wm-opt { display: none; } }
+.wm-toggle { display: inline-flex; align-items: center; gap: var(--cds-gap-xs); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-top: var(--cds-gap-sm); cursor: pointer; }
+.wm-chart { position: relative; min-height: 240px; }
+.wm-chart svg text { font-size: var(--cds-font-size-caption); fill: var(--color-fg-muted); font-family: var(--font-anthropic-sans); }
+.wm-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-bottom: var(--cds-gap-sm); }
+.wm-legend span { display: inline-flex; align-items: center; gap: var(--cds-gap-xs); }
+.wm-sw { width: 0.65rem; height: 0.65rem; border-radius: 2px; display: inline-block; }
+.wm-sw.wm-line { height: 2px; border-radius: 1px; width: 0.9rem; }
+.wm-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); white-space: nowrap; z-index: 2; }
+.wm-tip .wm-tip-h { color: var(--cds-text-secondary); margin-bottom: 2px; }
+.wm-tip div { display: flex; align-items: center; gap: var(--cds-gap-xs); font-variant-numeric: tabular-nums; }
+.wm-fail { display: flex; align-items: center; justify-content: center; gap: var(--cds-gap-xs); color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); min-height: inherit; }
+.wm-fail::before { content: ""; width: 0.375rem; height: 0.375rem; border-radius: 50%; background: var(--color-bad); }
+.wm-notes ul { margin: 0; padding-left: 1.2rem; line-height: 1.7; }
+.wm-notes h3 { margin-top: var(--cds-gap-md); }
+.wm-notes h3:first-child { margin-top: 0; }
+.wm-nav { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--cds-gap-md); border-bottom: 1px solid var(--color-border-line); padding-bottom: var(--cds-pad-sm); }
+.wm-tabs { display: flex; flex-wrap: wrap; gap: var(--cds-gap-xs); }
+.wm-tabs button, .wm-seg button { font: inherit; font-size: var(--cds-font-size-body); color: var(--color-fg-muted); background: transparent; border: 1px solid transparent; border-radius: var(--cds-radius); padding: var(--cds-pad-xs) var(--cds-pad-md); cursor: pointer; }
+.wm-tabs button:hover, .wm-seg button:hover { color: var(--color-fg); }
+.wm-tabs button[aria-selected=true] { color: var(--color-fg); background: var(--color-panel); border-color: var(--color-border-line); font-weight: var(--cds-font-weight-medium); }
+.wm-seg { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-panel); }
+.wm-seg-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-right: var(--cds-gap-xs); }
+.wm-seg button { font-size: var(--cds-font-size-caption); padding: 2px var(--cds-pad-sm); }
+.wm-seg button[aria-pressed=true] { background: var(--color-bg); color: var(--color-fg); border-color: var(--color-border-line); font-weight: var(--cds-font-weight-medium); }
+.wm-provnote { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: var(--cds-gap-sm) 0 0; }
+.wm-prov { opacity: 1; transition: opacity var(--cds-dur-slow); }
+.wm-prov.wm-dim { opacity: .4; }
+.wm-tbl.wm-provmode .wm-provcol { display: none; }
+.wm-tbl th.wm-hl, .wm-tbl td.wm-hl { font-weight: var(--cds-font-weight-medium); }
+.wm-pv { display: flex; flex-direction: column; gap: var(--cds-gap-sm); min-height: 4rem; }
+.wm-pv-row { display: grid; grid-template-columns: 1fr; gap: 2px; font-size: var(--cds-font-size-caption); }
+.wm-pv-name { color: var(--color-fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wm-pv-line { display: grid; grid-template-columns: 2.2rem 1fr 3.5rem; align-items: center; gap: var(--cds-gap-xs); color: var(--color-fg-muted); font-variant-numeric: tabular-nums; }
+.wm-pv-track { height: 0.55rem; }
+.wm-pv-track i { display: block; height: 100%; border-radius: 999px; min-width: 2px; transition: opacity var(--cds-dur-slow); }
+.wm-pv-line .wm-r { text-align: right; }
+.wm-sec[hidden] { display: none; }
+.wm-yo-head { font-size: var(--cds-font-size-body); margin-bottom: var(--cds-gap-sm); line-height: 1.8; }
+.wm-yo-head .wm-n { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-heading); }
+.wm-yo td.wm-up { color: var(--color-ok); } .wm-yo td.wm-down { color: var(--color-bad); }
+.wm-todo ul { list-style: none; margin: var(--cds-gap-sm) 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--cds-gap-sm); }
+.wm-todo li { display: flex; gap: var(--cds-gap-sm); align-items: flex-start; padding: var(--cds-pad-sm); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-bg); cursor: pointer; }
+.wm-todo li:hover { border-color: var(--color-fg-muted); }
+.wm-todo .wm-todo-n { font-family: var(--font-anthropic-serif); font-size: var(--cds-font-size-heading); font-variant-numeric: tabular-nums; min-width: 2.2rem; text-align: center; border-radius: var(--cds-radius); padding: 0 var(--cds-pad-xs); }
+.wm-todo .wm-todo-t { font-size: var(--cds-font-size-body); }
+.wm-todo .wm-todo-d { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin-top: 2px; }
+#dash-root [data-dash-source-state=empty] { color: transparent; }
+#dash-root [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+</style>
+
+<div class="wm">
+  <header id="top">
+    <h1>ติดตามผลการตรวจสอบเทียบเป้าหมาย ปีงบประมาณ 2570 — ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)</h1>
+    <div class="wm-asof dash-skeleton" data-source="info" data-field="ข้อมูล ณ" data-row="0">—</div>
+    <div class="wm-take">
+      เครื่องชั่งตวงวัด ผลสะสม<span class="t-prov-lab"></span> <span class="wm-n t-eq-act dash-skeleton" data-source="equip" data-field="ผลสะสม" data-where="กลุ่ม=รวม">—</span> เครื่อง
+      ทั้งศูนย์คิดเป็น <span class="wm-n t-eq-pct dash-skeleton" data-source="equip" data-field="ร้อยละเทียบเป้าสะสม" data-where="กลุ่ม=รวม">—</span>% ของเป้าสะสม
+      <span class="wm-badge t-eq-st" data-source="equip" data-field="สถานะ" data-where="กลุ่ม=รวม">—</span>
+      · สถานรับซื้อสินค้าเกษตร<span class="t-prov-lab"></span> <span class="wm-n t-pl-act dash-skeleton" data-source="places" data-field="ผลสะสม" data-where="กลุ่ม=รวม">—</span> ราย
+      ทั้งศูนย์คิดเป็น <span class="wm-n t-pl-pct dash-skeleton" data-source="places" data-field="ร้อยละเทียบเป้าสะสม" data-where="กลุ่ม=รวม">—</span>%
+      <span class="wm-badge t-pl-st" data-source="places" data-field="สถานะ" data-where="กลุ่ม=รวม">—</span>
+      <div>สินค้าหีบห่อ ตรวจแล้ว<span class="t-prov-lab"></span> <span class="wm-n t-pk dash-skeleton" data-source="packaged" data-field="ผลสะสม (ราย)" data-where="กลุ่ม=รวม">—</span> ราย
+      · ดำเนินคดี<span class="t-prov-lab"></span> <span class="wm-n t-cs dash-skeleton" data-source="cases_kpi" data-field="คดี" data-where="จังหวัด=ทั้งศูนย์">—</span> คดี
+      ค่าปรับรวม <span class="wm-n t-csf dash-skeleton" data-source="cases_kpi" data-field="ค่าปรับรวม (บาท)" data-where="จังหวัด=ทั้งศูนย์">—</span> บาท</div>
+      <div>เทียบปีงบ 69 ช่วงเดียวกัน: เครื่องชั่งตวงวัด <span class="wm-badge t-yo-e"><span class="t-yo-ev" data-source="equip_yoy" data-field="เปลี่ยนแปลง (%)" data-where="กลุ่มเปรียบเทียบ=รวม">—</span>%</span>
+      · สถานรับซื้อสินค้าเกษตร <span class="wm-badge t-yo-p"><span class="t-yo-pv" data-source="places_yoy" data-field="เปลี่ยนแปลง (%)" data-where="ประเภท=รวมทั้งหมด">—</span>%</span></div>
+      <div class="wm-asof t-behind" data-source="equip places"></div>
+    </div>
+  </header>
+
+  <section class="wm-card wm-todo" id="followups" data-source="followups">
+    <h3>สิ่งที่ต้องติดตาม</h3>
+    <ul class="wm-todo-list dash-skeleton"></ul>
+  </section>
+
+  <nav class="wm-nav">
+    <div class="wm-tabs" role="tablist">
+      <button type="button" id="tab-equip" role="tab" data-tab="equip" aria-selected="true">เครื่องชั่งตวงวัด</button>
+      <button type="button" id="tab-places" role="tab" data-tab="places" aria-selected="false">สถานรับซื้อสินค้าเกษตร</button>
+      <button type="button" id="tab-packaged" role="tab" data-tab="packaged" aria-selected="false">สินค้าหีบห่อ</button>
+      <button type="button" id="tab-cases" role="tab" data-tab="cases" aria-selected="false">การดำเนินคดี</button>
+    </div>
+    <div>
+      <span class="wm-seg-label">จังหวัด</span>
+      <div class="wm-seg" role="group" aria-label="จังหวัด">
+        <button type="button" data-prov="all" aria-pressed="true">ทั้งศูนย์</button>
+        <button type="button" data-prov="สฎ" aria-pressed="false">สุราษฎร์ธานี</button>
+        <button type="button" data-prov="นศ" aria-pressed="false">นครศรีธรรมราช</button>
+      </div>
+    </div>
+  </nav>
+  <p class="wm-provnote" hidden style="margin-top:calc(-1 * var(--cds-gap-lg))">แผนปีงบ 70 กำหนดเป้าเป็นภาพรวมศูนย์ ไม่แยกจังหวัด — ผลสะสมจึงแสดงเฉพาะ<span class="wm-provname"></span> ส่วนเป้า ร้อยละ สถานะ จำนวนตัวอย่าง และกราฟรายเดือนยังเป็นของทั้งศูนย์</p>
+
+  <section id="equip" class="wm-sec" data-sec="equip">
+    <h2>1) เครื่องชั่งตวงวัด</h2>
+    <p class="wm-secnote">หน่วย: เครื่อง · ผล = งานที่ปิดแล้วในระบบ · เป้าสะสม = เป้าเดือนก่อนหน้าทั้งหมด + เป้าเดือนนี้ตามสัดส่วนวันที่ผ่านไป</p>
+    <div class="wm-kpis">
+      <div class="wm-card"><div class="wm-kpi-label">ผลสะสม<span class="k-act-lab"></span></div>
+        <div class="wm-kpi-val k-act dash-skeleton" data-source="equip" data-field="ผลสะสม" data-where="กลุ่ม=รวม">—</div>
+        <div class="wm-kpi-sub k-share-wrap" hidden>คิดเป็น <span class="k-share" data-source="equip_share" data-field="สัดส่วน" data-where="จังหวัด=สฎ">—</span>% ของผลรวมศูนย์</div>
+        <div class="wm-kpi-sub">ร่างรอปิดงาน <span class="k-draft" data-source="equip" data-field="ร่างรอปิดงาน" data-where="กลุ่ม=รวม">—</span></div></div>
+      <div class="wm-card"><div class="wm-kpi-label">เป้าสะสมถึงวันนี้</div>
+        <div class="wm-kpi-val k-cum dash-skeleton" data-source="equip" data-field="เป้าสะสมถึงเดือนที่ติดตาม" data-where="กลุ่ม=รวม">—</div>
+        <div class="wm-kpi-sub">เป้าทั้งปี <span class="k-year" data-source="equip" data-field="เป้าทั้งปี" data-where="กลุ่ม=รวม">—</span></div></div>
+      <div class="wm-card"><div class="wm-kpi-label">ร้อยละเทียบเป้าสะสม</div>
+        <div class="wm-kpi-val"><span class="k-pct dash-skeleton" data-source="equip" data-field="ร้อยละเทียบเป้าสะสม" data-where="กลุ่ม=รวม">—</span>%</div>
+        <div class="wm-kpi-sub"><span class="wm-badge k-st" data-source="equip" data-field="สถานะ" data-where="กลุ่ม=รวม">—</span></div></div>
+      <div class="wm-card"><div class="wm-kpi-label">ร้อยละเทียบเป้าทั้งปี</div>
+        <div class="wm-kpi-val"><span class="k-pcty dash-skeleton" data-source="equip" data-field="ร้อยละเทียบเป้าทั้งปี" data-where="กลุ่ม=รวม">—</span>%</div>
+        <div class="wm-bar k-bar"><i></i></div></div>
+      <div class="wm-card"><div class="wm-kpi-label">แยกจังหวัด (ผลสะสม)</div>
+        <div class="wm-prov" data-p="สฎ"><div class="wm-kpi-sub" style="margin-top:var(--cds-gap-sm)">สุราษฎร์ธานี</div>
+        <div class="wm-kpi-val k-srt dash-skeleton" style="font-size:var(--cds-font-size-heading)" data-source="equip" data-field="ผลสะสม สฎ" data-where="กลุ่ม=รวม">—</div></div>
+        <div class="wm-prov" data-p="นศ"><div class="wm-kpi-sub">นครศรีธรรมราช</div>
+        <div class="wm-kpi-val k-nst dash-skeleton" style="font-size:var(--cds-font-size-heading)" data-source="equip" data-field="ผลสะสม นศ" data-where="กลุ่ม=รวม">—</div></div></div>
+    </div>
+
+    <div class="wm-card wm-tablecard" id="equip-yoy" style="margin-top:var(--cds-gap-md)">
+      <h3>เทียบปีงบ 69 ช่วงเดียวกัน<span class="yo-lab"></span></h3>
+      <p class="wm-cardnote">ช่วงเดียวกัน = เดือนที่ผ่านแล้ว + เดือนปัจจุบันตามสัดส่วนวันที่ผ่านไป (วิธีเดียวกับเป้าสะสม) · ปีงบ 69 มีข้อมูลแยกได้ 3 กลุ่ม และไม่แยกจังหวัด</p>
+      <div class="wm-yo-head">ปีนี้ <b class="wm-n yo-a" data-source="equip_yoy" data-field="ปีงบ 70" data-where="กลุ่มเปรียบเทียบ=รวม">—</b> เครื่อง
+        เทียบปีงบ 69 <b class="wm-n yo-b" data-source="equip_yoy" data-field="ปีงบ 69 ช่วงเดียวกัน" data-where="กลุ่มเปรียบเทียบ=รวม">—</b> เครื่อง
+        <span class="wm-badge yo-badge"><span class="yo-p" data-source="equip_yoy" data-field="เปลี่ยนแปลง (%)" data-where="กลุ่มเปรียบเทียบ=รวม">—</span>%</span></div>
+      <div class="wm-tablewrap">
+        <table class="wm-yo" data-source="equip_yoy" data-row-key="กลุ่มเปรียบเทียบ">
+          <thead><tr>
+            <th data-field="กลุ่มเปรียบเทียบ">กลุ่ม</th>
+            <th class="wm-r yo-c1" data-field="ปีงบ 70">ปีงบ 70</th>
+            <th class="wm-r yo-c2" data-field="ปีงบ 69 ช่วงเดียวกัน">ปีงบ 69</th>
+            <th class="wm-r yo-c3" data-field="เพิ่ม/ลด">เพิ่ม/ลด</th>
+            <th class="wm-r yo-c4" data-field="เปลี่ยนแปลง (%)">เปลี่ยนแปลง</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <label class="wm-toggle yo-toggle"><input type="checkbox" class="wm-yo-all"> แสดงประเภทที่ไม่มีผลทั้งสองปี</label>
+    </div>
+
+    <div class="wm-card wm-tablecard" id="equip-table" style="margin-top:var(--cds-gap-md)">
+      <h3>ผลเทียบเป้าแยกตามประเภทเครื่องชั่งตวงวัด</h3>
+      <p class="wm-cardnote">แถบ = ผลสะสมเทียบเป้าทั้งปี · ขีดดำ = ตำแหน่งเป้าสะสมถึงวันนี้ · สถานะ: ตามเป้า ≥ 100% · ใกล้เป้า 80–99% · ต่ำกว่าเป้า &lt; 80% ของเป้าสะสม</p>
+      <div class="wm-chips" data-source="equip_status">
+        <span class="wm-badge wm-ok">ตามเป้า <span class="c-ok" data-source="equip_status" data-field="จำนวน" data-where="สถานะ=ตามเป้า">—</span> ประเภท</span>
+        <span class="wm-badge wm-warn">ใกล้เป้า <span class="c-warn" data-source="equip_status" data-field="จำนวน" data-where="สถานะ=ใกล้เป้า">—</span> ประเภท</span>
+        <span class="wm-badge wm-bad">ต่ำกว่าเป้า <span class="c-bad" data-source="equip_status" data-field="จำนวน" data-where="สถานะ=ต่ำกว่าเป้า">—</span> ประเภท</span>
+      </div>
+      <div class="wm-tablewrap">
+        <table class="wm-tbl" data-source="equip" data-row-key="ประเภท">
+          <thead><tr>
+            <th class="wm-opt" data-field="กลุ่ม">กลุ่ม</th>
+            <th data-field="ประเภท">ประเภท</th>
+            <th class="wm-r" data-field="เป้าทั้งปี">เป้าทั้งปี</th>
+            <th class="wm-r" data-field="เป้าสะสมถึงเดือนที่ติดตาม">เป้าสะสม</th>
+            <th class="wm-r th-res wm-hl" data-field="ผลสะสม">ผลสะสม</th>
+            <th class="wm-r" data-field="ร้อยละเทียบเป้าสะสม">% เป้าสะสม</th>
+            <th data-field="สถานะ">สถานะ</th>
+            <th class="wm-pcell" data-field="ร้อยละเทียบเป้าทั้งปี">% เป้าทั้งปี</th>
+            <th class="wm-r wm-opt wm-provcol" data-field="ผลสะสม สฎ">สฎ</th>
+            <th class="wm-r wm-opt wm-provcol" data-field="ผลสะสม นศ">นศ</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <label class="wm-toggle"><input type="checkbox" class="wm-showall"> แสดงประเภทที่ไม่มีเป้าและยังไม่มีผล (<span class="wm-hidden-n">0</span> ประเภท)</label>
+    </div>
+
+    <div class="wm-card wm-tablecard" id="equip-pace" style="margin-top:var(--cds-gap-md)">
+      <h3>อัตราที่ทำได้ เทียบอัตราที่ต้องทำให้ถึงเป้าทั้งปี</h3>
+      <p class="wm-cardnote">ทั้งศูนย์ · ทำได้ต่อเดือน = ผลสะสม ÷ เดือนที่ผ่านไป · ต้องทำต่อเดือน = ส่วนที่เหลือ ÷ เดือนที่เหลือ · คาดการณ์สิ้นปี = ถ้าทำในอัตราเดิมตลอดปี (ช่วงต้นปีตัวเลขยังแกว่งได้มาก)</p>
+      <p class="wm-cardnote" style="margin-top:0">รวมทั้งหมด: ทำได้ <b class="wm-n pc-rate" data-source="equip_pace" data-field="ทำได้ต่อเดือน" data-where="ประเภท=รวมทั้งหมด">—</b> เครื่อง/เดือน · ต้องทำ <b class="wm-n pc-need" data-source="equip_pace" data-field="ต้องทำต่อเดือน" data-where="ประเภท=รวมทั้งหมด">—</b> เครื่อง/เดือน · คาดการณ์สิ้นปี <b class="wm-n pc-proj" data-source="equip_pace" data-field="คาดการณ์สิ้นปี (%)" data-where="ประเภท=รวมทั้งหมด">—</b>% ของเป้า</p>
+      <div class="wm-tablewrap">
+        <table class="wm-pace" data-source="equip_pace" data-row-key="ประเภท">
+          <thead><tr>
+            <th data-field="ประเภท">ประเภท</th>
+            <th data-field="แนวโน้ม">แนวโน้ม</th>
+            <th class="wm-r" data-field="ทำได้ต่อเดือน">ทำได้/เดือน</th>
+            <th class="wm-r" data-field="ต้องทำต่อเดือน">ต้องทำ/เดือน</th>
+            <th class="wm-r wm-opt" data-field="เหลือถึงเป้าทั้งปี">เหลือถึงเป้า</th>
+            <th class="wm-r" data-field="คาดการณ์สิ้นปี (%)">คาดการณ์สิ้นปี</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="wm-grid">
+      <div class="wm-card" id="equip-monthly">
+        <h3>เป้า vs ผล รายเดือน</h3>
+        <p class="wm-cardnote">ทั้งศูนย์ · ผลแสดงถึงเดือนที่ติดตาม</p>
+        <div class="wm-legend"><span><i class="wm-sw sw-t"></i>เป้า</span><span><i class="wm-sw sw-a"></i>ผล</span></div>
+        <div class="wm-chart ch-bar" data-source="equip_months"></div>
+      </div>
+      <div class="wm-card" id="equip-cumulative">
+        <h3>เป้าสะสม vs ผลสะสม</h3>
+        <p class="wm-cardnote">ทั้งศูนย์ · เป้าสะสมนับเต็มเดือน ต.ค. 69 – ก.ย. 70</p>
+        <div class="wm-legend"><span><i class="wm-sw wm-line sw-t"></i>เป้าสะสม</span><span><i class="wm-sw wm-line sw-a"></i>ผลสะสม</span><span><i class="wm-sw wm-line sw-69"></i>ปีงบ 69</span></div>
+        <div class="wm-chart ch-line" data-source="equip_months"></div>
+      </div>
+      <div class="wm-card" id="equip-province">
+        <h3>ผลสะสมแยกจังหวัด ตามประเภท</h3>
+        <p class="wm-cardnote">เฉพาะประเภทที่มีผลแล้ว เรียงจากมากไปน้อย</p>
+        <div class="wm-legend"><span><i class="wm-sw sw-p1"></i>สุราษฎร์ธานี</span><span><i class="wm-sw sw-p2"></i>นครศรีธรรมราช</span></div>
+        <div class="wm-pv ch-prov" data-source="equip"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="places" class="wm-sec" data-sec="places" hidden>
+    <h2>2) สถานรับซื้อสินค้าเกษตร</h2>
+    <p class="wm-secnote">หน่วย: ราย (ครั้งที่เข้าตรวจ, 1 แห่งต่อ 1 วัน) · ตลาดนัดนับรวมในตลาดสด</p>
+    <div class="wm-kpis">
+      <div class="wm-card"><div class="wm-kpi-label">ผลสะสม<span class="k-act-lab"></span></div>
+        <div class="wm-kpi-val k-act dash-skeleton" data-source="places" data-field="ผลสะสม" data-where="กลุ่ม=รวม">—</div>
+        <div class="wm-kpi-sub k-share-wrap" hidden>คิดเป็น <span class="k-share" data-source="places_share" data-field="สัดส่วน" data-where="จังหวัด=สฎ">—</span>% ของผลรวมศูนย์</div>
+        <div class="wm-kpi-sub">ร่างรอปิดงาน <span class="k-draft" data-source="places" data-field="ร่างรอปิดงาน" data-where="กลุ่ม=รวม">—</span></div></div>
+      <div class="wm-card"><div class="wm-kpi-label">เป้าสะสมถึงวันนี้</div>
+        <div class="wm-kpi-val k-cum dash-skeleton" data-source="places" data-field="เป้าสะสมถึงเดือนที่ติดตาม" data-where="กลุ่ม=รวม">—</div>
+        <div class="wm-kpi-sub">เป้าทั้งปี <span class="k-year" data-source="places" data-field="เป้าทั้งปี" data-where="กลุ่ม=รวม">—</span></div></div>
+      <div class="wm-card"><div class="wm-kpi-label">ร้อยละเทียบเป้าสะสม</div>
+        <div class="wm-kpi-val"><span class="k-pct dash-skeleton" data-source="places" data-field="ร้อยละเทียบเป้าสะสม" data-where="กลุ่ม=รวม">—</span>%</div>
+        <div class="wm-kpi-sub"><span class="wm-badge k-st" data-source="places" data-field="สถานะ" data-where="กลุ่ม=รวม">—</span></div></div>
+      <div class="wm-card"><div class="wm-kpi-label">ร้อยละเทียบเป้าทั้งปี</div>
+        <div class="wm-kpi-val"><span class="k-pcty dash-skeleton" data-source="places" data-field="ร้อยละเทียบเป้าทั้งปี" data-where="กลุ่ม=รวม">—</span>%</div>
+        <div class="wm-bar k-bar"><i></i></div></div>
+      <div class="wm-card"><div class="wm-kpi-label">แยกจังหวัด (ผลสะสม)</div>
+        <div class="wm-prov" data-p="สฎ"><div class="wm-kpi-sub" style="margin-top:var(--cds-gap-sm)">สุราษฎร์ธานี</div>
+        <div class="wm-kpi-val k-srt dash-skeleton" style="font-size:var(--cds-font-size-heading)" data-source="places" data-field="ผลสะสม สฎ" data-where="กลุ่ม=รวม">—</div></div>
+        <div class="wm-prov" data-p="นศ"><div class="wm-kpi-sub">นครศรีธรรมราช</div>
+        <div class="wm-kpi-val k-nst dash-skeleton" style="font-size:var(--cds-font-size-heading)" data-source="places" data-field="ผลสะสม นศ" data-where="กลุ่ม=รวม">—</div></div></div>
+    </div>
+
+    <div class="wm-card wm-tablecard" id="places-yoy" style="margin-top:var(--cds-gap-md)">
+      <h3>เทียบปีงบ 69 ช่วงเดียวกัน<span class="yo-lab"></span></h3>
+      <p class="wm-cardnote">ช่วงเดียวกัน = เดือนที่ผ่านแล้ว + เดือนปัจจุบันตามสัดส่วนวันที่ผ่านไป (วิธีเดียวกับเป้าสะสม) · ปีงบ 69 นับรวมรายการแบบร่าง ปีงบ 70 นับเฉพาะงานที่ปิดแล้ว</p>
+      <div class="wm-yo-head">ปีนี้ <b class="wm-n yo-a" data-source="places_yoy" data-field="ปีงบ 70" data-where="ประเภท=รวมทั้งหมด">—</b> ราย
+        เทียบปีงบ 69 <b class="wm-n yo-b" data-source="places_yoy" data-field="ปีงบ 69 ช่วงเดียวกัน" data-where="ประเภท=รวมทั้งหมด">—</b> ราย
+        <span class="wm-badge yo-badge"><span class="yo-p" data-source="places_yoy" data-field="เปลี่ยนแปลง (%)" data-where="ประเภท=รวมทั้งหมด">—</span>%</span></div>
+      <div class="wm-tablewrap">
+        <table class="wm-yo" data-source="places_yoy" data-row-key="ประเภท">
+          <thead><tr>
+            <th data-field="ประเภท">ประเภท</th>
+            <th class="wm-r yo-c1" data-field="ปีงบ 70">ปีงบ 70</th>
+            <th class="wm-r yo-c2" data-field="ปีงบ 69 ช่วงเดียวกัน">ปีงบ 69</th>
+            <th class="wm-r yo-c3" data-field="เพิ่ม/ลด">เพิ่ม/ลด</th>
+            <th class="wm-r yo-c4" data-field="เปลี่ยนแปลง (%)">เปลี่ยนแปลง</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <label class="wm-toggle yo-toggle"><input type="checkbox" class="wm-yo-all"> แสดงประเภทที่ไม่มีผลทั้งสองปี</label>
+    </div>
+
+    <div class="wm-card wm-tablecard" id="places-table" style="margin-top:var(--cds-gap-md)">
+      <h3>ผลเทียบเป้าแยกตามประเภทสถานประกอบการ</h3>
+      <p class="wm-cardnote">แถบ = ผลสะสมเทียบเป้าทั้งปี · ขีดดำ = ตำแหน่งเป้าสะสมถึงวันนี้</p>
+      <div class="wm-chips" data-source="places_status">
+        <span class="wm-badge wm-ok">ตามเป้า <span class="c-ok" data-source="places_status" data-field="จำนวน" data-where="สถานะ=ตามเป้า">—</span> ประเภท</span>
+        <span class="wm-badge wm-warn">ใกล้เป้า <span class="c-warn" data-source="places_status" data-field="จำนวน" data-where="สถานะ=ใกล้เป้า">—</span> ประเภท</span>
+        <span class="wm-badge wm-bad">ต่ำกว่าเป้า <span class="c-bad" data-source="places_status" data-field="จำนวน" data-where="สถานะ=ต่ำกว่าเป้า">—</span> ประเภท</span>
+      </div>
+      <div class="wm-tablewrap">
+        <table class="wm-tbl" data-source="places" data-row-key="ประเภท">
+          <thead><tr>
+            <th data-field="ประเภท">ประเภท</th>
+            <th class="wm-r" data-field="เป้าทั้งปี">เป้าทั้งปี</th>
+            <th class="wm-r" data-field="เป้าสะสมถึงเดือนที่ติดตาม">เป้าสะสม</th>
+            <th class="wm-r th-res wm-hl" data-field="ผลสะสม">ผลสะสม</th>
+            <th class="wm-r" data-field="ร้อยละเทียบเป้าสะสม">% เป้าสะสม</th>
+            <th data-field="สถานะ">สถานะ</th>
+            <th class="wm-pcell" data-field="ร้อยละเทียบเป้าทั้งปี">% เป้าทั้งปี</th>
+            <th class="wm-r wm-opt wm-provcol" data-field="ผลสะสม สฎ">สฎ</th>
+            <th class="wm-r wm-opt wm-provcol" data-field="ผลสะสม นศ">นศ</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <label class="wm-toggle"><input type="checkbox" class="wm-showall"> แสดงประเภทที่ไม่มีเป้าและยังไม่มีผล (<span class="wm-hidden-n">0</span> ประเภท)</label>
+    </div>
+
+    <div class="wm-card wm-tablecard" id="places-pace" style="margin-top:var(--cds-gap-md)">
+      <h3>อัตราที่ทำได้ เทียบอัตราที่ต้องทำให้ถึงเป้าทั้งปี</h3>
+      <p class="wm-cardnote">ทั้งศูนย์ · ทำได้ต่อเดือน = ผลสะสม ÷ เดือนที่ผ่านไป · ต้องทำต่อเดือน = ส่วนที่เหลือ ÷ เดือนที่เหลือ · คาดการณ์สิ้นปี = ถ้าทำในอัตราเดิมตลอดปี (ช่วงต้นปีตัวเลขยังแกว่งได้มาก)</p>
+      <p class="wm-cardnote" style="margin-top:0">รวมทั้งหมด: ทำได้ <b class="wm-n pc-rate" data-source="places_pace" data-field="ทำได้ต่อเดือน" data-where="ประเภท=รวมทั้งหมด">—</b> ราย/เดือน · ต้องทำ <b class="wm-n pc-need" data-source="places_pace" data-field="ต้องทำต่อเดือน" data-where="ประเภท=รวมทั้งหมด">—</b> ราย/เดือน · คาดการณ์สิ้นปี <b class="wm-n pc-proj" data-source="places_pace" data-field="คาดการณ์สิ้นปี (%)" data-where="ประเภท=รวมทั้งหมด">—</b>% ของเป้า</p>
+      <div class="wm-tablewrap">
+        <table class="wm-pace" data-source="places_pace" data-row-key="ประเภท">
+          <thead><tr>
+            <th data-field="ประเภท">ประเภท</th>
+            <th data-field="แนวโน้ม">แนวโน้ม</th>
+            <th class="wm-r" data-field="ทำได้ต่อเดือน">ทำได้/เดือน</th>
+            <th class="wm-r" data-field="ต้องทำต่อเดือน">ต้องทำ/เดือน</th>
+            <th class="wm-r wm-opt" data-field="เหลือถึงเป้าทั้งปี">เหลือถึงเป้า</th>
+            <th class="wm-r" data-field="คาดการณ์สิ้นปี (%)">คาดการณ์สิ้นปี</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="wm-grid">
+      <div class="wm-card" id="places-monthly">
+        <h3>เป้า vs ผล รายเดือน</h3>
+        <p class="wm-cardnote">ทั้งศูนย์ · ผลแสดงถึงเดือนที่ติดตาม</p>
+        <div class="wm-legend"><span><i class="wm-sw sw-t"></i>เป้า</span><span><i class="wm-sw sw-a"></i>ผล</span></div>
+        <div class="wm-chart ch-bar" data-source="places_months"></div>
+      </div>
+      <div class="wm-card" id="places-cumulative">
+        <h3>เป้าสะสม vs ผลสะสม</h3>
+        <p class="wm-cardnote">ทั้งศูนย์ · เป้าสะสมนับเต็มเดือน ต.ค. 69 – ก.ย. 70</p>
+        <div class="wm-legend"><span><i class="wm-sw wm-line sw-t"></i>เป้าสะสม</span><span><i class="wm-sw wm-line sw-a"></i>ผลสะสม</span><span><i class="wm-sw wm-line sw-69"></i>ปีงบ 69</span></div>
+        <div class="wm-chart ch-line" data-source="places_months"></div>
+      </div>
+      <div class="wm-card" id="places-province">
+        <h3>ผลสะสมแยกจังหวัด ตามประเภท</h3>
+        <p class="wm-cardnote">เฉพาะประเภทที่มีผลแล้ว เรียงจากมากไปน้อย</p>
+        <div class="wm-legend"><span><i class="wm-sw sw-p1"></i>สุราษฎร์ธานี</span><span><i class="wm-sw sw-p2"></i>นครศรีธรรมราช</span></div>
+        <div class="wm-pv ch-prov" data-source="places"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="packaged" class="wm-sec" data-sec="packaged" hidden>
+    <h2>3) สินค้าหีบห่อ</h2>
+    <p class="wm-secnote">หน่วย: ราย (ผู้ประกอบการที่ตรวจ) · ติดตามผลการตรวจสอบ ไม่เทียบเป้าหมาย</p>
+    <div class="wm-kpis">
+      <div class="wm-card"><div class="wm-kpi-label">ตรวจแล้วรวม (ราย)<span class="pk-lab"></span></div>
+        <div class="wm-kpi-val pk-v dash-skeleton" data-source="packaged" data-field="ผลสะสม (ราย)" data-where="กลุ่ม=รวม">—</div>
+        <div class="wm-kpi-sub">สฎ <span class="pk-srt" data-source="packaged" data-field="ผลสะสม สฎ (ราย)" data-where="กลุ่ม=รวม">—</span> · นศ <span class="pk-nst" data-source="packaged" data-field="ผลสะสม นศ (ราย)" data-where="กลุ่ม=รวม">—</span></div></div>
+      <div class="wm-card"><div class="wm-kpi-label">โรงบรรจุก๊าซหุงต้ม</div>
+        <div class="wm-kpi-val pk-v dash-skeleton" data-source="packaged" data-field="ผลสะสม (ราย)" data-where="ประเภท=โรงบรรจุก๊าซหุงต้ม">—</div></div>
+      <div class="wm-card"><div class="wm-kpi-label">ร้านจำหน่ายก๊าซหุงต้ม</div>
+        <div class="wm-kpi-val pk-v dash-skeleton" data-source="packaged" data-field="ผลสะสม (ราย)" data-where="ประเภท=ร้านจำหน่ายก๊าซหุงต้ม">—</div></div>
+      <div class="wm-card"><div class="wm-kpi-label">โรงบรรจุสินค้าหีบห่อ</div>
+        <div class="wm-kpi-val pk-v dash-skeleton" data-source="packaged" data-field="ผลสะสม (ราย)" data-where="ประเภท=โรงบรรจุสินค้าหีบห่อ">—</div></div>
+      <div class="wm-card"><div class="wm-kpi-label">ร้านจำหน่ายสินค้าหีบห่อ</div>
+        <div class="wm-kpi-val pk-v dash-skeleton" data-source="packaged" data-field="ผลสะสม (ราย)" data-where="ประเภท=ร้านจำหน่ายสินค้าหีบห่อ">—</div></div>
+      <div class="wm-card"><div class="wm-kpi-label">ตัวอย่างไม่ถูกต้อง (ทั้งศูนย์)</div>
+        <div class="wm-kpi-val"><span class="pk-badpct dash-skeleton" data-source="packaged" data-field="ร้อยละตัวอย่างไม่ถูกต้อง" data-where="กลุ่ม=รวม">—</span>%</div>
+        <div class="wm-kpi-sub"><span class="pk-bad" data-source="packaged" data-field="ตัวอย่างไม่ถูกต้อง (หน่วย)" data-where="กลุ่ม=รวม">—</span> จาก <span class="pk-samp" data-source="packaged" data-field="จำนวนตัวอย่างที่ตรวจ (หน่วย)" data-where="กลุ่ม=รวม">—</span> หน่วยที่ตรวจ</div></div>
+    </div>
+    <div class="wm-grid">
+      <div class="wm-card wm-tablecard" id="packaged-table">
+        <h3>ผลการตรวจแยกประเภท</h3>
+        <p class="wm-cardnote">ตัวอย่าง: ก๊าซหุงต้ม = ถังที่สุ่มชั่ง · สินค้าหีบห่อ = หน่วยตัวอย่าง · ไม่ถูกต้อง = ปริมาณสุทธิขาดเกินเกณฑ์</p>
+        <div class="wm-tablewrap">
+          <table class="wm-pktbl" data-source="packaged" data-row-key="ประเภท">
+            <thead><tr>
+              <th data-field="ประเภท">ประเภท</th>
+              <th class="wm-r wm-hl" data-field="ผลสะสม (ราย)">รวม (ราย)</th>
+              <th class="wm-r wm-opt" data-field="ผลสะสม สฎ (ราย)">สฎ</th>
+              <th class="wm-r wm-opt" data-field="ผลสะสม นศ (ราย)">นศ</th>
+              <th class="wm-r" data-field="จำนวนตัวอย่างที่ตรวจ (หน่วย)">ตัวอย่าง</th>
+              <th class="wm-r" data-field="ตัวอย่างไม่ถูกต้อง (หน่วย)">ไม่ถูกต้อง</th>
+              <th class="wm-r" data-field="ร้อยละตัวอย่างไม่ถูกต้อง">% ไม่ถูกต้อง</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="wm-card" id="packaged-monthly">
+        <h3>จำนวนรายที่ตรวจ รายเดือน</h3>
+        <p class="wm-cardnote">ทั้งศูนย์ · ทุกประเภทรวมกัน · แสดงถึงเดือนที่ติดตาม</p>
+        <div class="wm-chart ch-pk" data-source="pk_months"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="cases" class="wm-sec" data-sec="cases" hidden>
+    <h2>4) การดำเนินคดี</h2>
+    <p class="wm-secnote">ต.ค. 69 – ก.ย. 70 · นับ 1 แถว = 1 คดี ตามแบบรายงาน (จาก Google Sheet ข้อมูลการดำเนินคดี แท็บ 3-1) · ไม่เทียบเป้าหมาย</p>
+    <div class="wm-kpis">
+      <div class="wm-card"><div class="wm-kpi-label">คดีทั้งหมด (ราย)<span class="cs-lab"></span></div>
+        <div class="wm-kpi-val cs-k dash-skeleton" data-k="คดี" data-source="cases_kpi" data-field="คดี" data-where="จังหวัด=ทั้งศูนย์">—</div>
+        <div class="wm-kpi-sub">สฎ <span class="cs-srt" data-source="cases_kpi" data-field="คดี" data-where="จังหวัด=สฎ">—</span> · นศ <span class="cs-nst" data-source="cases_kpi" data-field="คดี" data-where="จังหวัด=นศ">—</span></div></div>
+      <div class="wm-card"><div class="wm-kpi-label">จำนวนที่พบผิด (เครื่อง/หน่วย)</div>
+        <div class="wm-kpi-val cs-k dash-skeleton" data-k="จำนวนที่พบผิด" data-source="cases_kpi" data-field="จำนวนที่พบผิด" data-where="จังหวัด=ทั้งศูนย์">—</div></div>
+      <div class="wm-card"><div class="wm-kpi-label">ค่าปรับรวม (บาท)</div>
+        <div class="wm-kpi-val cs-k dash-skeleton" data-k="ค่าปรับรวม (บาท)" data-source="cases_kpi" data-field="ค่าปรับรวม (บาท)" data-where="จังหวัด=ทั้งศูนย์">—</div>
+        <div class="wm-kpi-sub">เฉลี่ย <span class="cs-k" data-k="ค่าปรับเฉลี่ย (บาท)" data-source="cases_kpi" data-field="ค่าปรับเฉลี่ย (บาท)" data-where="จังหวัด=ทั้งศูนย์">—</span> บาท/คดี</div></div>
+      <div class="wm-card"><div class="wm-kpi-label">ส่งพนักงานสอบสวน (ราย)</div>
+        <div class="wm-kpi-val cs-k dash-skeleton" data-k="ส่งพนักงานสอบสวน" data-source="cases_kpi" data-field="ส่งพนักงานสอบสวน" data-where="จังหวัด=ทั้งศูนย์">—</div></div>
+    </div>
+    <div class="wm-grid">
+      <div class="wm-card wm-tablecard" id="cases-bytype">
+        <h3>แยกตามประเภทที่พบผิด</h3>
+        <p class="wm-cardnote">ทั้งศูนย์ พร้อมจำนวนคดีแยกจังหวัด</p>
+        <div class="wm-tablewrap">
+          <table class="wm-cstype" data-source="cases_by_type" data-row-key="ประเภท">
+            <thead><tr>
+              <th data-field="ประเภท">ประเภท</th>
+              <th class="wm-r" data-field="คดี">คดี</th>
+              <th class="wm-r" data-field="จำนวนที่พบผิด">พบผิด</th>
+              <th class="wm-r" data-field="ค่าปรับ (บาท)">ค่าปรับ (บาท)</th>
+              <th class="wm-r wm-opt" data-field="คดี สฎ">สฎ</th>
+              <th class="wm-r wm-opt" data-field="คดี นศ">นศ</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="wm-card wm-tablecard" id="cases-offense">
+        <h3>ความผิดที่พบ</h3>
+        <p class="wm-cardnote">ทั้งศูนย์ · เรียงตามจำนวนคดี</p>
+        <div class="wm-tablewrap">
+          <table class="wm-csoff" data-source="cases_by_offense" data-row-key="ความผิด">
+            <thead><tr>
+              <th data-field="ความผิด">ความผิด</th>
+              <th class="wm-r" data-field="คดี">คดี</th>
+              <th class="wm-r" data-field="ค่าปรับ (บาท)">ค่าปรับ (บาท)</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="wm-card" id="cases-monthly">
+        <h3>คดีรายเดือน แยกจังหวัด</h3>
+        <p class="wm-cardnote">แสดงถึงเดือนที่ติดตาม · วางเมาส์ดูค่าปรับ</p>
+        <div class="wm-legend"><span><i class="wm-sw sw-p1"></i>สุราษฎร์ธานี</span><span><i class="wm-sw sw-p2"></i>นครศรีธรรมราช</span></div>
+        <div class="wm-chart ch-cs" data-source="cases_months"></div>
+      </div>
+    </div>
+    <div class="wm-card wm-tablecard" id="cases-list" style="margin-top:var(--cds-gap-md)">
+      <h3>รายการคดี<span class="cs-lab"></span></h3>
+      <p class="wm-cardnote">ล่าสุดอยู่บนสุด</p>
+      <div class="wm-tablewrap" style="max-height:28rem;overflow:auto">
+        <table class="wm-cslist" data-source="cases" data-row-key="ที่">
+          <thead><tr>
+            <th class="wm-r" data-field="ที่">ที่</th>
+            <th data-field="วันที่ (แสดง)">วันที่ตรวจ</th>
+            <th class="wm-opt" data-field="อำเภอ/เขต">อำเภอ</th>
+            <th data-field="จังหวัด">จังหวัด</th>
+            <th class="wm-opt" data-field="ประเภทเครื่องชั่งตวงวัด/สินค้าหีบห่อที่พบผิด">ประเภทที่พบผิด</th>
+            <th class="wm-r" data-field="จำนวนที่พบผิด">จำนวน</th>
+            <th class="wm-opt" data-field="รายละเอียดความผิด">ความผิด</th>
+            <th class="wm-r" data-field="เปรียบเทียบปรับ (บาท)">ค่าปรับ (บาท)</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+
+</div>
+
+<div class="pub-foot">
+  <b>วิธีนับ</b><br>
+  เครื่องชั่งตวงวัด: จำนวนเครื่องที่ตรวจ (ถูกต้อง + ไม่ถูกต้อง) ในจังหวัดสุราษฎร์ธานีและนครศรีธรรมราช รวมเครื่องชั่งที่ตรวจในตลาดสด/ตลาดนัด นับเฉพาะงานที่ปิดแล้วในระบบงานชั่งตวงวัด<br>
+  สถานรับซื้อสินค้าเกษตร: จำนวนครั้งที่เข้าตรวจ (1 แห่งต่อ 1 วัน) จัดประเภทตามทะเบียนสถานที่ ตลาดนัดนับรวมในตลาดสด<br>
+  สถานะ: ตามเป้า = ผลสะสม ≥ เป้าสะสม · ใกล้เป้า = 80–99% · ต่ำกว่าเป้า = ต่ำกว่า 80% · เป้าสะสม = เป้าเดือนก่อนหน้า + เป้าเดือนนี้ตามสัดส่วนวันที่ผ่านไป<br>
+  ปีงบ 69: เครื่องชั่งตวงวัดจากรายงานที่ส่งกองชั่งตวงวัด (แยกได้ 3 กลุ่ม) · สถานรับซื้อจากระบบงานชั่งตวงวัด (นับรวมแบบร่าง)<br>
+  หน้านี้แสดงเฉพาะตัวเลขสรุปและรายการคดีโดยไม่ระบุชื่อสถานประกอบการ
+</div>
+<script>
+dash.calc('equip_months', {
+  title: 'เป้า-ผลรายเดือน เครื่องชั่งฯ',
+  description: 'เป้าและผลรายเดือนจากแถว "รวม" ของตารางเครื่องชั่งตวงวัด พร้อมยอดสะสม (ผลนับถึงเดือนที่ติดตาม)',
+  inputs: ['equip', 'info', 'fy69_equip'],
+  fn: (equip, info, fy69_equip) => {
+    const total = equip.find((r) => r['กลุ่ม'] === 'รวม');
+    const t69 = fy69_equip.find((r) => r['กลุ่มเปรียบเทียบ'] === 'รวม') || {};
+    const m69 = Object.keys(t69).filter((k) => k !== 'กลุ่มเปรียบเทียบ' && k !== 'รวม').map((k) => t69[k] || 0);
+    let cum69 = 0;
+    const upto = info[0] ? info[0]['เดือนที่ติดตาม'] : 0;
+    if (!total) return [];
+    let cumTarget = 0, cumActual = 0;
+    return Object.keys(total).filter((k) => k.startsWith('เป้า ')).map((k, i) => {
+      const month = k.slice(5);
+      const target = total[k] ?? 0;
+      const actual = i < upto ? (total['ผล ' + month] ?? 0) : null;
+      cumTarget += target;
+      if (actual != null) cumActual += actual;
+      cum69 += m69[i] || 0;
+      return { 'เดือน': month, 'เป้า': target, 'ผล': actual, 'เป้าสะสม': cumTarget, 'ผลสะสม': actual == null ? null : cumActual, 'ผลสะสมปีงบ 69': cum69 };
+    });
+  },
+});
+dash.calc('places_months', {
+  title: 'เป้า-ผลรายเดือน สถานรับซื้อฯ',
+  description: 'เป้าและผลรายเดือนจากแถว "รวม" ของตารางสถานรับซื้อสินค้าเกษตร พร้อมยอดสะสม (ผลนับถึงเดือนที่ติดตาม)',
+  inputs: ['places', 'info', 'fy69_places'],
+  fn: (places, info, fy69_places) => {
+    const total = places.find((r) => r['กลุ่ม'] === 'รวม');
+    const t69 = fy69_places.filter((r) => r['ประเภท'] === 'รวม');
+    const m69 = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i) => t69.reduce((s, r) => s + (Object.keys(r).filter((k) => !['ประเภท', 'จังหวัด', 'รวม'].includes(k)).map((k) => r[k] || 0)[i] || 0), 0));
+    let cum69 = 0;
+    const upto = info[0] ? info[0]['เดือนที่ติดตาม'] : 0;
+    if (!total) return [];
+    let cumTarget = 0, cumActual = 0;
+    return Object.keys(total).filter((k) => k.startsWith('เป้า ')).map((k, i) => {
+      const month = k.slice(5);
+      const target = total[k] ?? 0;
+      const actual = i < upto ? (total['ผล ' + month] ?? 0) : null;
+      cumTarget += target;
+      if (actual != null) cumActual += actual;
+      cum69 += m69[i] || 0;
+      return { 'เดือน': month, 'เป้า': target, 'ผล': actual, 'เป้าสะสม': cumTarget, 'ผลสะสม': actual == null ? null : cumActual, 'ผลสะสมปีงบ 69': cum69 };
+    });
+  },
+});
+dash.calc('equip_status', {
+  title: 'จำนวนประเภทตามสถานะ เครื่องชั่งฯ',
+  description: 'นับจำนวนประเภทเครื่องชั่งตวงวัดในแต่ละสถานะ (ไม่รวมแถวรวม)',
+  inputs: ['equip'],
+  fn: (equip) => ['ตามเป้า', 'ใกล้เป้า', 'ต่ำกว่าเป้า'].map((s) => ({ 'สถานะ': s, 'จำนวน': equip.filter((r) => r['กลุ่ม'] !== 'รวม' && r['สถานะ'] === s).length })),
+});
+dash.calc('places_status', {
+  title: 'จำนวนประเภทตามสถานะ สถานรับซื้อฯ',
+  description: 'นับจำนวนประเภทสถานรับซื้อสินค้าเกษตรในแต่ละสถานะ (ไม่รวมแถวรวม)',
+  inputs: ['places'],
+  fn: (places) => ['ตามเป้า', 'ใกล้เป้า', 'ต่ำกว่าเป้า'].map((s) => ({ 'สถานะ': s, 'จำนวน': places.filter((r) => r['กลุ่ม'] !== 'รวม' && r['สถานะ'] === s).length })),
+});
+
+dash.calc('equip_share', {
+  title: 'สัดส่วนผลแยกจังหวัด เครื่องชั่งฯ',
+  description: 'ผลสะสมของแต่ละจังหวัด และร้อยละต่อผลสะสมรวมทั้งศูนย์ (แถว "รวม")',
+  inputs: ['equip'],
+  fn: (equip) => {
+    const t = equip.find((r) => r['กลุ่ม'] === 'รวม');
+    if (!t) return [];
+    const sum = t['ผลสะสม'] || 0;
+    return ['สฎ', 'นศ'].map((p) => ({ 'จังหวัด': p, 'ผลสะสม': t['ผลสะสม ' + p] ?? 0, 'สัดส่วน': sum ? Math.round(((t['ผลสะสม ' + p] ?? 0) / sum) * 1000) / 10 : null }));
+  },
+});
+dash.calc('places_share', {
+  title: 'สัดส่วนผลแยกจังหวัด สถานรับซื้อฯ',
+  description: 'ผลสะสมของแต่ละจังหวัด และร้อยละต่อผลสะสมรวมทั้งศูนย์ (แถว "รวม")',
+  inputs: ['places'],
+  fn: (places) => {
+    const t = places.find((r) => r['กลุ่ม'] === 'รวม');
+    if (!t) return [];
+    const sum = t['ผลสะสม'] || 0;
+    return ['สฎ', 'นศ'].map((p) => ({ 'จังหวัด': p, 'ผลสะสม': t['ผลสะสม ' + p] ?? 0, 'สัดส่วน': sum ? Math.round(((t['ผลสะสม ' + p] ?? 0) / sum) * 1000) / 10 : null }));
+  },
+});
+
+dash.calc('pk_months', {
+  title: 'จำนวนรายรายเดือน สินค้าหีบห่อ',
+  description: 'จำนวนรายที่ตรวจในแต่ละเดือนจากแถว "รวม" ของตารางสินค้าหีบห่อ (นับถึงเดือนที่ติดตาม)',
+  inputs: ['packaged', 'info'],
+  fn: (packaged, info) => {
+    const total = packaged.find((r) => r['กลุ่ม'] === 'รวม');
+    const upto = info[0] ? info[0]['เดือนที่ติดตาม'] : 0;
+    if (!total) return [];
+    return Object.keys(total).filter((k) => k.startsWith('ราย ')).map((k, i) => ({ 'เดือน': k.slice(4), 'ราย': i < upto ? (total[k] ?? 0) : null }));
+  },
+});
+dash.calc('cases_kpi', {
+  title: 'สรุปคดี แยกจังหวัด',
+  description: 'จำนวนคดี จำนวนที่พบผิด ค่าปรับรวม ค่าปรับเฉลี่ย และคดีที่ส่งพนักงานสอบสวน ของทั้งศูนย์ สฎ และ นศ',
+  inputs: ['cases'],
+  fn: (cases) => {
+    const code = { 'สุราษฎร์ธานี': 'สฎ', 'นครศรีธรรมราช': 'นศ' };
+    return ['ทั้งศูนย์', 'สฎ', 'นศ'].map((p) => {
+      const rs = cases.filter((r) => p === 'ทั้งศูนย์' || code[r['จังหวัด']] === p);
+      const fine = rs.reduce((s, r) => s + (r['เปรียบเทียบปรับ (บาท)'] || 0), 0);
+      return {
+        'จังหวัด': p,
+        'คดี': rs.length,
+        'จำนวนที่พบผิด': rs.reduce((s, r) => s + (r['จำนวนที่พบผิด'] || 0), 0),
+        'ค่าปรับรวม (บาท)': fine,
+        'ค่าปรับเฉลี่ย (บาท)': rs.length ? Math.round(fine / rs.length) : null,
+        'ส่งพนักงานสอบสวน': rs.filter((r) => String(r['ส่งพนักงานสอบสวน'] || '').trim() !== '').length,
+      };
+    });
+  },
+});
+dash.calc('cases_by_type', {
+  title: 'คดีแยกประเภทที่พบผิด',
+  description: 'จำนวนคดี จำนวนที่พบผิด และค่าปรับ แยกตามกลุ่มรายงาน พร้อมคดีแยกจังหวัด',
+  inputs: ['cases'],
+  fn: (cases) => {
+    const out = new Map();
+    cases.forEach((r) => {
+      const k = r['กลุ่มรายงาน'] || 'อื่นๆ';
+      const o = out.get(k) || { 'ประเภท': k, 'คดี': 0, 'จำนวนที่พบผิด': 0, 'ค่าปรับ (บาท)': 0, 'คดี สฎ': 0, 'คดี นศ': 0 };
+      o['คดี'] += 1;
+      o['จำนวนที่พบผิด'] += r['จำนวนที่พบผิด'] || 0;
+      o['ค่าปรับ (บาท)'] += r['เปรียบเทียบปรับ (บาท)'] || 0;
+      if (r['จังหวัด'] === 'สุราษฎร์ธานี') o['คดี สฎ'] += 1;
+      if (r['จังหวัด'] === 'นครศรีธรรมราช') o['คดี นศ'] += 1;
+      out.set(k, o);
+    });
+    return [...out.values()].sort((a, b) => b['คดี'] - a['คดี'] || b['ค่าปรับ (บาท)'] - a['ค่าปรับ (บาท)']);
+  },
+});
+dash.calc('cases_by_offense', {
+  title: 'คดีแยกตามความผิด',
+  description: 'จำนวนคดีและค่าปรับ แยกตามรายละเอียดความผิด',
+  inputs: ['cases'],
+  fn: (cases) => {
+    const out = new Map();
+    cases.forEach((r) => {
+      const k = r['รายละเอียดความผิด'] || 'ไม่ระบุ';
+      const o = out.get(k) || { 'ความผิด': k, 'คดี': 0, 'ค่าปรับ (บาท)': 0 };
+      o['คดี'] += 1;
+      o['ค่าปรับ (บาท)'] += r['เปรียบเทียบปรับ (บาท)'] || 0;
+      out.set(k, o);
+    });
+    return [...out.values()].sort((a, b) => b['คดี'] - a['คดี']);
+  },
+});
+dash.calc('cases_months', {
+  title: 'คดีรายเดือน แยกจังหวัด',
+  description: 'จำนวนคดีของ สฎ และ นศ และค่าปรับรวมในแต่ละเดือนของปีงบ (นับถึงเดือนที่ติดตาม)',
+  inputs: ['cases', 'info'],
+  fn: (cases, info) => {
+    const months = ['ต.ค. 69', 'พ.ย. 69', 'ธ.ค. 69', 'ม.ค. 70', 'ก.พ. 70', 'มี.ค. 70', 'เม.ย. 70', 'พ.ค. 70', 'มิ.ย. 70', 'ก.ค. 70', 'ส.ค. 70', 'ก.ย. 70'];
+    const upto = info[0] ? info[0]['เดือนที่ติดตาม'] : 0;
+    return months.map((m, i) => {
+      const rs = cases.filter((r) => r['เดือนที่ (1=ต.ค.)'] === i + 1);
+      const past = i < upto;
+      return {
+        'เดือน': m,
+        'คดี สฎ': past ? rs.filter((r) => r['จังหวัด'] === 'สุราษฎร์ธานี').length : null,
+        'คดี นศ': past ? rs.filter((r) => r['จังหวัด'] === 'นครศรีธรรมราช').length : null,
+        'ค่าปรับ (บาท)': past ? rs.reduce((s, r) => s + (r['เปรียบเทียบปรับ (บาท)'] || 0), 0) : null,
+      };
+    });
+  },
+});
+
+dash.calc('equip_pace', {
+  title: 'อัตราที่ทำได้เทียบอัตราที่ต้องทำ เครื่องชั่งฯ',
+  description: 'ต่อประเภทที่มีเป้า: ผลเฉลี่ยต่อเดือนที่ผ่านมา เทียบจำนวนที่ต้องทำต่อเดือนในเดือนที่เหลือเพื่อให้ถึงเป้าทั้งปี และคาดการณ์สิ้นปีถ้าทำในอัตราเดิม',
+  inputs: ['equip', 'info'],
+  fn: (equip, info) => {
+    const i = info[0] || {};
+    const elapsed = Math.max(0.1, (i['เดือนที่ติดตาม'] || 1) - 1 + (i['สัดส่วนวันของเดือน'] || 0));
+    const left = Math.max(0.1, 12 - elapsed);
+    return equip.filter((r) => (r['เป้าทั้งปี'] || 0) > 0).map((r) => {
+      const actual = r['ผลสะสม'] || 0, target = r['เป้าทั้งปี'];
+      const rate = actual / elapsed, need = Math.max(0, target - actual) / left;
+      return {
+        'ประเภท': r['กลุ่ม'] === 'รวม' ? 'รวมทั้งหมด' : r['ประเภท'],
+        'เหลือถึงเป้าทั้งปี': Math.max(0, target - actual),
+        'ทำได้ต่อเดือน': Math.round(rate * 10) / 10,
+        'ต้องทำต่อเดือน': Math.round(need * 10) / 10,
+        'คาดการณ์สิ้นปี (%)': Math.round((rate * 12 / target) * 1000) / 10,
+        'แนวโน้ม': rate >= need ? 'ทันเป้า' : 'ต้องเร่ง',
+      };
+    });
+  },
+});
+dash.calc('places_pace', {
+  title: 'อัตราที่ทำได้เทียบอัตราที่ต้องทำ สถานรับซื้อฯ',
+  description: 'ต่อประเภทที่มีเป้า: ผลเฉลี่ยต่อเดือนที่ผ่านมา เทียบจำนวนที่ต้องทำต่อเดือนในเดือนที่เหลือเพื่อให้ถึงเป้าทั้งปี และคาดการณ์สิ้นปีถ้าทำในอัตราเดิม',
+  inputs: ['places', 'info'],
+  fn: (places, info) => {
+    const i = info[0] || {};
+    const elapsed = Math.max(0.1, (i['เดือนที่ติดตาม'] || 1) - 1 + (i['สัดส่วนวันของเดือน'] || 0));
+    const left = Math.max(0.1, 12 - elapsed);
+    return places.filter((r) => (r['เป้าทั้งปี'] || 0) > 0).map((r) => {
+      const actual = r['ผลสะสม'] || 0, target = r['เป้าทั้งปี'];
+      const rate = actual / elapsed, need = Math.max(0, target - actual) / left;
+      return {
+        'ประเภท': r['กลุ่ม'] === 'รวม' ? 'รวมทั้งหมด' : r['ประเภท'],
+        'เหลือถึงเป้าทั้งปี': Math.max(0, target - actual),
+        'ทำได้ต่อเดือน': Math.round(rate * 10) / 10,
+        'ต้องทำต่อเดือน': Math.round(need * 10) / 10,
+        'คาดการณ์สิ้นปี (%)': Math.round((rate * 12 / target) * 1000) / 10,
+        'แนวโน้ม': rate >= need ? 'ทันเป้า' : 'ต้องเร่ง',
+      };
+    });
+  },
+});
+dash.calc('followups', {
+  title: 'สิ่งที่ต้องติดตาม',
+  description: 'นับงานที่ต้องมีคนแก้หรือเร่ง: ร่างรอปิดงาน ประเภทที่ต่ำกว่าเป้าสะสม ประเภทที่อัตราปัจจุบันไม่ถึงเป้าทั้งปี และข้อสังเกตคุณภาพข้อมูล',
+  inputs: ['equip', 'places', 'equip_pace', 'places_pace', 'notes'],
+  fn: (equip, places, equip_pace, places_pace, notes) => {
+    const items = (rows) => rows.filter((r) => r['กลุ่ม'] !== 'รวม');
+    const drafts = items(equip).filter((r) => (r['ร่างรอปิดงาน'] || 0) > 0);
+    const draftsP = items(places).filter((r) => (r['ร่างรอปิดงาน'] || 0) > 0);
+    const below = items(equip).concat(items(places)).filter((r) => r['สถานะ'] === 'ต่ำกว่าเป้า');
+    const slow = equip_pace.concat(places_pace).filter((r) => r['ประเภท'] !== 'รวมทั้งหมด' && r['แนวโน้ม'] === 'ต้องเร่ง');
+    const dq = notes.filter((r) => r['หัวข้อ'] === 'ข้อสังเกตคุณภาพข้อมูล');
+    return [
+      { 'รายการ': 'ร่างผลตรวจรอปิดงานในระบบ', 'จำนวน': drafts.reduce((s, r) => s + r['ร่างรอปิดงาน'], 0) + draftsP.reduce((s, r) => s + r['ร่างรอปิดงาน'], 0), 'หน่วย': 'เครื่อง/ราย', 'รายละเอียด': drafts.concat(draftsP).map((r) => r['ประเภท'] + ' ' + r['ร่างรอปิดงาน']).join(', '), 'แท็บ': 'equip' },
+      { 'รายการ': 'ประเภทที่ต่ำกว่าเป้าสะสม', 'จำนวน': below.length, 'หน่วย': 'ประเภท', 'รายละเอียด': below.map((r) => r['ประเภท']).join(', '), 'แท็บ': 'equip' },
+      { 'รายการ': 'ประเภทที่ทำในอัตราเดิมแล้วไม่ถึงเป้าทั้งปี', 'จำนวน': slow.length, 'หน่วย': 'ประเภท', 'รายละเอียด': slow.map((r) => r['ประเภท']).join(', '), 'แท็บ': 'equip' },
+      { 'รายการ': 'ข้อสังเกตคุณภาพข้อมูลที่ต้องแก้ในระบบ', 'จำนวน': dq.length, 'หน่วย': 'รายการ', 'รายละเอียด': 'ดูรายละเอียดที่แท็บ ข้อสังเกตและวิธีนับ', 'แท็บ': 'notes' },
+    ];
+  },
+});
+
+dash.calc('equip_yoy', {
+  title: 'เทียบปีงบ 69 ช่วงเดียวกัน เครื่องชั่งฯ',
+  description: 'ผลสะสมปีงบ 70 เทียบผลปีงบ 69 ช่วงเดียวกัน (เดือนที่ผ่านแล้ว + เดือนปัจจุบันตามสัดส่วนวัน) แยก 3 กลุ่มตามข้อมูลปีงบ 69 ที่มี',
+  inputs: ['equip', 'fy69_equip', 'info'],
+  fn: (equip, fy69_equip, info) => {
+    const i = info[0] || {};
+    const m = i['เดือนที่ติดตาม'] || 1, frac = i['สัดส่วนวันของเดือน'] || 0;
+    const same = (r) => {
+      const vals = Object.keys(r).filter((k) => k !== 'กลุ่มเปรียบเทียบ' && k !== 'รวม').map((k) => r[k] || 0);
+      return Math.round(vals.slice(0, m - 1).reduce((s, v) => s + v, 0) + (vals[m - 1] || 0) * frac);
+    };
+    const get = (n) => (equip.find((r) => r['ประเภท'] === n) || {})['ผลสะสม'] || 0;
+    const total = (equip.find((r) => r['กลุ่ม'] === 'รวม') || {})['ผลสะสม'] || 0;
+    const now = {
+      'เครื่องชั่งรถยนต์': get('เครื่องชั่งรถยนต์'),
+      'เครื่องชั่งสปริง': get('เครื่องชั่งสปริง'),
+      'มาตรวัดน้ำมันสถานีบริการและอื่นๆ': total - get('เครื่องชั่งรถยนต์') - get('เครื่องชั่งสปริง'),
+      'รวม': total,
+    };
+    return fy69_equip.map((r) => {
+      const k = r['กลุ่มเปรียบเทียบ'], a = now[k] ?? 0, b = same(r);
+      return { 'กลุ่มเปรียบเทียบ': k, 'ปีงบ 70': a, 'ปีงบ 69 ช่วงเดียวกัน': b, 'เพิ่ม/ลด': a - b, 'เปลี่ยนแปลง (%)': b ? Math.round(((a - b) / b) * 1000) / 10 : null };
+    });
+  },
+});
+dash.calc('places_yoy', {
+  title: 'เทียบปีงบ 69 ช่วงเดียวกัน สถานรับซื้อฯ',
+  description: 'ผลสะสมปีงบ 70 เทียบผลปีงบ 69 ช่วงเดียวกัน (เดือนที่ผ่านแล้ว + เดือนปัจจุบันตามสัดส่วนวัน) แยกประเภท ทั้งศูนย์และรายจังหวัด',
+  inputs: ['places', 'fy69_places', 'info'],
+  fn: (places, fy69_places, info) => {
+    const i = info[0] || {};
+    const m = i['เดือนที่ติดตาม'] || 1, frac = i['สัดส่วนวันของเดือน'] || 0;
+    const same = (r) => {
+      const vals = Object.keys(r).filter((k) => !['ประเภท', 'จังหวัด', 'รวม'].includes(k)).map((k) => r[k] || 0);
+      return vals.slice(0, m - 1).reduce((s, v) => s + v, 0) + (vals[m - 1] || 0) * frac;
+    };
+    const pct = (a, b) => (b ? Math.round(((a - b) / b) * 1000) / 10 : null);
+    return places.map((p) => {
+      const isTotal = p['กลุ่ม'] === 'รวม';
+      const key = isTotal ? 'รวม' : p['ประเภท'];
+      const f = (pv) => fy69_places.filter((r) => r['ประเภท'] === key && r['จังหวัด'] === pv).reduce((s, r) => s + same(r), 0);
+      const b1 = Math.round(f('สฎ')), b2 = Math.round(f('นศ')), b = Math.round(f('สฎ') + f('นศ'));
+      const a = p['ผลสะสม'] || 0, a1 = p['ผลสะสม สฎ'] || 0, a2 = p['ผลสะสม นศ'] || 0;
+      return {
+        'ประเภท': isTotal ? 'รวมทั้งหมด' : p['ประเภท'],
+        'ปีงบ 70': a, 'ปีงบ 69 ช่วงเดียวกัน': b, 'เพิ่ม/ลด': a - b, 'เปลี่ยนแปลง (%)': pct(a, b),
+        'ปีงบ 70 สฎ': a1, 'ปีงบ 69 สฎ': b1, 'เพิ่ม/ลด สฎ': a1 - b1, 'เปลี่ยนแปลง สฎ (%)': pct(a1, b1),
+        'ปีงบ 70 นศ': a2, 'ปีงบ 69 นศ': b2, 'เพิ่ม/ลด นศ': a2 - b2, 'เปลี่ยนแปลง นศ (%)': pct(a2, b2),
+      };
+    });
+  },
+});
+
+const WM_PROV_NAME = { 'สฎ': 'สุราษฎร์ธานี', 'นศ': 'นครศรีธรรมราช' };
+const wmProv = () => { const p = dash.params().province; return p === 'สฎ' || p === 'นศ' ? p : 'all'; };
+const wmResField = () => (wmProv() === 'all' ? 'ผลสะสม' : 'ผลสะสม ' + wmProv());
+let wmTab = 'equip';
+const wmFmt = d3.format(',');
+const wmF1 = d3.format(',.1~f');
+const wmNum = (v) => (v == null || Number.isNaN(v) ? '—' : wmFmt(v));
+const wmPct = (v) => (v == null || Number.isNaN(v) ? '—' : wmF1(v));
+const wmStCls = (s) => (s === 'ตามเป้า' ? 'wm-ok' : s === 'ใกล้เป้า' ? 'wm-warn' : s === 'ต่ำกว่าเป้า' ? 'wm-bad' : 'wm-na');
+const wmStColor = (s) => (s === 'ตามเป้า' ? 'var(--color-ok)' : s === 'ใกล้เป้า' ? 'var(--color-warn)' : s === 'ต่ำกว่าเป้า' ? 'var(--color-bad)' : 'var(--cds-chart-muted)');
+const wmShowAll = { equip: false, places: false };
+const wmAnimated = new Set();
+
+function wmSet(el, ds, value) {
+  if (!el) return;
+  el.classList.toggle('dash-skeleton', ds.status === 'loading');
+  el.textContent = ds.status === 'ok' ? value : '—';
+}
+function wmBadge(el, ds, s) {
+  if (!el) return;
+  el.className = 'wm-badge ' + (ds.status === 'ok' ? wmStCls(s) : 'wm-na') + ' ' + [...el.classList].filter((c) => /^(t|k)-/.test(c)).join(' ');
+  el.textContent = ds.status === 'ok' ? s : '—';
+}
+function wmFail(box, ds) {
+  box.replaceChildren();
+  if (ds.status === 'error') {
+    const d = document.createElement('div');
+    d.className = 'wm-fail';
+    d.textContent = 'Failed to load';
+    box.append(d);
+  }
+}
+function wmBar(bar, pctYear, cumTarget, yearTarget, status) {
+  if (!bar) return;
+  const fill = bar.querySelector('i');
+  fill.style.width = Math.max(0, Math.min(100, pctYear || 0)) + '%';
+  fill.style.background = wmStColor(status);
+  let tick = bar.querySelector('.wm-tick');
+  if (yearTarget > 0) {
+    if (!tick) { tick = document.createElement('b'); tick.className = 'wm-tick'; bar.append(tick); }
+    tick.style.left = 'calc(' + Math.min(100, (cumTarget / yearTarget) * 100) + '% - 1px)';
+  } else if (tick) tick.remove();
+}
+
+function wmTooltip(box) {
+  let tip = box.querySelector('.wm-tip');
+  if (!tip) { tip = document.createElement('div'); tip.className = 'wm-tip'; tip.hidden = true; box.append(tip); }
+  return tip;
+}
+function wmShowTip(box, tip, x, y, head, lines) {
+  tip.replaceChildren();
+  const h = document.createElement('div'); h.className = 'wm-tip-h'; h.textContent = head; tip.append(h);
+  lines.forEach(([color, name, val]) => {
+    const d = document.createElement('div');
+    const sw = document.createElement('i'); sw.className = 'wm-sw'; sw.style.background = color;
+    const t = document.createElement('span'); t.textContent = name + ' ' + val;
+    d.append(sw, t); tip.append(d);
+  });
+  tip.hidden = false;
+  const bw = box.clientWidth, tw = tip.offsetWidth, th = tip.offsetHeight;
+  let left = x + 12; if (left + tw > bw) left = x - tw - 12; if (left < 0) left = 0;
+  let top = y - th - 8; if (top < 0) top = y + 12;
+  tip.style.left = left + 'px'; tip.style.top = top + 'px';
+}
+function wmMeasure(svg, labels) {
+  const probe = svg.append('text');
+  let w = 0;
+  labels.forEach((l) => { probe.text(l); w = Math.max(w, probe.node().getComputedTextLength()); });
+  probe.remove();
+  return w;
+}
+const wmShort = (m) => m.replace(/\s*\d+$/, '');
+
+function wmDrawBars(box, rows, animate) {
+  box.replaceChildren();
+  const W = box.clientWidth; if (!W || !rows.length) return;
+  const H = 240, mt = 10, mb = 26;
+  const tip = wmTooltip(box);
+  const maxV = d3.max(rows, (r) => Math.max(r['เป้า'] || 0, r['ผล'] || 0)) || 1;
+  const y = d3.scaleLinear([0, maxV], [H - mb, mt]).nice();
+  const svg = d3.select(box).insert('svg', '.wm-tip').attr('width', '100%').attr('height', H).attr('viewBox', `0 0 ${W} ${H}`);
+  const ticks = y.ticks(4);
+  const ml = wmMeasure(svg, ticks.map(wmFmt)) + 10;
+  const x = d3.scaleBand(rows.map((r) => r['เดือน']), [ml, W - 4]).paddingInner(0.22).paddingOuter(0.08);
+  const sub = d3.scaleBand(['t', 'a'], [0, x.bandwidth()]).padding(0.08);
+  svg.append('g').selectAll('line').data(ticks).join('line')
+    .attr('x1', ml).attr('x2', W - 4).attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+    .attr('stroke', 'var(--cds-chart-grid)').attr('stroke-width', 1);
+  svg.append('g').selectAll('text').data(ticks).join('text')
+    .attr('x', ml - 6).attr('y', (d) => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text(wmFmt);
+  const every = x.step() < 34 ? 2 : 1;
+  svg.append('g').selectAll('text').data(rows.filter((r, i) => i % every === 0)).join('text')
+    .attr('x', (r) => x(r['เดือน']) + x.bandwidth() / 2).attr('y', H - 8).attr('text-anchor', 'middle').text((r) => wmShort(r['เดือน']));
+  svg.append('line').attr('x1', ml).attr('x2', W - 4).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+  const bw = Math.min(32, sub.bandwidth());
+  const off = (sub.bandwidth() - bw) / 2;
+  const g = svg.append('g');
+  const bars = [];
+  rows.forEach((r) => {
+    [['t', r['เป้า'], 'var(--cds-chart-muted)'], ['a', r['ผล'], dash.colors[0]]].forEach(([k, v, c]) => {
+      if (v == null) return;
+      const top = y(v);
+      bars.push(g.append('rect').attr('x', x(r['เดือน']) + sub(k) + off).attr('width', bw)
+        .attr('y', top).attr('height', Math.max(0, y(0) - top)).attr('rx', 3).attr('fill', c).attr('data-m', r['เดือน']).attr('data-k', k));
+    });
+  });
+  if (animate && window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+    bars.forEach((b) => {
+      const yy = +b.attr('y'), hh = +b.attr('height');
+      b.attr('y', y(0)).attr('height', 0).transition().duration(600).ease(d3.easeCubicOut).attr('y', yy).attr('height', hh);
+    });
+  }
+  svg.append('g').selectAll('rect').data(rows).join('rect')
+    .attr('x', (r) => x(r['เดือน']) - (x.step() - x.bandwidth()) / 2).attr('width', x.step())
+    .attr('y', mt).attr('height', H - mb - mt).attr('fill', 'transparent')
+    .on('mousemove', (event, r) => {
+      const [px, py] = d3.pointer(event, box);
+      g.selectAll('rect').attr('opacity', function () { return this.getAttribute('data-m') === r['เดือน'] ? 1 : 0.45; });
+      wmShowTip(box, tip, px, py, r['เดือน'], [
+        ['var(--cds-chart-muted)', 'เป้า', wmNum(r['เป้า'])],
+        [dash.colors[0], 'ผล', r['ผล'] == null ? 'ยังไม่ถึงเดือน' : wmNum(r['ผล'])],
+      ]);
+    })
+    .on('mouseleave', () => { g.selectAll('rect').attr('opacity', 1); tip.hidden = true; });
+}
+
+function wmDrawLines(box, rows, animate) {
+  box.replaceChildren();
+  const W = box.clientWidth; if (!W || !rows.length) return;
+  const H = 240, mt = 14, mb = 26;
+  const tip = wmTooltip(box);
+  const has69 = rows.some((r) => r['ผลสะสมปีงบ 69'] != null);
+  const maxV = d3.max(rows, (r) => Math.max(r['เป้าสะสม'] || 0, r['ผลสะสม'] || 0, r['ผลสะสมปีงบ 69'] || 0)) || 1;
+  const y = d3.scaleLinear([0, maxV], [H - mb, mt]).nice();
+  const svg = d3.select(box).insert('svg', '.wm-tip').attr('width', '100%').attr('height', H).attr('viewBox', `0 0 ${W} ${H}`);
+  const ticks = y.ticks(4);
+  const ml = wmMeasure(svg, ticks.map(wmFmt)) + 10;
+  const last = rows[rows.length - 1];
+  const actualRows = rows.filter((r) => r['ผลสะสม'] != null);
+  const endA = actualRows[actualRows.length - 1];
+  const mr = wmMeasure(svg, [wmFmt(last['เป้าสะสม']), has69 ? wmFmt(last['ผลสะสมปีงบ 69']) : '']) + 10;
+  const x = d3.scalePoint(rows.map((r) => r['เดือน']), [ml + 6, W - mr]);
+  svg.append('g').selectAll('line').data(ticks).join('line')
+    .attr('x1', ml).attr('x2', W - mr).attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+    .attr('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(ticks).join('text')
+    .attr('x', ml - 6).attr('y', (d) => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text(wmFmt);
+  const every = x.step() < 34 ? 2 : 1;
+  svg.append('g').selectAll('text').data(rows.filter((r, i) => i % every === 0)).join('text')
+    .attr('x', (r) => x(r['เดือน'])).attr('y', H - 8).attr('text-anchor', 'middle').text((r) => wmShort(r['เดือน']));
+  const line = (k) => d3.line().x((r) => x(r['เดือน'])).y((r) => y(r[k]));
+  svg.append('path').datum(rows).attr('d', line('เป้าสะสม')).attr('fill', 'none')
+    .attr('stroke', 'var(--cds-chart-muted)').attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+  if (has69) {
+    svg.append('path').datum(rows).attr('d', line('ผลสะสมปีงบ 69')).attr('fill', 'none')
+      .attr('stroke', dash.colors[2]).attr('stroke-width', 2).attr('stroke-dasharray', '5 4').attr('stroke-linejoin', 'round');
+    const ly = y(last['ผลสะสมปีงบ 69']), lt = y(last['เป้าสะสม']);
+    svg.append('text').attr('x', x(last['เดือน']) + 6).attr('y', Math.abs(ly - lt) < 14 ? (ly > lt ? lt + 14 : lt - 14) : ly).attr('dy', '0.32em')
+      .style('fill', dash.colors[2]).text(wmFmt(last['ผลสะสมปีงบ 69']));
+  }
+  const pa = svg.append('path').datum(actualRows).attr('d', line('ผลสะสม')).attr('fill', 'none')
+    .attr('stroke', dash.colors[0]).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+  svg.append('g').selectAll('circle').data(actualRows).join('circle')
+    .attr('cx', (r) => x(r['เดือน'])).attr('cy', (r) => y(r['ผลสะสม'])).attr('r', 3.5).attr('fill', dash.colors[0]);
+  if (animate && window.matchMedia('(prefers-reduced-motion: no-preference)').matches && actualRows.length > 1) {
+    const len = pa.node().getTotalLength();
+    pa.attr('stroke-dasharray', `${len} ${len}`).attr('stroke-dashoffset', len).transition().duration(700).ease(d3.easeCubicOut).attr('stroke-dashoffset', 0);
+  }
+  svg.append('text').attr('x', x(last['เดือน']) + 6).attr('y', y(last['เป้าสะสม'])).attr('dy', '0.32em').text(wmFmt(last['เป้าสะสม']));
+  if (endA) {
+    svg.append('text').attr('x', x(endA['เดือน']) + 7).attr('y', y(endA['ผลสะสม']) - 8)
+      .style('fill', dash.colors[0]).text('ผลสะสม ' + wmFmt(endA['ผลสะสม']));
+  }
+  const hover = svg.append('circle').attr('r', 4).attr('fill', 'var(--cds-chart-muted)').attr('opacity', 0);
+  svg.append('rect').attr('x', ml).attr('y', mt).attr('width', W - ml - mr + 6).attr('height', H - mb - mt).attr('fill', 'transparent')
+    .on('mousemove', (event) => {
+      const [px, py] = d3.pointer(event, box);
+      const i = Math.max(0, Math.min(rows.length - 1, Math.round((px - x(rows[0]['เดือน'])) / x.step())));
+      const r = rows[i];
+      hover.attr('cx', x(r['เดือน'])).attr('cy', y(r['เป้าสะสม'])).attr('opacity', 1);
+      wmShowTip(box, tip, px, py, r['เดือน'], [
+        ['var(--cds-chart-muted)', 'เป้าสะสม', wmNum(r['เป้าสะสม'])],
+        [dash.colors[0], 'ผลสะสม', r['ผลสะสม'] == null ? 'ยังไม่ถึงเดือน' : wmNum(r['ผลสะสม'])],
+      ].concat(has69 ? [[dash.colors[2], 'ผลสะสมปีงบ 69', wmNum(r['ผลสะสมปีงบ 69'])]] : []));
+    })
+    .on('mouseleave', () => { hover.attr('opacity', 0); tip.hidden = true; });
+}
+
+function wmTable(sec, ds) {
+  const table = sec.querySelector('.wm-tbl');
+  const tbody = table.querySelector('tbody');
+  const hasGroup = !!sec.querySelector('th[data-field="กลุ่ม"]');
+  const prov = wmProv();
+  const resField = wmResField();
+  const thRes = table.querySelector('.th-res');
+  thRes.dataset.field = resField;
+  thRes.textContent = prov === 'all' ? 'ผลสะสม' : 'ผลสะสม ' + prov;
+  table.classList.toggle('wm-provmode', prov !== 'all');
+  table.querySelectorAll('th[data-field="เป้าทั้งปี"], th[data-field="เป้าสะสมถึงเดือนที่ติดตาม"], th[data-field="ร้อยละเทียบเป้าสะสม"], th[data-field="สถานะ"], th[data-field="ร้อยละเทียบเป้าทั้งปี"]').forEach((th) => {
+    th.title = prov === 'all' ? '' : 'ค่าของทั้งศูนย์ (แผนไม่แยกจังหวัด)';
+  });
+  tbody.replaceChildren();
+  if (ds.status !== 'ok') return;
+  const all = ds.data.filter((r) => r['กลุ่ม'] !== 'รวม');
+  const active = (r) => (r['เป้าทั้งปี'] || 0) > 0 || (r['ผลสะสม'] || 0) > 0 || (r['ร่างรอปิดงาน'] || 0) > 0;
+  const show = wmShowAll[sec.dataset.sec] ? all : all.filter(active);
+  sec.querySelector('.wm-hidden-n').textContent = String(all.length - all.filter(active).length);
+  show.forEach((r) => {
+    const tr = document.createElement('tr');
+    const td = (text, cls) => { const c = document.createElement('td'); if (cls) c.className = cls; c.textContent = text; tr.append(c); return c; };
+    if (hasGroup) td(r['กลุ่ม'], 'wm-grp wm-opt');
+    td(r['ประเภท'], 'wm-type');
+    td(wmNum(r['เป้าทั้งปี']), 'wm-r');
+    td(wmNum(r['เป้าสะสมถึงเดือนที่ติดตาม']), 'wm-r');
+    td(wmNum(r[resField]), 'wm-r wm-hl');
+    td(wmPct(r['ร้อยละเทียบเป้าสะสม']), 'wm-r');
+    const st = td('', '');
+    const b = document.createElement('span'); b.className = 'wm-badge ' + wmStCls(r['สถานะ']); b.textContent = r['สถานะ']; st.append(b);
+    const pc = td('', 'wm-pcell');
+    const lab = document.createElement('span'); lab.textContent = wmPct(r['ร้อยละเทียบเป้าทั้งปี']); pc.append(lab);
+    const bar = document.createElement('div'); bar.className = 'wm-bar'; bar.append(document.createElement('i')); pc.append(bar);
+    wmBar(bar, r['ร้อยละเทียบเป้าทั้งปี'], r['เป้าสะสมถึงเดือนที่ติดตาม'], r['เป้าทั้งปี'], r['สถานะ']);
+    td(wmNum(r['ผลสะสม สฎ']), 'wm-r wm-opt wm-provcol');
+    td(wmNum(r['ผลสะสม นศ']), 'wm-r wm-opt wm-provcol');
+    tbody.append(tr);
+  });
+}
+
+function wmProvChart(box, ds, prov) {
+  box.classList.toggle('dash-skeleton', ds.status === 'loading');
+  if (ds.status !== 'ok') { wmFail(box, ds); return; }
+  box.replaceChildren();
+  const rows = ds.data
+    .filter((r) => r['กลุ่ม'] !== 'รวม' && ((r['ผลสะสม สฎ'] || 0) + (r['ผลสะสม นศ'] || 0)) > 0)
+    .sort((a, b) => (b['ผลสะสม'] || 0) - (a['ผลสะสม'] || 0));
+  if (!rows.length) {
+    const p = document.createElement('div'); p.className = 'wm-cardnote'; p.textContent = 'ยังไม่มีผลการตรวจสอบ'; box.append(p); return;
+  }
+  const maxV = d3.max(rows, (r) => Math.max(r['ผลสะสม สฎ'] || 0, r['ผลสะสม นศ'] || 0)) || 1;
+  const colors = { 'สฎ': dash.colors[0], 'นศ': dash.colors[1] };
+  rows.forEach((r) => {
+    const row = document.createElement('div'); row.className = 'wm-pv-row';
+    const name = document.createElement('div'); name.className = 'wm-pv-name'; name.textContent = r['ประเภท']; name.title = r['ประเภท'];
+    row.append(name);
+    ['สฎ', 'นศ'].forEach((p) => {
+      const v = r['ผลสะสม ' + p] || 0;
+      const line = document.createElement('div'); line.className = 'wm-pv-line';
+      const lab = document.createElement('span'); lab.textContent = p;
+      const track = document.createElement('div'); track.className = 'wm-pv-track';
+      const bar = document.createElement('i');
+      bar.style.width = (v / maxV) * 100 + '%';
+      bar.style.background = prov === 'all' || prov === p ? colors[p] : 'var(--cds-chart-muted)';
+      if (v === 0) bar.style.minWidth = '0';
+      track.append(bar);
+      const val = document.createElement('span'); val.className = 'wm-r'; val.textContent = wmNum(v);
+      line.append(lab, track, val);
+      row.append(line);
+    });
+    box.append(row);
+  });
+}
+
+function wmSection(id, monthsId, statusId) {
+  const sec = document.getElementById(id);
+  const ds = dash.data(id);
+  const total = ds.status === 'ok' ? ds.data.find((r) => r['กลุ่ม'] === 'รวม') || {} : {};
+  const prov = wmProv();
+  const resField = wmResField();
+  const kAct = sec.querySelector('.k-act');
+  kAct.dataset.field = resField;
+  wmSet(kAct, ds, wmNum(total[resField]));
+  sec.querySelector('.k-act-lab').textContent = prov === 'all' ? '' : ' — ' + WM_PROV_NAME[prov];
+  const shareWrap = sec.querySelector('.k-share-wrap');
+  shareWrap.hidden = prov === 'all';
+  const kShare = sec.querySelector('.k-share');
+  const sh = dash.data(id + '_share');
+  if (prov !== 'all') {
+    kShare.dataset.where = 'จังหวัด=' + prov;
+    const sr = sh.status === 'ok' ? sh.data.find((r) => r['จังหวัด'] === prov) : null;
+    wmSet(kShare, sh, sr ? wmPct(sr['สัดส่วน']) : '—');
+  }
+  sec.querySelectorAll('.wm-prov').forEach((el) => el.classList.toggle('wm-dim', prov !== 'all' && el.dataset.p !== prov));
+  wmProvChart(sec.querySelector('.ch-prov'), ds, prov);
+  wmSet(sec.querySelector('.k-draft'), ds, wmNum(total['ร่างรอปิดงาน']));
+  wmSet(sec.querySelector('.k-cum'), ds, wmNum(total['เป้าสะสมถึงเดือนที่ติดตาม']));
+  wmSet(sec.querySelector('.k-year'), ds, wmNum(total['เป้าทั้งปี']));
+  wmSet(sec.querySelector('.k-pct'), ds, wmPct(total['ร้อยละเทียบเป้าสะสม']));
+  wmSet(sec.querySelector('.k-pcty'), ds, wmPct(total['ร้อยละเทียบเป้าทั้งปี']));
+  wmSet(sec.querySelector('.k-srt'), ds, wmNum(total['ผลสะสม สฎ']));
+  wmSet(sec.querySelector('.k-nst'), ds, wmNum(total['ผลสะสม นศ']));
+  wmBadge(sec.querySelector('.k-st'), ds, total['สถานะ']);
+  wmBar(sec.querySelector('.k-bar'), ds.status === 'ok' ? total['ร้อยละเทียบเป้าทั้งปี'] : 0, total['เป้าสะสมถึงเดือนที่ติดตาม'] || 0, total['เป้าทั้งปี'] || 0, total['สถานะ']);
+  wmTable(sec, ds);
+
+  const st = dash.data(statusId);
+  const cnt = (s) => { const r = st.status === 'ok' ? st.data.find((x) => x['สถานะ'] === s) : null; return r ? wmNum(r['จำนวน']) : '—'; };
+  wmSet(sec.querySelector('.c-ok'), st, cnt('ตามเป้า'));
+  wmSet(sec.querySelector('.c-warn'), st, cnt('ใกล้เป้า'));
+  wmSet(sec.querySelector('.c-bad'), st, cnt('ต่ำกว่าเป้า'));
+
+  const m = dash.data(monthsId);
+  const barBox = sec.querySelector('.ch-bar'), lineBox = sec.querySelector('.ch-line');
+  [barBox, lineBox].forEach((b) => b.classList.toggle('dash-skeleton', m.status === 'loading'));
+  if (m.status === 'ok' && m.data.length) {
+    const animate = !wmAnimated.has(id);
+    wmDrawBars(barBox, m.data, animate);
+    wmDrawLines(lineBox, m.data, animate);
+    wmAnimated.add(id);
+    return true;
+  }
+  wmFail(barBox, m); wmFail(lineBox, m);
+  return false;
+}
+
+function wmNotes() {
+  const ds = dash.data('notes');
+  const body = document.querySelector('.wm-notes-body');
+  body.classList.toggle('dash-skeleton', ds.status === 'loading');
+  body.replaceChildren();
+  if (ds.status !== 'ok') { if (ds.status === 'error') wmFail(body, ds); else body.textContent = '—'; return; }
+  d3.group(ds.data, (r) => r['หัวข้อ']).forEach((items, head) => {
+    const h = document.createElement('h3'); h.textContent = head; body.append(h);
+    const ul = document.createElement('ul');
+    items.forEach((r) => { const li = document.createElement('li'); li.textContent = r['ข้อความ']; ul.append(li); });
+    body.append(ul);
+  });
+}
+
+function wmHeader() {
+  const info = dash.data('info');
+  wmSet(document.querySelector('.wm-asof[data-source="info"]'), info, info.status === 'ok' && info.data[0] ? info.data[0]['ข้อมูล ณ'] : '—');
+  const eq = dash.data('equip'), pl = dash.data('places');
+  const te = eq.status === 'ok' ? eq.data.find((r) => r['กลุ่ม'] === 'รวม') || {} : {};
+  const tp = pl.status === 'ok' ? pl.data.find((r) => r['กลุ่ม'] === 'รวม') || {} : {};
+  const prov = wmProv(), rf = wmResField();
+  document.querySelectorAll('.t-prov-lab').forEach((el) => { el.textContent = prov === 'all' ? '' : ' (' + WM_PROV_NAME[prov] + ')'; });
+  const tEq = document.querySelector('.t-eq-act'), tPl = document.querySelector('.t-pl-act');
+  tEq.dataset.field = rf; tPl.dataset.field = rf;
+  wmSet(tEq, eq, wmNum(te[rf]));
+  wmSet(document.querySelector('.t-eq-pct'), eq, wmPct(te['ร้อยละเทียบเป้าสะสม']));
+  wmBadge(document.querySelector('.t-eq-st'), eq, te['สถานะ']);
+  wmSet(tPl, pl, wmNum(tp[rf]));
+  wmSet(document.querySelector('.t-pl-pct'), pl, wmPct(tp['ร้อยละเทียบเป้าสะสม']));
+  wmBadge(document.querySelector('.t-pl-st'), pl, tp['สถานะ']);
+  const pkd = dash.data('packaged'), ck = dash.data('cases_kpi');
+  const pkt = pkd.status === 'ok' ? pkd.data.find((r) => r['กลุ่ม'] === 'รวม') || {} : {};
+  const pkf = prov === 'all' ? 'ผลสะสม (ราย)' : 'ผลสะสม ' + prov + ' (ราย)';
+  const tPk = document.querySelector('.t-pk'); tPk.dataset.field = pkf; wmSet(tPk, pkd, wmNum(pkt[pkf]));
+  const cpk = prov === 'all' ? 'ทั้งศูนย์' : prov;
+  const ckr = ck.status === 'ok' ? ck.data.find((r) => r['จังหวัด'] === cpk) || {} : {};
+  ['.t-cs', '.t-csf'].forEach((sel) => { const el = document.querySelector(sel); el.dataset.where = 'จังหวัด=' + cpk; wmSet(el, ck, wmNum(ckr[el.dataset.field])); });
+  const sg = (v) => (v == null ? '—' : (v > 0 ? '+' : '') + wmPct(v));
+  const ye = dash.data('equip_yoy'), yp = dash.data('places_yoy');
+  const yer = ye.status === 'ok' ? ye.data.find((r) => r['กลุ่มเปรียบเทียบ'] === 'รวม') || {} : {};
+  const ypr = yp.status === 'ok' ? yp.data.find((r) => r['ประเภท'] === 'รวมทั้งหมด') || {} : {};
+  const ypf = prov === 'all' ? 'เปลี่ยนแปลง (%)' : 'เปลี่ยนแปลง ' + prov + ' (%)';
+  const tYp = document.querySelector('.t-yo-pv'); tYp.dataset.field = ypf;
+  wmSet(document.querySelector('.t-yo-ev'), ye, sg(yer['เปลี่ยนแปลง (%)']));
+  wmSet(tYp, yp, sg(ypr[ypf]));
+  document.querySelector('.t-yo-e').className = 'wm-badge t-yo-e ' + ((yer['เปลี่ยนแปลง (%)'] ?? -1) >= 0 ? 'wm-ok' : 'wm-bad');
+  document.querySelector('.t-yo-p').className = 'wm-badge t-yo-p ' + ((ypr[ypf] ?? -1) >= 0 ? 'wm-ok' : 'wm-bad');
+  const behind = [];
+  if (eq.status === 'ok') eq.data.forEach((r) => { if (r['สถานะ'] === 'ต่ำกว่าเป้า') behind.push(r['ประเภท']); });
+  if (pl.status === 'ok') pl.data.forEach((r) => { if (r['สถานะ'] === 'ต่ำกว่าเป้า') behind.push(r['ประเภท']); });
+  document.querySelector('.t-behind').textContent = behind.length ? 'ประเภทที่ต่ำกว่าเป้าสะสม ควรเร่งรัด: ' + behind.join(', ') : '';
+}
+
+document.querySelectorAll('.wm-sw.sw-t').forEach((s) => { s.style.background = 'var(--cds-chart-muted)'; });
+document.querySelectorAll('.wm-sw.sw-a').forEach((s) => { s.style.background = dash.colors[0]; });
+document.querySelectorAll('.wm-sw.sw-69').forEach((s) => { s.style.background = dash.colors[2]; });
+document.querySelectorAll('.wm-sw.sw-p1').forEach((s) => { s.style.background = dash.colors[0]; });
+document.querySelectorAll('.wm-sw.sw-p2').forEach((s) => { s.style.background = dash.colors[1]; });
+document.querySelectorAll('.wm-sec').forEach((sec) => {
+  const box = sec.querySelector('.wm-showall');
+  if (!box) return;
+  box.addEventListener('change', (e) => {
+    wmShowAll[sec.dataset.sec] = e.target.checked;
+    wmTable(sec, dash.data(sec.dataset.sec));
+  });
+});
+
+function wmDrawSeries(box, rows, series, animate, extra) {
+  box.replaceChildren();
+  const W = box.clientWidth; if (!W || !rows.length) return;
+  const H = 240, mt = 10, mb = 26;
+  const tip = wmTooltip(box);
+  const maxV = d3.max(rows, (r) => d3.max(series, (s) => r[s.key] || 0)) || 1;
+  const y = d3.scaleLinear([0, Math.max(maxV, 4)], [H - mb, mt]).nice();
+  const svg = d3.select(box).insert('svg', '.wm-tip').attr('width', '100%').attr('height', H).attr('viewBox', `0 0 ${W} ${H}`);
+  const ticks = y.ticks(4).filter((t) => Number.isInteger(t));
+  const ml = wmMeasure(svg, ticks.map(wmFmt)) + 10;
+  const x = d3.scaleBand(rows.map((r) => r['เดือน']), [ml, W - 4]).paddingInner(0.22).paddingOuter(0.08);
+  const sub = d3.scaleBand(series.map((s) => s.key), [0, x.bandwidth()]).padding(0.08);
+  svg.append('g').selectAll('line').data(ticks).join('line')
+    .attr('x1', ml).attr('x2', W - 4).attr('y1', (d) => y(d)).attr('y2', (d) => y(d)).attr('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(ticks).join('text')
+    .attr('x', ml - 6).attr('y', (d) => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end').text(wmFmt);
+  const every = x.step() < 34 ? 2 : 1;
+  svg.append('g').selectAll('text').data(rows.filter((r, i) => i % every === 0)).join('text')
+    .attr('x', (r) => x(r['เดือน']) + x.bandwidth() / 2).attr('y', H - 8).attr('text-anchor', 'middle').text((r) => wmShort(r['เดือน']));
+  svg.append('line').attr('x1', ml).attr('x2', W - 4).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+  const bw = Math.min(32, sub.bandwidth());
+  const off = (sub.bandwidth() - bw) / 2;
+  const g = svg.append('g');
+  const bars = [];
+  rows.forEach((r) => {
+    series.forEach((s) => {
+      const v = r[s.key];
+      if (v == null) return;
+      const top = y(v);
+      bars.push(g.append('rect').attr('x', x(r['เดือน']) + sub(s.key) + off).attr('width', bw)
+        .attr('y', top).attr('height', Math.max(0, y(0) - top)).attr('rx', 3).attr('fill', s.color).attr('data-m', r['เดือน']));
+    });
+  });
+  if (animate && window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+    bars.forEach((b) => {
+      const yy = +b.attr('y'), hh = +b.attr('height');
+      b.attr('y', y(0)).attr('height', 0).transition().duration(600).ease(d3.easeCubicOut).attr('y', yy).attr('height', hh);
+    });
+  }
+  svg.append('g').selectAll('rect').data(rows).join('rect')
+    .attr('x', (r) => x(r['เดือน']) - (x.step() - x.bandwidth()) / 2).attr('width', x.step())
+    .attr('y', mt).attr('height', H - mb - mt).attr('fill', 'transparent')
+    .on('mousemove', (event, r) => {
+      const [px, py] = d3.pointer(event, box);
+      g.selectAll('rect').attr('opacity', function () { return this.getAttribute('data-m') === r['เดือน'] ? 1 : 0.45; });
+      const lines = series.map((s) => [s.color, s.name, r[s.key] == null ? 'ยังไม่ถึงเดือน' : wmNum(r[s.key])]);
+      if (extra && r[extra.key] != null) lines.push(['transparent', extra.name, wmNum(r[extra.key])]);
+      wmShowTip(box, tip, px, py, r['เดือน'], lines);
+    })
+    .on('mouseleave', () => { g.selectAll('rect').attr('opacity', 1); tip.hidden = true; });
+}
+
+function wmWhere(el) {
+  const [k, v] = (el.dataset.where || '').split('=');
+  return [k, v];
+}
+function wmRowsTable(table, ds, rows, cells) {
+  const tbody = table.querySelector('tbody');
+  tbody.replaceChildren();
+  if (ds.status !== 'ok') return;
+  rows.forEach((r) => {
+    const tr = document.createElement('tr');
+    cells.forEach(([get, cls]) => { const td = document.createElement('td'); if (cls) td.className = cls; td.textContent = get(r); tr.append(td); });
+    tbody.append(tr);
+  });
+}
+
+function wmPackaged() {
+  const sec = document.getElementById('packaged');
+  const ds = dash.data('packaged');
+  const prov = wmProv();
+  const field = prov === 'all' ? 'ผลสะสม (ราย)' : 'ผลสะสม ' + prov + ' (ราย)';
+  const find = (k, v) => (ds.status === 'ok' ? ds.data.find((r) => r[k] === v) || {} : {});
+  sec.querySelectorAll('.pk-v').forEach((el) => {
+    el.dataset.field = field;
+    const [k, v] = wmWhere(el);
+    wmSet(el, ds, wmNum(find(k, v)[field]));
+  });
+  sec.querySelector('.pk-lab').textContent = prov === 'all' ? '' : ' — ' + WM_PROV_NAME[prov];
+  const total = find('กลุ่ม', 'รวม');
+  wmSet(sec.querySelector('.pk-srt'), ds, wmNum(total['ผลสะสม สฎ (ราย)']));
+  wmSet(sec.querySelector('.pk-nst'), ds, wmNum(total['ผลสะสม นศ (ราย)']));
+  wmSet(sec.querySelector('.pk-badpct'), ds, wmPct(total['ร้อยละตัวอย่างไม่ถูกต้อง']));
+  wmSet(sec.querySelector('.pk-bad'), ds, wmNum(total['ตัวอย่างไม่ถูกต้อง (หน่วย)']));
+  wmSet(sec.querySelector('.pk-samp'), ds, wmNum(total['จำนวนตัวอย่างที่ตรวจ (หน่วย)']));
+  const rows = ds.status === 'ok' ? ds.data.filter((r) => r['กลุ่ม'] !== 'รวม') : [];
+  wmRowsTable(sec.querySelector('.wm-pktbl'), ds, rows, [
+    [(r) => r['ประเภท']],
+    [(r) => wmNum(r['ผลสะสม (ราย)']), 'wm-r wm-hl'],
+    [(r) => wmNum(r['ผลสะสม สฎ (ราย)']), 'wm-r wm-opt' + (prov === 'สฎ' ? ' wm-hl' : '')],
+    [(r) => wmNum(r['ผลสะสม นศ (ราย)']), 'wm-r wm-opt' + (prov === 'นศ' ? ' wm-hl' : '')],
+    [(r) => wmNum(r['จำนวนตัวอย่างที่ตรวจ (หน่วย)']), 'wm-r'],
+    [(r) => wmNum(r['ตัวอย่างไม่ถูกต้อง (หน่วย)']), 'wm-r'],
+    [(r) => wmPct(r['ร้อยละตัวอย่างไม่ถูกต้อง']), 'wm-r'],
+  ]);
+  const m = dash.data('pk_months');
+  const box = sec.querySelector('.ch-pk');
+  box.classList.toggle('dash-skeleton', m.status === 'loading');
+  if (m.status === 'ok' && m.data.length) {
+    wmDrawSeries(box, m.data, [{ key: 'ราย', name: 'ราย', color: dash.colors[0] }], !wmAnimated.has('packaged'));
+    wmAnimated.add('packaged');
+  } else wmFail(box, m);
+}
+
+function wmCases() {
+  const sec = document.getElementById('cases');
+  const prov = wmProv();
+  const pk = prov === 'all' ? 'ทั้งศูนย์' : prov;
+  const kpi = dash.data('cases_kpi');
+  const kr = (p) => (kpi.status === 'ok' ? kpi.data.find((r) => r['จังหวัด'] === p) || {} : {});
+  sec.querySelectorAll('.cs-k').forEach((el) => {
+    el.dataset.where = 'จังหวัด=' + pk;
+    wmSet(el, kpi, wmNum(kr(pk)[el.dataset.k]));
+  });
+  wmSet(sec.querySelector('.cs-srt'), kpi, wmNum(kr('สฎ')['คดี']));
+  wmSet(sec.querySelector('.cs-nst'), kpi, wmNum(kr('นศ')['คดี']));
+  sec.querySelectorAll('.cs-lab').forEach((el) => { el.textContent = prov === 'all' ? '' : ' — ' + WM_PROV_NAME[prov]; });
+
+  const bt = dash.data('cases_by_type');
+  wmRowsTable(sec.querySelector('.wm-cstype'), bt, bt.status === 'ok' ? bt.data : [], [
+    [(r) => r['ประเภท']],
+    [(r) => wmNum(r['คดี']), 'wm-r'],
+    [(r) => wmNum(r['จำนวนที่พบผิด']), 'wm-r'],
+    [(r) => wmNum(r['ค่าปรับ (บาท)']), 'wm-r'],
+    [(r) => wmNum(r['คดี สฎ']), 'wm-r wm-opt' + (prov === 'สฎ' ? ' wm-hl' : '')],
+    [(r) => wmNum(r['คดี นศ']), 'wm-r wm-opt' + (prov === 'นศ' ? ' wm-hl' : '')],
+  ]);
+  const bo = dash.data('cases_by_offense');
+  wmRowsTable(sec.querySelector('.wm-csoff'), bo, bo.status === 'ok' ? bo.data : [], [
+    [(r) => r['ความผิด']],
+    [(r) => wmNum(r['คดี']), 'wm-r'],
+    [(r) => wmNum(r['ค่าปรับ (บาท)']), 'wm-r'],
+  ]);
+
+  const cs = dash.data('cases');
+  const name = prov === 'all' ? null : WM_PROV_NAME[prov];
+  const list = cs.status === 'ok' ? cs.data.filter((r) => !name || r['จังหวัด'] === name).slice().sort((a, b) => (b['ที่'] || 0) - (a['ที่'] || 0)) : [];
+  wmRowsTable(sec.querySelector('.wm-cslist'), cs, list, [
+    [(r) => String(r['ที่']), 'wm-r'],
+    [(r) => r['วันที่ (แสดง)']],
+    [(r) => r['อำเภอ/เขต'], 'wm-opt'],
+    [(r) => r['จังหวัด']],
+    [(r) => r['ประเภทเครื่องชั่งตวงวัด/สินค้าหีบห่อที่พบผิด'], 'wm-opt'],
+    [(r) => wmNum(r['จำนวนที่พบผิด']), 'wm-r'],
+    [(r) => r['รายละเอียดความผิด'], 'wm-opt'],
+    [(r) => wmNum(r['เปรียบเทียบปรับ (บาท)']), 'wm-r'],
+  ]);
+
+  const m = dash.data('cases_months');
+  const box = sec.querySelector('.ch-cs');
+  box.classList.toggle('dash-skeleton', m.status === 'loading');
+  if (m.status === 'ok' && m.data.length) {
+    const c1 = prov === 'นศ' ? 'var(--cds-chart-muted)' : dash.colors[0];
+    const c2 = prov === 'สฎ' ? 'var(--cds-chart-muted)' : dash.colors[1];
+    wmDrawSeries(box, m.data, [{ key: 'คดี สฎ', name: 'สฎ', color: c1 }, { key: 'คดี นศ', name: 'นศ', color: c2 }], !wmAnimated.has('cases'), { key: 'ค่าปรับ (บาท)', name: 'ค่าปรับ (บาท)' });
+    wmAnimated.add('cases');
+  } else wmFail(box, m);
+}
+
+function wmPace(sec, id) {
+  const ds = dash.data(id + '_pace');
+  const tot = ds.status === 'ok' ? ds.data.find((r) => r['ประเภท'] === 'รวมทั้งหมด') || {} : {};
+  wmSet(sec.querySelector('.pc-rate'), ds, wmPct(tot['ทำได้ต่อเดือน']));
+  wmSet(sec.querySelector('.pc-need'), ds, wmPct(tot['ต้องทำต่อเดือน']));
+  wmSet(sec.querySelector('.pc-proj'), ds, wmPct(tot['คาดการณ์สิ้นปี (%)']));
+  const tbody = sec.querySelector('.wm-pace tbody');
+  tbody.replaceChildren();
+  if (ds.status !== 'ok') return;
+  const rows = ds.data.filter((r) => r['ประเภท'] !== 'รวมทั้งหมด').slice()
+    .sort((a, b) => (a['แนวโน้ม'] === b['แนวโน้ม'] ? 0 : a['แนวโน้ม'] === 'ต้องเร่ง' ? -1 : 1)
+      || ((b['ต้องทำต่อเดือน'] - b['ทำได้ต่อเดือน']) - (a['ต้องทำต่อเดือน'] - a['ทำได้ต่อเดือน'])));
+  rows.forEach((r) => {
+    const tr = document.createElement('tr');
+    const td = (t, cls) => { const c = document.createElement('td'); if (cls) c.className = cls; c.textContent = t; tr.append(c); return c; };
+    td(r['ประเภท'], 'wm-type');
+    const b = document.createElement('span'); b.className = 'wm-badge ' + (r['แนวโน้ม'] === 'ทันเป้า' ? 'wm-ok' : 'wm-bad'); b.textContent = r['แนวโน้ม'];
+    td('').append(b);
+    td(wmPct(r['ทำได้ต่อเดือน']), 'wm-r');
+    td(wmPct(r['ต้องทำต่อเดือน']), 'wm-r wm-hl');
+    td(wmNum(r['เหลือถึงเป้าทั้งปี']), 'wm-r wm-opt');
+    td(wmPct(r['คาดการณ์สิ้นปี (%)']) + '%', 'wm-r');
+    tbody.append(tr);
+  });
+}
+
+function wmYoy(sec, id) {
+  const ds = dash.data(id + '_yoy');
+  const prov = id === 'places' ? wmProv() : 'all';
+  const sfx = prov === 'all' ? '' : ' ' + prov;
+  const F = {
+    a: prov === 'all' ? 'ปีงบ 70' : 'ปีงบ 70' + sfx,
+    b: prov === 'all' ? 'ปีงบ 69 ช่วงเดียวกัน' : 'ปีงบ 69' + sfx,
+    d: 'เพิ่ม/ลด' + sfx,
+    p: prov === 'all' ? 'เปลี่ยนแปลง (%)' : 'เปลี่ยนแปลง' + sfx + ' (%)',
+  };
+  const keyf = id === 'equip' ? 'กลุ่มเปรียบเทียบ' : 'ประเภท';
+  const totKey = id === 'equip' ? 'รวม' : 'รวมทั้งหมด';
+  const tot = ds.status === 'ok' ? ds.data.find((r) => r[keyf] === totKey) || {} : {};
+  sec.querySelector('.yo-lab').textContent = id === 'equip' ? (wmProv() === 'all' ? '' : ' (ทั้งศูนย์ ปีงบ 69 ไม่แยกจังหวัด)') : (prov === 'all' ? '' : ' — ' + WM_PROV_NAME[prov]);
+  [['.yo-a', 'a', wmNum], ['.yo-b', 'b', wmNum], ['.yo-p', 'p', (v) => (v == null ? '—' : (v > 0 ? '+' : '') + wmPct(v))]].forEach(([sel, k, fmt]) => {
+    const el = sec.querySelector(sel); el.dataset.field = F[k]; wmSet(el, ds, fmt(tot[F[k]]));
+  });
+  const pv = tot[F.p];
+  sec.querySelector('.yo-badge').className = 'wm-badge yo-badge ' + (pv == null ? 'wm-na' : pv >= 0 ? 'wm-ok' : 'wm-bad');
+  const table = sec.querySelector('.wm-yo');
+  [['.yo-c1', 'a'], ['.yo-c2', 'b'], ['.yo-c3', 'd'], ['.yo-c4', 'p']].forEach(([sel, k]) => { table.querySelector(sel).dataset.field = F[k]; });
+  const tbody = table.querySelector('tbody');
+  tbody.replaceChildren();
+  const toggle = sec.querySelector('.yo-toggle');
+  toggle.hidden = id === 'equip';
+  if (ds.status !== 'ok') return;
+  const showAll = sec.querySelector('.wm-yo-all').checked;
+  let rows = ds.data.filter((r) => r[keyf] !== totKey);
+  if (id === 'places' && !showAll) rows = rows.filter((r) => (r[F.a] || 0) > 0 || (r[F.b] || 0) > 0);
+  if (id === 'places') rows = rows.slice().sort((x, y) => (y[F.a] || 0) - (x[F.a] || 0));
+  rows.forEach((r) => {
+    const tr = document.createElement('tr');
+    const td = (t, cls) => { const c = document.createElement('td'); if (cls) c.className = cls; c.textContent = t; tr.append(c); };
+    td(r[keyf], 'wm-type');
+    td(wmNum(r[F.a]), 'wm-r wm-hl');
+    td(wmNum(r[F.b]), 'wm-r');
+    const d = r[F.d];
+    td(d == null ? '—' : (d > 0 ? '+' : '') + wmFmt(d), 'wm-r ' + (d > 0 ? 'wm-up' : d < 0 ? 'wm-down' : ''));
+    const p = r[F.p];
+    td(p == null ? (r[F.a] > 0 ? 'ใหม่' : '—') : (p > 0 ? '+' : '') + wmPct(p) + '%', 'wm-r ' + (p > 0 ? 'wm-up' : p < 0 ? 'wm-down' : ''));
+    tbody.append(tr);
+  });
+}
+document.querySelectorAll('.wm-yo-all').forEach((cb) => cb.addEventListener('change', () => wmRender()));
+
+function wmFollowups() {
+  const ds = dash.data('followups');
+  const ul = document.querySelector('.wm-todo-list');
+  ul.classList.toggle('dash-skeleton', ds.status === 'loading');
+  ul.replaceChildren();
+  if (ds.status !== 'ok') { if (ds.status === 'error') wmFail(ul, ds); return; }
+  ds.data.filter((r) => r['แท็บ'] !== 'notes').forEach((r) => {
+    const li = document.createElement('li');
+    li.dataset.tab = r['แท็บ'];
+    const n = document.createElement('span');
+    n.className = 'wm-todo-n ' + (r['จำนวน'] > 0 ? (r['แท็บ'] === 'notes' ? 'wm-warn' : 'wm-bad') : 'wm-ok');
+    n.textContent = wmNum(r['จำนวน']);
+    const body = document.createElement('div');
+    const t = document.createElement('div'); t.className = 'wm-todo-t'; t.textContent = r['รายการ'] + ' (' + r['หน่วย'] + ')';
+    const d = document.createElement('div'); d.className = 'wm-todo-d'; d.textContent = r['จำนวน'] > 0 ? r['รายละเอียด'] : 'ไม่มี';
+    body.append(t, d);
+    li.append(n, body);
+    ul.append(li);
+  });
+}
+document.querySelector('.wm-todo-list').addEventListener('click', (e) => {
+  const li = e.target.closest('li[data-tab]');
+  if (!li) return;
+  wmGoTab(li.dataset.tab);
+  document.querySelector('.wm-nav').scrollIntoView({ block: 'start' });
+});
+
+function wmRender() {
+  wmHeader();
+  const prov = wmProv();
+  document.querySelectorAll('.wm-seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.prov === prov)));
+  const note = document.querySelector('.wm-provnote');
+  note.hidden = prov === 'all' || wmTab === 'notes' || wmTab === 'cases';
+  document.querySelector('.wm-provname').textContent = prov === 'all' ? '' : 'จ.' + WM_PROV_NAME[prov];
+  document.querySelectorAll('.wm-tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === wmTab)));
+  document.querySelectorAll('.wm-sec').forEach((sec) => { sec.hidden = sec.dataset.sec !== wmTab; });
+  wmFollowups();
+  if (wmTab === 'equip') { wmSection('equip', 'equip_months', 'equip_status'); wmPace(document.getElementById('equip'), 'equip'); wmYoy(document.getElementById('equip'), 'equip'); }
+  else if (wmTab === 'places') { wmSection('places', 'places_months', 'places_status'); wmPace(document.getElementById('places'), 'places'); wmYoy(document.getElementById('places'), 'places'); }
+  else if (wmTab === 'packaged') wmPackaged();
+  else if (wmTab === 'cases') wmCases();
+  else wmNotes();
+}
+
+function wmGoTab(tab) {
+  if (!['equip', 'places', 'packaged', 'cases', 'notes'].includes(tab)) return;
+  wmTab = tab;
+  dash.setLink(tab);
+  wmRender();
+}
+document.querySelectorAll('.wm-tabs button').forEach((b) => b.addEventListener('click', () => wmGoTab(b.dataset.tab)));
+document.querySelectorAll('.wm-seg button').forEach((b) => b.addEventListener('click', () => {
+  dash.setParams({ province: b.dataset.prov });
+}));
+
+const wmStartEl = location.hash ? document.getElementById(location.hash.slice(1)) : null;
+const wmStartSec = wmStartEl && (wmStartEl.closest('.wm-sec') || (wmStartEl.dataset.tab && document.getElementById(wmStartEl.dataset.tab)));
+if (wmStartSec) wmTab = wmStartSec.dataset.sec;
+let wmScrolled = false;
+dash.onData(() => {
+  wmRender();
+  if (!wmScrolled && wmStartEl && dash.data(wmTab).status === 'ok') {
+    wmScrolled = true;
+    wmStartEl.scrollIntoView();
+  }
+});
+</script>
+
+<script>
+(() => {
+  const status = document.querySelector('.pub-status');
+  const TITLE = 'ติดตามผลการตรวจสอบเทียบเป้าหมาย ปีงบประมาณ 2570 ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)';
+  const setAll = (st, msg) => {
+    ['info', 'equip', 'places', 'packaged', 'cases', 'fy69_equip', 'fy69_places', 'notes'].concat(dash._calcs.map((c) => c.id))
+      .forEach((id) => dash._set(id, { status: st, data: [], columns: [], meta: [], message: msg }));
+  };
+  const blocks = (rows) => {
+    const out = {}; let cur = null;
+    rows.forEach((r) => {
+      const a = String(r[0] ?? '').trim();
+      if (/^#[a-z0-9_]+$/.test(a)) { cur = a.slice(1); out[cur] = []; return; }
+      if (cur && r.some((c) => String(c).trim() !== '')) out[cur].push(r);
+    });
+    Object.values(out).forEach((b) => {
+      if (!b.length) return;
+      let w = b[0].length; while (w > 0 && String(b[0][w - 1]).trim() === '') w--;
+      b.forEach((r, i) => { b[i] = r.slice(0, w); });
+    });
+    return out;
+  };
+  window.wmLoad = async () => {
+    status.textContent = 'กำลังโหลดข้อมูล…';
+    try {
+      if (!window.WM_CSV_URL || window.WM_CSV_URL.startsWith('__')) throw new Error('ยังไม่ได้ตั้งลิงก์ CSV');
+      const url = window.WM_CSV_URL + (window.WM_CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now();
+      const r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const B = blocks(d3.csvParseRows(await r.text()));
+      const run = (id, values) => {
+        try {
+          const out = dash._loaders[id]({ answer: { values } });
+          const rows = Array.isArray(out) ? out : out.rows;
+          dash._set(id, { status: 'ok', data: rows, columns: out.columns || [], meta: [] });
+        } catch (e) { console.error(id, e); dash._set(id, { status: 'error', data: [], message: e.message }); }
+      };
+      const info = (B.info || [])[0] || [];
+      run('info', [[TITLE], [info[0] || ''], ['', info[1] || '1', '', info[2] || '0']]);
+      ['equip', 'places', 'packaged', 'cases', 'fy69_equip', 'fy69_places'].forEach((id) => run(id, B[id] || []));
+      dash._set('notes', { status: 'ok', data: [], columns: ['หัวข้อ', 'ข้อความ'], meta: [] });
+      const done = new Set();
+      for (let pass = 0; pass < 6; pass++) {
+        dash._calcs.forEach((c) => {
+          if (done.has(c.id)) return;
+          const ins = c.inputs.map((x) => dash.data(x));
+          if (ins.some((d) => d.status !== 'ok')) return;
+          try { dash._set(c.id, { status: 'ok', data: c.fn(...ins.map((d) => d.data)), columns: [], meta: [] }); }
+          catch (e) { console.error(c.id, e); dash._set(c.id, { status: 'error', data: [], message: e.message }); }
+          done.add(c.id);
+        });
+      }
+      status.textContent = 'โหลดข้อมูลเมื่อ ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
+      status.classList.remove('pub-err');
+    } catch (e) {
+      console.error(e);
+      setAll('error', e.message);
+      status.textContent = 'โหลดข้อมูลไม่สำเร็จ (' + e.message + ')' + (/fetch/i.test(e.message) ? ' · ถ้าเปิดในหน้าตัวอย่างของแอป Claude หรือเครือข่ายที่บล็อก Google ให้เปิดผ่านลิงก์ GitHub Pages ด้วย Chrome/Edge' : '');
+      status.classList.add('pub-err');
+    }
+    dash._fire();
+  };
+  document.querySelector('.pub-refresh').addEventListener('click', () => window.wmLoad());
+  window.wmLoad();
+  setInterval(() => { if (!document.hidden) window.wmLoad(); }, 10 * 60 * 1000);
+})();
+</script>
+</div>
+</body>
+</html>
