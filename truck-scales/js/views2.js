@@ -373,25 +373,60 @@
         TS.toast(ok ? 'กู้คืนข้อมูลครบถ้วน' : 'กู้คืนแล้ว แต่จำนวนไม่ตรงกับไฟล์สำรอง ตรวจผลด้านล่าง', ok ? '' : 'err'); TS.render();
       } catch (ex) { TS.toast(ex.message || String(ex), 'err'); }
     } });
+    const mergeIn = h('input', { type: 'file', accept: '.json,application/json', id: 'mergePick', hidden: true, onchange: async e => {
+      const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+      try { const j = await TS.readBackup(file); TS.pendingMerge = await TS.analyzeMerge(j, file.name); TS.mergeResult = null; TS.render(); setTimeout(() => { const p = document.getElementById('mergePreview'); if (p) p.scrollIntoView({ block: 'start' }); }, 80); }
+      catch (ex) { TS.toast(ex.message || String(ex), 'err'); }
+    } });
     const rr = TS.restoreResult;
     root.append(h('section', { class: 'panel' }, h('h2', null, 'สำรองและกู้คืน'),
-      h('p', { class: 'muted' }, 'ไฟล์สำรองรวมทะเบียน ค่าที่แก้ พิกัดภาคสนาม แผนตรวจ ผลตรวจ และไฟล์หลักฐานทั้งหมด ใช้ย้ายไปอุปกรณ์อื่นหรือส่งต่อ ไฟล์นี้มีข้อมูลรายกิจการ ควรส่งผ่านช่องทางของหน่วยงาน'),
+      h('p', { class: 'muted' }, 'ไฟล์สำรองรวมทะเบียน ค่าที่แก้ พิกัดภาคสนาม สถานที่ที่เพิ่มจากภาคสนาม แผนตรวจ ผลตรวจ และไฟล์หลักฐานทั้งหมด ใช้ย้ายไปอุปกรณ์อื่นหรือส่งต่อ ไฟล์นี้มีข้อมูลรายกิจการ ควรส่งผ่านช่องทางของหน่วยงาน'),
+      h('ul', { class: 'small muted' }, h('li', null, h('b', null, 'รวมข้อมูลจากไฟล์สำรอง'), ' — รับไฟล์จากเจ้าหน้าที่หลายคนมารวมบนเครื่องนี้ ของเดิมบนเครื่องยังอยู่ครบ'), h('li', null, h('b', null, 'นำไฟล์สำรองกลับเข้า (แทนที่ทั้งหมด)'), ' — ใช้เมื่อย้ายเครื่อง ข้อมูลเดิมบนเครื่องนี้จะถูกแทนที่')),
       h('div', { class: 'btnrow' },
         h('button', { class: 'btn primary', type: 'button', id: 'backupBtn', disabled: !TS.hasData(), onclick: async e => {
           e.target.disabled = true;
           try { const b = await TS.makeBackup(); TS.download(b.blob, 'สำรองทะเบียนเครื่องชั่งรถยนต์_' + TS.todayISO() + '.json'); await TS.setMeta('lastBackup', { at: Date.now(), counts: b.counts }); TS.toast('ส่งออกไฟล์สำรองแล้ว: เครื่อง ' + n(b.counts.machines) + ' ผลตรวจ ' + n(b.counts.inspections) + ' หลักฐาน ' + n(b.counts.evidence)); TS.render(); }
           catch (ex) { TS.toast('ส่งออกไม่สำเร็จ: ' + (ex.message || ex), 'err'); e.target.disabled = false; }
         } }, 'ส่งออกไฟล์สำรอง'),
-        h('button', { class: 'btn', type: 'button', id: 'restoreBtn', onclick: () => restoreIn.click() }, 'นำไฟล์สำรองกลับเข้า'), restoreIn,
+        h('button', { class: 'btn', type: 'button', id: 'mergeBtn', disabled: !TS.hasData(), title: TS.hasData() ? '' : 'เปิดไฟล์ทะเบียนบนอุปกรณ์นี้ก่อน', onclick: () => mergeIn.click() }, 'รวมข้อมูลจากไฟล์สำรอง'), mergeIn,
+        h('button', { class: 'btn', type: 'button', id: 'restoreBtn', onclick: () => restoreIn.click() }, 'นำไฟล์สำรองกลับเข้า (แทนที่ทั้งหมด)'), restoreIn,
         h('button', { class: 'btn', type: 'button', id: 'xlsxBtn', disabled: !TS.hasData(), onclick: () => TS.download(TS.exportXlsx(), 'ทะเบียนเครื่องชั่งรถยนต์_พร้อมผลตรวจ_' + TS.todayISO() + '.xlsx') }, 'ส่งออกทะเบียนพร้อมผลตรวจเป็น Excel')),
       S.meta.lastBackup ? h('p', { class: 'muted small' }, 'สำรองล่าสุด ' + TS.fmtStamp(S.meta.lastBackup.at)) : h('p', { class: 'muted small' }, 'ยังไม่เคยสำรองจากอุปกรณ์นี้'),
+      TS.pendingMerge ? mergePreview() : null,
+      TS.mergeResult ? h('div', { class: 'ok-box', id: 'mergeResult' }, h('b', null, 'รวมข้อมูลแล้ว'), ' จาก ' + TS.mergeResult.fileName + ' · สถานที่เพิ่มจากภาคสนาม +' + n(TS.mergeResult.addField) + ' · เครื่องจากทะเบียน +' + n(TS.mergeResult.addReg) + ' · ค่าที่แก้ +' + n(TS.mergeResult.edits) + ' · ผลตรวจ +' + n(TS.mergeResult.insAdd) + ' (อัปเดต ' + n(TS.mergeResult.insUpdate) + ') · ไฟล์หลักฐาน +' + n(TS.mergeResult.evAdd) + ' · แผนตรวจ +' + n(TS.mergeResult.planAdd) + ' — ตอนนี้มี ' + n(TS.registerList().length) + ' เครื่อง เพิ่มจากภาคสนาม ' + n(TS.fieldAddedList().length) + ' รายการ ผลตรวจ ' + n(S.inspections.length) + ' รายการ') : null,
       rr ? h('div', { class: rr.ok ? 'ok-box' : 'warn-box', id: 'restoreResult' }, h('b', null, rr.ok ? 'กู้คืนครบถ้วน' : 'กู้คืนไม่ครบ'), ' · เครื่อง ' + rr.r.actual.machines + '/' + rr.r.expected.machines + ' · ผลตรวจ ' + rr.r.actual.inspections + '/' + rr.r.expected.inspections + ' · แผน ' + rr.r.actual.plans + '/' + rr.r.expected.plans + ' · ไฟล์หลักฐาน ' + rr.r.actual.evidence + '/' + rr.r.expected.evidence + (rr.r.bytesOK ? ' · ขนาดไฟล์หลักฐานตรงทุกไฟล์' : ' · ขนาดไฟล์หลักฐานไม่ตรง')) : null));
     root.append(h('section', { class: 'panel' }, h('h2', null, 'ล้างข้อมูลบนอุปกรณ์นี้'),
       h('p', { class: 'muted' }, 'ใช้เมื่อเลิกใช้อุปกรณ์หรือใช้เครื่องร่วมกับผู้อื่น ควรส่งออกไฟล์สำรองก่อน'),
-      h('button', { class: 'btn danger', type: 'button', id: 'wipeBtn', disabled: !TS.hasData() && !S.plans.length, onclick: async () => { if (!confirm('ลบทะเบียน ผลตรวจ แผนตรวจ และไฟล์หลักฐานทั้งหมดออกจากอุปกรณ์นี้หรือไม่ การลบนี้กู้คืนไม่ได้หากไม่มีไฟล์สำรอง')) return; await TS.db.clearAll(); TS.restoreResult = null; TS.pending = null; await TS.loadAll(); TS.buildIndex(); TS.updateSelCount(); TS.toast('ลบข้อมูลบนอุปกรณ์นี้แล้ว'); TS.render(); } }, 'ลบข้อมูลทั้งหมดบนอุปกรณ์นี้')));
+      h('button', { class: 'btn danger', type: 'button', id: 'wipeBtn', disabled: !TS.hasData() && !S.plans.length, onclick: async () => { if (!confirm('ลบทะเบียน ผลตรวจ แผนตรวจ และไฟล์หลักฐานทั้งหมดออกจากอุปกรณ์นี้หรือไม่ การลบนี้กู้คืนไม่ได้หากไม่มีไฟล์สำรอง')) return; await TS.db.clearAll(); TS.restoreResult = null; TS.mergeResult = null; TS.pendingMerge = null; TS.pending = null; await TS.loadAll(); TS.buildIndex(); TS.updateSelCount(); TS.toast('ลบข้อมูลบนอุปกรณ์นี้แล้ว'); TS.render(); } }, 'ลบข้อมูลทั้งหมดบนอุปกรณ์นี้')));
     root.append(h('section', { class: 'panel' }, h('h2', null, 'ความเป็นส่วนตัวของข้อมูล'),
       h('ul', null, h('li', null, 'หน้าเว็บนี้เผยแพร่เฉพาะยอดรวม ไม่มีรายชื่อกิจการ พิกัด เลขคำขอ หรือผลตรวจ'), h('li', null, 'ไฟล์ Excel ผลตรวจ และหลักฐานอยู่ในเบราว์เซอร์ของอุปกรณ์นี้เท่านั้น ไม่มีการส่งขึ้นเซิร์ฟเวอร์'), h('li', null, 'แผนที่ฐานโหลดภาพแผนที่จาก OpenStreetMap จึงต้องใช้อินเทอร์เน็ต แต่ไม่ส่งข้อมูลทะเบียนออกไป'), h('li', null, 'ผู้ใช้แต่ละอุปกรณ์เห็นเฉพาะข้อมูลของตนเอง การแก้ไขไม่ซิงก์ระหว่างอุปกรณ์ ใช้ไฟล์สำรองเพื่อส่งต่อ'))));
   };
+  function mergePreview() {
+    const an = TS.pendingMerge;
+    const tile = (label, v, cls, id) => h('div', { class: 'tile ' + (cls || ''), id }, h('strong', null, n(v)), h('span', null, label));
+    return h('div', { class: 'preview', id: 'mergePreview' },
+      h('h3', null, 'ตรวจก่อนรวม: ' + an.fileName), h('p', { class: 'muted small' }, 'ไฟล์สำรองวันที่ ' + TS.fmtStamp(an.exportedAt) + ' · ข้อมูลเดิมบนเครื่องนี้จะไม่ถูกลบหรือทับ'),
+      an.nothing ? h('p', { class: 'ok-box', id: 'mergeNothing' }, 'ไฟล์นี้ไม่มีข้อมูลใหม่ ข้อมูลทั้งหมดมีบนเครื่องนี้แล้ว') : null,
+      h('div', { class: 'tiles' }, tile('สถานที่เพิ่มจากภาคสนาม (ใหม่)', an.addField.length, 'g', 'mField'), tile('เครื่องจากทะเบียนที่เครื่องนี้ยังไม่มี', an.addReg.length, an.addReg.length ? 'b' : '', 'mReg'), tile('ค่าที่แก้ภาคสนามที่จะรับเข้า', an.adoptCount + an.noteCount, 'b', 'mEdits'), tile('ผลตรวจใหม่', an.insAdd.length, 'g', 'mIns'), tile('ผลตรวจที่ไฟล์นี้ใหม่กว่า', an.insUpdate.length, an.insUpdate.length ? 'b' : '', 'mInsUpd'), tile('ไฟล์หลักฐานใหม่', an.evAdd.length, 'g', 'mEv'), tile('แผนตรวจใหม่', an.planAdd.length, 'g', 'mPlan'), tile('ค่าที่ขัดกัน ต้องเลือก', an.conflicts.length, an.conflicts.length ? 'a' : '', 'mConf')),
+      h('ul', { class: 'small', id: 'mergeNotes' },
+        (an.insSame || an.planSame) ? h('li', null, 'มีอยู่แล้วบนเครื่องนี้ ข้ามไป: ผลตรวจ ' + n(an.insSame) + ' รายการ แผนตรวจ ' + n(an.planSame) + ' แผน') : null,
+        an.insOlder ? h('li', null, 'ผลตรวจ ' + n(an.insOlder) + ' รายการในไฟล์เก่ากว่าบนเครื่องนี้ คงฉบับบนเครื่องไว้') : null,
+        an.orphans ? h('li', null, 'ผลตรวจ ' + n(an.orphans) + ' รายการอ้างถึงเครื่องที่ไม่พบ จึงไม่นำเข้า') : null,
+        an.evMissing ? h('li', null, 'ไฟล์หลักฐาน ' + n(an.evMissing) + ' ไฟล์ไม่มีอยู่ในไฟล์สำรองนี้') : null,
+        h('li', null, 'รายการที่ลบบนเครื่องใดเครื่องหนึ่งจะไม่ถูกลบตามบนเครื่องอื่น หากไฟล์ที่รวมยังมีรายการนั้น รายการจะกลับมา')),
+      an.dupSuspects.length ? h('div', { class: 'warn-box', id: 'dupSuspects' }, h('b', null, 'อาจเป็นสถานที่เดียวกันที่เพิ่มซ้ำ ' + n(an.dupSuspects.length) + ' รายการ'), ' — ระบบจะรวมเข้าทั้งหมด ให้ตรวจแล้วลบรายการที่ซ้ำภายหลัง', h('ul', null, an.dupSuspects.map(d => h('li', null, d.incoming + ' อยู่ห่างจาก ' + d.existing + ' ประมาณ ' + n(d.meters) + ' ม.')))) : null,
+      an.conflicts.length ? h('section', { class: 'conflicts', id: 'mergeConflicts' }, h('h3', null, 'ค่าที่แก้ไม่ตรงกัน ' + n(an.conflicts.length) + ' รายการ — เลือกค่าที่จะใช้'),
+        an.conflicts.map((c, k) => h('fieldset', { class: 'conflict' }, h('legend', null, c.name + ' · ' + TS.str(c.machineNo) + ' · ' + (TS.FIELD[c.f] ? TS.FIELD[c.f].label : c.f)),
+          h('label', { class: 'inline' }, h('input', { type: 'radio', name: 'mc' + k, checked: c.choice === 'mine', onchange: () => { c.choice = 'mine'; } }), ' คงค่าบนเครื่องนี้: ', h('b', null, TS.showVal(c.f, c.mine))),
+          h('label', { class: 'inline' }, h('input', { type: 'radio', name: 'mc' + k, checked: c.choice === 'theirs', onchange: () => { c.choice = 'theirs'; } }), ' ใช้ค่าจากไฟล์ที่รวม: ', h('b', null, TS.showVal(c.f, c.theirs)))))) : null,
+      h('div', { class: 'btnrow' },
+        h('button', { class: 'btn primary', type: 'button', id: 'confirmMerge', disabled: an.nothing, onclick: async e => {
+          e.target.disabled = true;
+          try { TS.mergeResult = await TS.applyMerge(an); TS.pendingMerge = null; TS.toast('รวมข้อมูลแล้ว'); TS.render(); }
+          catch (ex) { TS.toast('รวมข้อมูลไม่สำเร็จ: ' + (ex.message || ex), 'err'); e.target.disabled = false; }
+        } }, 'ยืนยันรวมข้อมูล'),
+        h('button', { class: 'btn', type: 'button', onclick: () => { TS.pendingMerge = null; TS.render(); } }, an.nothing ? 'ปิด' : 'ยกเลิก')));
+  }
   function drawPending(box) {
     const P = TS.pending, wb = P.wb;
     const names = wb.SheetNames;

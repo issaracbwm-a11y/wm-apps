@@ -221,6 +221,84 @@ TS.restoreBackup = async function (j) {
     bytesOK: evNow.every(e => { const o = j.evidence.find(x => x.id === e.id); return o && e.blob && e.blob.size === o.size; })
   };
 };
+/* ---------- รวมข้อมูลจากไฟล์สำรองของอุปกรณ์อื่น (ไม่ทับของเดิม) ---------- */
+TS.analyzeMerge = async function (j, fileName) {
+  const S = TS.S, stamp = x => (x && (x.updatedAt || x.createdAt)) || 0;
+  const out = { fileName, exportedAt: j.exportedAt, addReg: [], addField: [], patches: [], adoptCount: 0, noteCount: 0, conflicts: [], insAdd: [], insUpdate: [], insSame: 0, insOlder: 0, orphans: 0, evAdd: [], evMissing: 0, planAdd: [], planSame: 0, dupSuspects: [] };
+  const incomingIds = new Set(j.machines.map(m => m && m.id));
+  for (const im of j.machines) {
+    if (!im || !im.id || !im.src) continue;
+    const mine = S.machines.get(im.id);
+    if (!mine) {
+      (im.fieldAdded ? out.addField : out.addReg).push(im);
+      if (im.fieldAdded && typeof im.src.lat === 'number') {
+        /* สถานที่ที่สองคนเพิ่มซ้ำกัน: อยู่ห่างจากรายการเพิ่มเองที่มีอยู่ไม่เกิน 150 ม. */
+        for (const x of TS.fieldAddedList().concat(out.addField.filter(y => y !== im))) {
+          const lat = x.local && 'lat' in x.local ? x.local.lat : x.src.lat, lon = x.local && 'lon' in x.local ? x.local.lon : x.src.lon;
+          if (typeof lat !== 'number' || x.src.stationKey === im.src.stationKey) continue;
+          const d = TS.km(im.src.lat, im.src.lon, lat, lon) * 1000;
+          if (d <= 150) { out.dupSuspects.push({ incoming: TS.str(im.src.name), existing: TS.str(x.src.name), meters: Math.round(d) }); break; }
+        }
+      }
+      continue;
+    }
+    const patch = { id: im.id, set: {}, note: null };
+    for (const f of Object.keys(im.local || {})) {
+      const theirs = im.local[f];
+      if (mine.local && f in mine.local) {
+        if (!TS.sameVal(mine.local[f], theirs)) out.conflicts.push({ id: im.id, f, name: TS.label(mine), machineNo: mine.src.machineNo, mine: mine.local[f], theirs, choice: 'mine' });
+      } else if (!TS.sameVal(mine.src[f], theirs)) { patch.set[f] = theirs; out.adoptCount++; }
+    }
+    const tn = TS.str(im.staffNote), mn = TS.str(mine.staffNote);
+    if (tn && tn !== mn && !mn.includes(tn)) { patch.note = mn ? mn + ' | ' + tn : tn; out.noteCount++; }
+    if (Object.keys(patch.set).length || patch.note !== null) out.patches.push(patch);
+  }
+  const myIns = new Map(S.inspections.map(i => [i.id, i]));
+  const myEv = new Set((await TS.db.all('evidence')).map(e => e.id));
+  const evById = new Map((j.evidence || []).map(e => [e.id, e]));
+  const wantEv = i => { for (const ev of i.evidence || []) { if (myEv.has(ev.id)) continue; const rec = evById.get(ev.id); if (rec && typeof rec.data === 'string') { out.evAdd.push(rec); myEv.add(ev.id); } else out.evMissing++; } };
+  for (const i of j.inspections || []) {
+    if (!i || !i.id) continue;
+    if (!S.machines.has(i.machineId) && !incomingIds.has(i.machineId)) { out.orphans++; continue; }
+    const mine = myIns.get(i.id);
+    if (!mine) { out.insAdd.push(i); wantEv(i); }
+    else if (stamp(i) > stamp(mine)) { out.insUpdate.push(i); wantEv(i); }
+    else if (stamp(i) === stamp(mine)) out.insSame++; else out.insOlder++;
+  }
+  const myPlans = new Set(S.plans.map(p => p.id));
+  for (const p of j.plans || []) { if (!p || !p.id) continue; if (myPlans.has(p.id)) out.planSame++; else out.planAdd.push(p); }
+  out.nothing = !(out.addReg.length || out.addField.length || out.patches.length || out.conflicts.length || out.insAdd.length || out.insUpdate.length || out.planAdd.length || out.evAdd.length);
+  return out;
+};
+TS.applyMerge = async function (an) {
+  const S = TS.S, now = Date.now(), put = new Map();
+  const edit = id => { if (!put.has(id)) { const m = S.machines.get(id); put.set(id, Object.assign({}, m, { local: Object.assign({}, m.local || {}), base: Object.assign({}, m.base || {}) })); } return put.get(id); };
+  for (const m of an.addReg.concat(an.addField)) put.set(m.id, Object.assign({ local: {}, base: {} }, m));
+  for (const p of an.patches) {
+    const m = edit(p.id);
+    for (const [f, v] of Object.entries(p.set)) { m.local[f] = v; m.base[f] = m.src[f] === undefined ? null : m.src[f]; }
+    if (p.note !== null) m.staffNote = p.note;
+    m.editedAt = now;
+  }
+  for (const c of an.conflicts) if (c.choice === 'theirs') { const m = edit(c.id); m.local[c.f] = c.theirs; m.base[c.f] = m.src[c.f] === undefined ? null : m.src[c.f]; m.editedAt = now; }
+  await TS.db.putMany('machines', [...put.values()]);
+  for (const m of put.values()) S.machines.set(m.id, m);
+  /* ผลตรวจที่ถูกแทนด้วยฉบับใหม่กว่า: ลบไฟล์หลักฐานเดิมที่ฉบับใหม่ไม่ได้อ้างถึง */
+  for (const i of an.insUpdate) { const old = S.inspections.find(x => x.id === i.id); const keep = new Set((i.evidence || []).map(e => e.id)); for (const ev of (old && old.evidence) || []) if (!keep.has(ev.id)) await TS.db.del('evidence', ev.id); }
+  for (let k = 0; k < an.evAdd.length; k += 5)
+    await TS.db.putMany('evidence', an.evAdd.slice(k, k + 5).map(e => ({ id: e.id, inspectionId: e.inspectionId, machineId: e.machineId, name: e.name, type: e.type, size: e.size, blob: b64ToBlob(e.data, e.type) })));
+  const ins = an.insAdd.concat(an.insUpdate);
+  if (ins.length) await TS.db.putMany('inspections', ins);
+  const upd = new Map(an.insUpdate.map(i => [i.id, i]));
+  S.inspections = S.inspections.map(i => upd.get(i.id) || i).concat(an.insAdd);
+  if (an.planAdd.length) { await TS.db.putMany('plans', an.planAdd); S.plans = S.plans.concat(an.planAdd); }
+  const info = { at: now, fileName: an.fileName, exportedAt: an.exportedAt, addReg: an.addReg.length, addField: an.addField.length, edits: an.adoptCount + an.conflicts.filter(c => c.choice === 'theirs').length, conflicts: an.conflicts.length, insAdd: an.insAdd.length, insUpdate: an.insUpdate.length, evAdd: an.evAdd.length, planAdd: an.planAdd.length, dupSuspects: an.dupSuspects.length };
+  const hist = (S.meta.mergeHistory || []).slice(-19); hist.push(info);
+  await TS.setMeta('mergeHistory', hist);
+  TS.buildIndex();
+  return info;
+};
+
 /* ส่งออกทะเบียน (รวมค่าที่แก้และผลตรวจล่าสุด) เป็น Excel */
 TS.exportXlsx = function () {
   const today = TS.todayISO();
