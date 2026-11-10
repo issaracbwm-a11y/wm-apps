@@ -57,6 +57,11 @@ footer{margin-top:28px;font-size:14px;color:var(--muted);display:grid;gap:6px}
 footer a{color:var(--accent);overflow-wrap:anywhere}
 @media (max-width:420px){.st{grid-template-columns:1fr}.actions{justify-items:stretch;grid-auto-flow:column;align-items:center}.open{text-align:center}}
 @media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+.sync{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:13px;color:var(--muted)}
+.sync button{font:inherit;font-size:13px;padding:4px 10px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}
+.sync.err{color:var(--gold)}
+.chk small{display:block;font-size:12px;font-weight:500;opacity:.85}
+.retry{display:inline-block;margin-top:6px;padding:2px 8px;border-radius:999px;background:var(--gold-soft);color:var(--gold);font-size:12.5px;font-weight:600}
 </style>
 </head>
 <body>
@@ -65,14 +70,15 @@ footer a{color:var(--accent);overflow-wrap:anywhere}
   <div class="eyebrow">ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี) · โครงการหัวจ่ายน้ำมันเชื้อเพลิงมาตรฐาน (FDV) · ปีงบประมาณ 2570</div>
   <h1>รายการสถานีบริการที่ต้องลงพื้นที่สำรวจความพร้อม</h1>
   <div class="meta"><span>ผู้รับผิดชอบ <b>นายวสันต์ ดิลกสัมพันธ์</b></span><span>เริ่มลงพื้นที่ <b>28 ต.ค. 2569</b></span><span>ทั้งหมด <b>49 แห่ง</b> (สฎ 28 · นศ 21)</span></div>
-  <div class="progress"><span id="pct">ทำเครื่องหมายแล้ว 0/49</span><div class="bar"><i id="barfill"></i></div></div>
+  <div class="progress"><span id="pct">สำรวจแล้ว 0/49</span><div class="bar"><i id="barfill"></i></div></div>
+  <div class="sync" id="sync"><span id="syncmsg">กำลังตรวจสอบกับชีตผลสำรวจ…</span><button type="button" id="syncbtn">อัปเดต</button></div>
 </header>
 <details class="tips" open><summary>วิธีใช้</summary>
 <ol>
 <li>กด <b>เปิดแบบสำรวจ</b> ของสถานีที่ไปถึง ฟอร์มจะกรอกรหัส ชื่อสถานี จังหวัด อำเภอ และชื่อผู้สำรวจไว้ให้แล้ว</li>
 <li>ตรวจชื่อสถานีว่าตรงกับป้ายหน้าสถานี แล้วตอบคำถามจนจบและกดส่ง</li>
 <li>ถ้าไม่พบผู้ให้ข้อมูล เลือก <b>ติดต่อไม่ได้</b> ฟอร์มจะข้ามไปหน้าสรุปให้ บันทึกวันที่จะกลับไปอีกครั้ง</li>
-<li>ช่อง “สำรวจแล้ว” ใช้ติ๊กดูความคืบหน้าในเครื่องนี้เท่านั้น ข้อมูลจริงบันทึกเข้าระบบเมื่อกดส่งฟอร์ม</li>
+<li>ช่อง “สำรวจแล้ว” จะติ๊กให้อัตโนมัติเมื่อผลสำรวจของสถานีนั้นเข้าชีต FDV 100% Tracking แล้ว (ทุกเครื่องเห็นตรงกัน) กด <b>อัปเดต</b> เพื่อดึงข้อมูลล่าสุด สถานีที่ยังไม่มีในชีตยังติ๊กเองได้ แต่จะเห็นเฉพาะในเครื่องนี้</li>
 </ol></details>
 <div class="search"><label for="q" hidden>ค้นหา</label><input id="q" type="search" placeholder="ค้นหารหัส ชื่อสถานี ตำบล หรืออำเภอ"><label for="pv" hidden>จังหวัด</label><select id="pv"><option value="">ทุกจังหวัด</option><option>สุราษฎร์ธานี</option><option>นครศรีธรรมราช</option></select></div>
 <main id="out"></main>
@@ -87,6 +93,38 @@ const KEY="fdv-field-done-v1";
 let done={};try{done=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(done))}catch(e){}}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+const SHEET_ID="1pAgiDczte0DjDMzm3YrpyPsqSQDsgb-jKCQrNlelAwk",SHEET_GID="1848508923";
+let sheet={},syncState="loading",syncAt=null;
+const MON=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+function thDate(c){if(!c)return"";let d,m,y,x;
+  if(typeof c.v==="string"&&(x=c.v.match(/^Date\((\d+),(\d+),(\d+)/))){y=+x[1];m=+x[2];d=+x[3]}
+  else if((x=String(c.f||c.v||"").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))){d=+x[1];m=+x[2]-1;y=+x[3]}
+  else return"";
+  if(y<2400)y+=543;return d+" "+MON[m]+" "+String(y).slice(-2)}
+function applySheet(r){
+  if(!r||r.status!=="ok"||!r.table)throw new Error("bad");
+  const m={};
+  r.table.rows.forEach(row=>{const c=row.c||[];const id=String((c[0]&&c[0].v)||"").trim().toUpperCase();
+    if(!/^FDV-/.test(id))return;
+    const res=String((c[2]&&c[2].v)||"");
+    m[id]={ok:!res.includes("ติดต่อไม่ได้"),date:thDate(c[1])}});
+  sheet=m;syncState="ok";syncAt=new Date();render()}
+let syncSeq=0;
+function loadSheet(){
+  const seq=++syncSeq,cb="fdvCb"+Date.now()+seq,sc=document.createElement("script");
+  if(syncState!=="ok")syncState="loading";syncUI(true);
+  const fin=()=>{clearTimeout(tm);delete window[cb];sc.remove()};
+  const fail=()=>{fin();if(seq!==syncSeq)return;syncState=syncAt?"stale":"err";syncUI()};
+  const tm=setTimeout(fail,15000);
+  window[cb]=r=>{fin();if(seq!==syncSeq)return;try{applySheet(r)}catch(e){syncState=syncAt?"stale":"err";syncUI()}};
+  sc.onerror=fail;
+  sc.src="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?gid="+SHEET_GID+"&headers=1&tq="+encodeURIComponent("select B,G,I")+"&tqx=out:json;responseHandler:"+cb+"&_="+Date.now();
+  document.head.appendChild(sc)}
+function syncUI(busy){const el=document.getElementById("sync"),msg=document.getElementById("syncmsg");
+  const t=syncAt?syncAt.toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}):"";
+  el.classList.toggle("err",syncState==="err"||syncState==="stale");
+  msg.textContent=busy?"กำลังตรวจสอบกับชีตผลสำรวจ…":syncState==="ok"?"ตรวจกับชีตผลสำรวจล่าสุด "+t+" น.":syncState==="stale"?"ดึงข้อมูลชีตไม่ได้ แสดงข้อมูลเมื่อ "+t+" น.":"ดึงข้อมูลจากชีตไม่ได้ (ตรวจสัญญาณอินเทอร์เน็ต) แสดงเฉพาะที่ติ๊กในเครื่องนี้"}
+function isDone(id){return !!((sheet[id]&&sheet[id].ok)||done[id])}
 const out=document.getElementById("out"),q=document.getElementById("q"),pv=document.getElementById("pv");
 function render(){
   const t=q.value.trim().toLowerCase(),p=pv.value;
@@ -99,14 +137,15 @@ function render(){
     amps.forEach(a=>{
       const as=ps.filter(s=>s.amp===a);
       h+=`<h3>อ.${esc(a)} · ${as.length} แห่ง</h3><div class="list">`;
-      as.forEach(s=>{const d=!!done[s.id];
-        h+=`<div class="st${d?" done":""}"><div class="info"><div class="code">${s.id}<button class="copy" type="button" data-c="${s.id}">คัดลอกรหัส</button></div><div class="name">${esc(s.name)}</div><div class="loc">${s.tb?"ต."+esc(s.tb)+" · ":""}อ.${esc(s.amp)}</div></div><div class="actions"><a class="open" href="${esc(s.url)}" target="_blank" rel="noopener">เปิดแบบสำรวจ</a><label class="chk"><input type="checkbox" id="c-${s.id}" data-id="${s.id}" ${d?"checked":""}> สำรวจแล้ว</label></div></div>`});
+      as.forEach(s=>{const sh=sheet[s.id],fromSheet=!!(sh&&sh.ok),d=isDone(s.id);
+        h+=`<div class="st${d?" done":""}"><div class="info"><div class="code">${s.id}<button class="copy" type="button" data-c="${s.id}">คัดลอกรหัส</button></div><div class="name">${esc(s.name)}</div><div class="loc">${s.tb?"ต."+esc(s.tb)+" · ":""}อ.${esc(s.amp)}</div>${sh&&!sh.ok?`<span class="retry">ติดต่อไม่ได้${sh.date?" "+sh.date:""} · ต้องกลับไปอีกครั้ง</span>`:""}</div><div class="actions"><a class="open" href="${esc(s.url)}" target="_blank" rel="noopener">เปิดแบบสำรวจ</a><label class="chk"><input type="checkbox" id="c-${s.id}" data-id="${s.id}" ${d?"checked":""} ${fromSheet?"disabled":""}> <span>สำรวจแล้ว${fromSheet?`<small>${sh.date?sh.date+" · ":""}ตามชีต</small>`:""}</span></label></div></div>`});
       h+=`</div>`;
     });
   });
   out.innerHTML=h||'<p class="empty">ไม่พบสถานีที่ค้นหา</p>';
-  const n=S.filter(s=>done[s.id]).length;
-  document.getElementById("pct").textContent=`ทำเครื่องหมายแล้ว ${n}/${S.length}`;
+  const n=S.filter(s=>isDone(s.id)).length,ns=S.filter(s=>sheet[s.id]&&sheet[s.id].ok).length;
+  document.getElementById("pct").textContent=`สำรวจแล้ว ${n}/${S.length}`+(syncState==="ok"||syncState==="stale"?` (ตามชีต ${ns})`:"");
+  syncUI();
   document.getElementById("barfill").style.width=(n/S.length*100)+"%";
 }
 out.addEventListener("change",e=>{const id=e.target.dataset.id;if(!id)return;if(e.target.checked)done[id]=1;else delete done[id];save();render()});
@@ -114,7 +153,9 @@ out.addEventListener("click",e=>{const b=e.target.closest(".copy");if(!b)return;
   const ok=()=>{b.textContent="คัดลอกแล้ว";setTimeout(()=>b.textContent="คัดลอกรหัส",1500)};
   if(navigator.clipboard)navigator.clipboard.writeText(c).then(ok).catch(()=>{const r=document.createRange();r.selectNodeContents(b.previousSibling||b);getSelection().removeAllRanges();getSelection().addRange(r)});});
 q.addEventListener("input",render);pv.addEventListener("change",render);
-render();
+render();loadSheet();
+document.getElementById("syncbtn").addEventListener("click",loadSheet);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)loadSheet()});
 </script>
 </body>
 </html>
