@@ -6,6 +6,7 @@
   /* ---------- แผนที่จุดตรวจ ---------- */
   TS.MF = { q: '', province: '', amphoe: '', biz: '', cert: '', work: '', req: '', from: '', to: '', page: 1 };
   let map = null, layer = null, meMarker = null, accCircle = null;
+  let nocQ = '';
   const track = { id: null, last: null, follow: true, onpos: null, onerr: null, frozen: null };
   /* stop=true เมื่อออกจากหน้าแผนที่: เลิกติดตามตำแหน่งเพื่อไม่ให้ใช้ GPS ค้าง */
   TS.leaveMap = function (stop) { if (stop) TS.addMode = false; if (stop && track.id !== null) { navigator.geolocation.clearWatch(track.id); track.id = null; if (track.last) track.frozen = track.last; track.last = null; track.follow = true; } if (map) { map.remove(); map = null; layer = null; meMarker = null; accCircle = null; } };
@@ -152,16 +153,27 @@
       }
       TS.put(info, h('span', { id: 'mapCount' }, 'แสดง ', h('b', null, n(groups.size)), ' จุด · ', h('b', null, n(rows.length - noc.length)), ' เครื่อง · ไม่มีพิกัดหรือพิกัดต้องตรวจสอบ ', h('b', null, n(noc.length)), ' เครื่อง'),
         h('span', { class: 'spacer' }), h('a', { class: 'btn primary', href: '#/plan' }, 'ไปจัดแผนตรวจ (', h('span', { 'data-selcount': '' }, n(S.selection.size)), ')'));
-      TS.put(under, h('section', { class: 'panel', id: 'nocoord' }, h('h2', null, 'รายการที่ไม่มีพิกัดหรือพิกัดต้องตรวจสอบ (' + n(noc.length) + ')'),
-        noc.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'reg' },
+      /* รายการไม่มีพิกัด/พิกัดต้องตรวจสอบ พร้อมช่องค้นหาชื่อ เลขเครื่อง หรืออำเภอ */
+      const body = h('div', { id: 'nocList' }), cnt = h('span', { class: 'muted small', id: 'nocCount', 'aria-live': 'polite' });
+      const drawNoc = () => {
+        const q = TS.str(nocQ).toLowerCase();
+        const hit = !q ? noc : noc.filter(([m]) => [TS.v(m, 'name'), TS.v(m, 'machineNo'), TS.v(m, 'lmId'), TS.v(m, 'placeCode'), TS.v(m, 'tambon'), TS.v(m, 'amphoe'), TS.v(m, 'province')].map(x => TS.str(x).toLowerCase()).join('\n').includes(q));
+        cnt.textContent = q ? 'พบ ' + n(hit.length) + ' จาก ' + n(noc.length) + ' รายการ' : '';
+        TS.put(body, hit.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'reg' },
           h('thead', null, h('tr', null, ['สถานประกอบการ', 'อำเภอ / จังหวัด', 'พิกัดที่มี', 'สาเหตุ', ''].map(t => h('th', { scope: 'col' }, t)))),
-          h('tbody', null, noc.slice(0, 200).map(([m, c]) => h('tr', null,
+          h('tbody', null, hit.slice(0, 200).map(([m, c]) => h('tr', null,
             h('td', { 'data-l': 'สถานประกอบการ' }, h('button', { class: 'link', type: 'button', onclick: () => TS.openMachine(m.id) }, TS.label(m)), h('div', { class: 'muted small mono' }, TS.str(TS.v(m, 'machineNo')))),
             h('td', { 'data-l': 'อำเภอ / จังหวัด' }, TS.str(TS.v(m, 'amphoe')) + ' · ' + TS.str(TS.v(m, 'province'))),
             h('td', { 'data-l': 'พิกัดที่มี' }, c.state === 'none' ? '–' : c.lat + ', ' + c.lon),
             h('td', { 'data-l': 'สาเหตุ' }, c.state === 'none' ? 'ไม่มีพิกัด' : 'พิกัดอยู่นอกพื้นที่ (อาจสลับแกนหรือพิมพ์ผิด)'),
-            h('td', null, h('button', { class: 'btn small', type: 'button', onclick: () => { TS.pick = { ids: [m.id], label: TS.label(m) }; drawPick(); mapEl.scrollIntoView({ block: 'center' }); } }, 'เลือกบนแผนที่'), ' ', h('button', { class: 'btn small', type: 'button', onclick: () => TS.openMachine(m.id, true) }, 'กรอกค่า'))))))) : h('p', { class: 'muted' }, 'เครื่องตามตัวกรองมีพิกัดครบ'),
-        noc.length > 200 ? h('p', { class: 'muted small' }, 'แสดง 200 รายการแรก ใช้ตัวกรองเพื่อดูส่วนที่เหลือ') : null));
+            h('td', null, h('button', { class: 'btn small', type: 'button', onclick: () => { TS.pick = { ids: [m.id], label: TS.label(m) }; drawPick(); mapEl.scrollIntoView({ block: 'center' }); } }, 'เลือกบนแผนที่'), ' ', h('button', { class: 'btn small', type: 'button', onclick: () => TS.openMachine(m.id, true) }, 'กรอกค่า'))))))) : h('p', { class: 'muted' }, noc.length ? 'ไม่พบรายการที่ตรงกับคำค้น' : 'เครื่องตามตัวกรองมีพิกัดครบ'),
+          hit.length > 200 ? h('p', { class: 'muted small' }, 'แสดง 200 รายการแรก พิมพ์คำค้นเพื่อให้เหลือน้อยลง') : null);
+      };
+      let nt;
+      TS.put(under, h('section', { class: 'panel', id: 'nocoord' }, h('h2', null, 'รายการที่ไม่มีพิกัดหรือพิกัดต้องตรวจสอบ (' + n(noc.length) + ')'),
+        noc.length ? h('label', { class: 'fld' }, h('span', null, 'ค้นหาในรายการนี้'), h('input', { type: 'search', id: 'nocQ', placeholder: 'ชื่อสถานประกอบการ เลขเครื่อง หรืออำเภอ', value: nocQ, autocomplete: 'off', oninput: e => { clearTimeout(nt); const v = e.target.value; nt = setTimeout(() => { nocQ = v; drawNoc(); }, 200); } })) : null,
+        cnt, body));
+      drawNoc();
     };
     const rer = (keep) => { if (!keep && data) { const wasOpen = fb.firstChild ? fb.firstChild.open : window.matchMedia('(min-width:701px)').matches; TS.put(fb, h('details', { class: 'filterbox', open: wasOpen }, h('summary', null, 'ตัวกรองแผนที่'), TS.filterBar(F, rer, { compact: true }))); } draw(); };
     rer(); drawPick(); drawLoc(); if (T.id !== null && T.last && !TS.mapFocus) showPos(false); else if (T.id === null && T.frozen) showFrozen();
