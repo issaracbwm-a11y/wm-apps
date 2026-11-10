@@ -7,7 +7,7 @@
   TS.render = function () {
     if (!TS.S.ready) return;
     const r = routeOf(), root = document.getElementById('view');
-    if (current === 'map' && r !== 'map') TS.leaveMap();
+    if (current === 'map' && r !== 'map') TS.leaveMap(true);
     const y = (current === r) ? window.scrollY : 0;
     current = r;
     document.querySelectorAll('#nav a').forEach(a => { const on = a.dataset.route === r; a.classList.toggle('on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
