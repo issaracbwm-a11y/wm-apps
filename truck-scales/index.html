@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#12352f">
+<title>สรุปสถานะเครื่องชั่งรถยนต์ · ศูนย์ชั่งตวงวัดภาคใต้</title>
+<style>
+:root{font:15px system-ui,Tahoma,sans-serif;color:#16312e;background:#f1f5f2;line-height:1.55;--green:#176651;--muted:#45635d;--line:#d7e5de}*{box-sizing:border-box}body{margin:0}header{background:#12352f;color:#fff;padding:22px 20px}header div,main,footer{max-width:1060px;margin:auto}header span{color:#bddece}main{padding:24px 20px}h1{font-size:clamp(24px,4.5vw,39px);line-height:1.28;margin:5px 0}h2{font-size:1.15rem;margin:0 0 8px}p{margin:6px 0}.muted{color:var(--muted)}.tag{font-weight:650;color:var(--green);font-size:.88rem}.hero{margin-bottom:20px}.controls{display:flex;align-items:center;gap:9px;margin:18px 0;flex-wrap:wrap}.controls label{font-weight:650}select{font:inherit;color:inherit;background:#fff;border:1px solid #a9c2b7;border-radius:8px;padding:7px 12px;min-height:42px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card,.panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 17px}.card strong{display:block;font-size:clamp(23px,5vw,35px);font-variant-numeric:tabular-nums;line-height:1.2}.card.red strong{color:#a52d38}.card small{display:block;color:var(--muted);margin-top:5px}.panels{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}.row{display:grid;grid-template-columns:1fr minmax(32px,1fr) 48px;gap:10px;align-items:center;margin:8px 0}.row strong{text-align:right}.meter{height:7px;background:#e3ece6;border-radius:8px;overflow:hidden}.meter b{display:block;background:#347e67;height:100%;border-radius:8px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:460px}th,td{border-bottom:1px solid var(--line);text-align:left;padding:8px 10px}th{background:#e9f1eb}td:nth-child(n+3),th:nth-child(n+3){text-align:right}tfoot{font-weight:700}caption{text-align:left;color:var(--muted);padding-bottom:6px}footer{padding:0 20px 20px;color:var(--muted)}@media(max-width:650px){.cards{grid-template-columns:1fr 1fr}.panels{grid-template-columns:1fr}main{padding:16px 12px}.card,.panel{padding:12px}header{padding:15px 12px}footer{padding-inline:12px}}
+</style>
+</head>
+<body>
+<header><div><strong>ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)</strong><br><span>ข้อมูลสรุปสำหรับเปิดดูผ่านลิงก์</span></div></header>
+<main>
+<section class="hero">
+<p class="tag">สุราษฎร์ธานีและนครศรีธรรมราช</p>
+<h1>สรุปสถานะเครื่องชั่งรถยนต์</h1>
+<p class="muted">ลานเทปาล์มและสถานรับซื้อยางพารา · ข้อมูลทะเบียน ณ 10 พฤศจิกายน 2569</p>
+</section>
+<div class="controls"><label for="province">เลือกจังหวัด</label><select id="province"><option value="">ทั้งสองจังหวัด</option><option>สุราษฎร์ธานี</option><option>นครศรีธรรมราช</option></select></div>
+<section aria-label="ตัวเลขสรุป" class="cards" id="cards" aria-live="polite"></section>
+<div class="panels">
+<section class="panel"><h2>ประเภทสถานประกอบการ</h2><div id="kinds"></div></section>
+<section class="panel"><h2>การยื่นคำขอของเครื่องที่หมดอายุ</h2><div id="requests"></div></section>
+</div>
+<section class="panel">
+<h2>แยกตามอำเภอ</h2>
+<div class="table-wrap"><table><caption>เรียงจากอำเภอที่มีเครื่องหมดอายุมากที่สุด</caption><thead><tr><th scope="col">จังหวัด</th><th scope="col">อำเภอ</th><th scope="col">ทั้งหมด</th><th scope="col">หมดอายุ</th></tr></thead><tbody id="districts"></tbody><tfoot id="totals"></tfoot></table></div>
+</section>
+<noscript><p>ภาพรวม ณ 10 พฤศจิกายน 2569 มีเครื่องชั่ง 1,850 เครื่อง และหมดอายุ 511 เครื่อง เปิด JavaScript เพื่อกรองตามจังหวัด</p></noscript>
+</main>
+<footer>แหล่งข้อมูล · สรุปจากทะเบียนเครื่องชั่งรถยนต์ของศูนย์ ณ วันที่ระบุ</footer>
+<script type="application/json" id="snapshot">{"totals": {"นครศรีธรรมราช": {"count": 730, "expired": 231, "unknown": 11, "today": 1, "submitted": 44, "unsubmitted": 0, "requestUnknown": 187, "kinds": {"ปาล์ม": 530, "ยางพารา": 163, "ปาล์มและยางพารา": 37}}, "สุราษฎร์ธานี": {"count": 1120, "expired": 280, "unknown": 9, "today": 2, "submitted": 36, "unsubmitted": 0, "requestUnknown": 244, "kinds": {"ปาล์ม": 868, "ยางพารา": 185, "ปาล์มและยางพารา": 67}}}, "districts": [["นครศรีธรรมราช", "ขนอม", 32, 5], ["นครศรีธรรมราช", "จุฬาภรณ์", 22, 10], ["นครศรีธรรมราช", "ฉวาง", 42, 18], ["นครศรีธรรมราช", "ชะอวด", 32, 9], ["นครศรีธรรมราช", "ช้างกลาง", 20, 4], ["นครศรีธรรมราช", "ถ้ำพรรณรา", 21, 11], ["นครศรีธรรมราช", "ทุ่งสง", 56, 18], ["นครศรีธรรมราช", "ทุ่งใหญ่", 88, 29], ["นครศรีธรรมราช", "ท่าศาลา", 25, 5], ["นครศรีธรรมราช", "นบพิตำ", 15, 7], ["นครศรีธรรมราช", "นาบอน", 18, 9], ["นครศรีธรรมราช", "บางขัน", 45, 16], ["นครศรีธรรมราช", "ปากพนัง", 32, 5], ["นครศรีธรรมราช", "พรหมคีรี", 12, 6], ["นครศรีธรรมราช", "พระพรหม", 13, 4], ["นครศรีธรรมราช", "พิปูน", 15, 6], ["นครศรีธรรมราช", "ร่อนพิบูลย์", 29, 10], ["นครศรีธรรมราช", "ลานสกา", 6, 4], ["นครศรีธรรมราช", "สิชล", 79, 20], ["นครศรีธรรมราช", "หัวไทร", 33, 9], ["นครศรีธรรมราช", "เฉลิมพระเกียรติ", 25, 4], ["นครศรีธรรมราช", "เชียรใหญ่", 37, 15], ["นครศรีธรรมราช", "เมืองนครศรีธรรมราช", 33, 7], ["สุราษฎร์ธานี", "กาญจนดิษฐ์", 86, 29], ["สุราษฎร์ธานี", "คีรีรัฐนิคม", 79, 18], ["สุราษฎร์ธานี", "ชัยบุรี", 71, 17], ["สุราษฎร์ธานี", "ดอนสัก", 36, 7], ["สุราษฎร์ธานี", "ท่าฉาง", 63, 13], ["สุราษฎร์ธานี", "ท่าชนะ", 84, 13], ["สุราษฎร์ธานี", "บ้านตาขุน", 16, 4], ["สุราษฎร์ธานี", "บ้านนาสาร", 45, 12], ["สุราษฎร์ธานี", "บ้านนาเดิม", 24, 8], ["สุราษฎร์ธานี", "พนม", 85, 30], ["สุราษฎร์ธานี", "พระแสง", 135, 33], ["สุราษฎร์ธานี", "พุนพิน", 108, 21], ["สุราษฎร์ธานี", "วิภาวดี", 32, 10], ["สุราษฎร์ธานี", "เคียนซา", 110, 31], ["สุราษฎร์ธานี", "เมืองสุราษฎร์ธานี", 19, 2], ["สุราษฎร์ธานี", "เวียงสระ", 57, 20], ["สุราษฎร์ธานี", "ไชยา", 70, 12]]}</script>
+<script>
+'use strict';
+const snapshot=JSON.parse(document.getElementById('snapshot').textContent);
+const fmt=new Intl.NumberFormat('th-TH');
+const collator=new Intl.Collator('th');
+const byId=id=>document.getElementById(id);
+const element=(tag,text)=>{const e=document.createElement(tag); if(text!==undefined)e.textContent=text;return e;};
+const show=(id,children)=>byId(id).replaceChildren(...children);
+const number=n=>fmt.format(n);
+function card(label,value,note,tone){
+ const box=element('article'); box.className='card'+(tone?' '+tone:'');
+ box.append(element('span',label),element('strong',number(value)),element('small',note));
+ return box;
+}
+function bar(label,n,largest){
+ const row=element('div'); row.className='row';
+ const meter=element('div'); meter.className='meter'; meter.setAttribute('aria-hidden','true');
+ const fill=element('b'); fill.style.width=(100*n/Math.max(1,largest))+'%'; meter.append(fill);
+ row.append(element('span',label),meter,element('strong',number(n)));
+ return row;
+}
+function tableRow(values){
+ const tr=element('tr'); tr.append(...values.map(v=>element('td',typeof v==='number'?number(v):v))); return tr;
+}
+function render(){
+ const province=byId('province').value;
+ const groups=Object.entries(snapshot.totals).filter(([name])=>!province||name===province).map(([,row])=>row);
+ const sum=key=>groups.reduce((total,row)=>total+row[key],0);
+ show('cards',[
+  card('เครื่องชั่งทั้งหมด',sum('count'),'เครื่องตามทะเบียน'),
+  card('หมดอายุ',sum('expired'),'เครื่องที่เลยวันสิ้นอายุ','red'),
+  card('ยังไม่หมดอายุ',sum('count')-sum('expired')-sum('unknown'),'รวมครบกำหนด '+number(sum('today'))+' เครื่อง'),
+  card('รอตรวจสอบวันหมดอายุ',sum('unknown'),'เครื่องที่ยังยืนยันวันไม่ได้')
+ ]);
+ const kinds=['ปาล์ม','ยางพารา','ปาล์มและยางพารา'].map(k=>[k,groups.reduce((n,row)=>n+(row.kinds[k]||0),0)]);
+ show('kinds',kinds.map(([label,n])=>bar(label,n,Math.max(...kinds.map(row=>row[1])))));
+ show('requests',[['ยื่นคำขอแล้ว',sum('submitted')],['ยังไม่ยื่นที่ยืนยันได้',sum('unsubmitted')],['ยังไม่ทราบสถานะ',sum('requestUnknown')]].map(([label,n])=>bar(label,n,sum('expired'))));
+ const districts=snapshot.districts.filter(([name])=>!province||name===province).sort((a,b)=>b[3]-a[3]||collator.compare(a[1],b[1]));
+ show('districts',districts.map(tableRow));
+ show('totals',[tableRow(['รวม','',sum('count'),sum('expired')])]);
+}
+byId('province').addEventListener('change',render);
+render();
+</script>
+</body>
+</html>
