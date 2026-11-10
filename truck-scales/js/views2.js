@@ -6,9 +6,9 @@
   /* ---------- แผนที่จุดตรวจ ---------- */
   TS.MF = { q: '', province: '', amphoe: '', biz: '', cert: '', work: '', req: '', from: '', to: '', page: 1 };
   let map = null, layer = null, meMarker = null, accCircle = null;
-  const track = { id: null, last: null, follow: true, onpos: null, onerr: null };
+  const track = { id: null, last: null, follow: true, onpos: null, onerr: null, frozen: null };
   /* stop=true เมื่อออกจากหน้าแผนที่: เลิกติดตามตำแหน่งเพื่อไม่ให้ใช้ GPS ค้าง */
-  TS.leaveMap = function (stop) { if (stop) TS.addMode = false; if (stop && track.id !== null) { navigator.geolocation.clearWatch(track.id); track.id = null; track.last = null; track.follow = true; } if (map) { map.remove(); map = null; layer = null; meMarker = null; accCircle = null; } };
+  TS.leaveMap = function (stop) { if (stop) TS.addMode = false; if (stop && track.id !== null) { navigator.geolocation.clearWatch(track.id); track.id = null; if (track.last) track.frozen = track.last; track.last = null; track.follow = true; } if (map) { map.remove(); map = null; layer = null; meMarker = null; accCircle = null; } };
   /* สีหมุด: ตรวจสอบแล้ว = เขียว · ยังไม่ตรวจ ใช้สีตามคำรับรอง (หมดอายุ แดง · ใกล้หมดอายุ ส้ม · ยังไม่หมดอายุ เหลือง · รอตรวจสอบ เทา) */
   const COLORS = { expired: '#b3261e', today: '#e06c00', near: '#e06c00', ok: '#f2c200', pending: '#6b7280', inspected: '#1f7a55' };
   const EDGE = { ok: '#6b5200' };
@@ -31,7 +31,7 @@
       locBtn.textContent = T.id === null ? 'ตำแหน่งปัจจุบัน' : (T.last ? 'หยุดติดตามตำแหน่ง' : 'กำลังหาตำแหน่ง…');
       locBtn.classList.toggle('on', T.id !== null);
       recBtn.hidden = !(T.id !== null && T.last && !T.follow);
-      locInfo.textContent = T.id !== null && T.last ? 'กำลังติดตามตำแหน่ง · คลาดเคลื่อนประมาณ ' + n(Math.round(T.last.acc)) + ' ม. · อัปเดต ' + T.last.time : '';
+      locInfo.textContent = T.id !== null && T.last ? 'กำลังติดตามตำแหน่ง · คลาดเคลื่อนประมาณ ' + n(Math.round(T.last.acc)) + ' ม. · อัปเดต ' + T.last.time : (T.id === null && T.frozen ? 'หยุดติดตามแล้ว · จุดสีน้ำเงินคือตำแหน่งล่าสุดเมื่อ ' + T.frozen.time : '');
     };
     const showPos = (first) => {
       if (!map || !T.last) return;
@@ -53,11 +53,18 @@
       else if (!T.last) TS.toast('ยังหาตำแหน่งไม่ได้ กำลังลองต่อ ลองออกไปที่โล่ง', 'err');
       drawLoc();
     };
-    const stopTrack = () => { if (T.id !== null) navigator.geolocation.clearWatch(T.id); T.id = null; T.last = null; T.follow = true; if (meMarker) { meMarker.remove(); meMarker = null; } if (accCircle) { accCircle.remove(); accCircle = null; } drawLoc(); };
+    /* หยุดติดตาม: เลิกใช้ GPS แต่คงจุดสีน้ำเงินไว้ ณ ตำแหน่งล่าสุด (ขอบเทา = ไม่ได้อัปเดตแล้ว) */
+    const showFrozen = () => {
+      if (!map || !T.frozen) return;
+      if (meMarker) { meMarker.remove(); meMarker = null; } if (accCircle) { accCircle.remove(); accCircle = null; }
+      meMarker = L.circleMarker([T.frozen.lat, T.frozen.lon], { radius: 9, color: '#9ca3af', fillColor: '#1d4ed8', fillOpacity: 1, weight: 3 }).addTo(map).bindPopup('ตำแหน่งล่าสุดเมื่อ ' + T.frozen.time + ' (หยุดติดตามแล้ว)');
+    };
+    const stopTrack = () => { if (T.id !== null) navigator.geolocation.clearWatch(T.id); T.id = null; if (T.last) T.frozen = T.last; T.last = null; T.follow = true; if (T.frozen) showFrozen(); else { if (meMarker) { meMarker.remove(); meMarker = null; } if (accCircle) { accCircle.remove(); accCircle = null; } } drawLoc(); };
     locBtn.addEventListener('click', () => {
       if (!navigator.geolocation) { TS.toast('อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง', 'err'); return; }
       if (T.id !== null) { stopTrack(); return; }
-      T.follow = true; T.last = null;
+      T.follow = true; T.last = null; T.frozen = null;
+      if (meMarker) { meMarker.remove(); meMarker = null; }
       T.id = navigator.geolocation.watchPosition(p => T.onpos(p), e => T.onerr(e), { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 });
       drawLoc();
     });
@@ -139,7 +146,7 @@
         noc.length > 200 ? h('p', { class: 'muted small' }, 'แสดง 200 รายการแรก ใช้ตัวกรองเพื่อดูส่วนที่เหลือ') : null));
     };
     const rer = (keep) => { if (!keep && data) { const wasOpen = fb.firstChild ? fb.firstChild.open : window.matchMedia('(min-width:701px)').matches; TS.put(fb, h('details', { class: 'filterbox', open: wasOpen }, h('summary', null, 'ตัวกรองแผนที่'), TS.filterBar(F, rer, { compact: true }))); } draw(); };
-    rer(); drawPick(); drawLoc(); if (T.id !== null && T.last && !TS.mapFocus) showPos(false);
+    rer(); drawPick(); drawLoc(); if (T.id !== null && T.last && !TS.mapFocus) showPos(false); else if (T.id === null && T.frozen) showFrozen();
     if (TS.mapFocus) { map.setView([TS.mapFocus.lat, TS.mapFocus.lon], 15); setTimeout(() => { TS.mapFocus = null; }, 800); }
     setTimeout(() => map && map.invalidateSize(), 60);
   };
