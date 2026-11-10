@@ -1,7 +1,7 @@
 /* เริ่มระบบ: เมนู เส้นทางหน้า และการเปิดไฟล์ */
 'use strict';
 (function () {
-  const ROUTES = { dashboard: 'แดชบอร์ด', register: 'ทะเบียนรายเครื่อง', map: 'แผนที่จุดตรวจ', plan: 'แผนตรวจและปฏิทิน', tasks: 'งานค้างและผลตรวจ', data: 'นำเข้าและสำรองข้อมูล' };
+  const ROUTES = { dashboard: 'แดชบอร์ด', register: 'ทะเบียนรายเครื่อง', map: 'แผนที่จุดตรวจ', plan: 'แผนตรวจและปฏิทิน', tasks: 'งานค้างและผลตรวจ', data: 'นำเข้าและสำรองข้อมูล', sync: 'ข้อมูลกลางของทีม' };
   const routeOf = () => { const r = (location.hash || '').replace(/^#\/?/, '').split(/[/?]/)[0]; return ROUTES[r] ? r : 'dashboard'; };
   let current = '';
   TS.render = function () {
@@ -22,6 +22,7 @@
   document.getElementById('filePick').addEventListener('change', async e => {
     const file = e.target.files[0]; e.target.value = '';
     if (!file) return;
+    if (TS.cloud.active && !TS.cloud.active.admin) { TS.toast('ผู้ดูแลเท่านั้นที่นำเข้าทะเบียนกลางได้', 'err'); return; }
     if (!/\.xlsx$/i.test(file.name)) { TS.toast('เลือกไฟล์ Excel นามสกุล .xlsx', 'err'); return; }
     TS.toast('กำลังอ่านไฟล์ ' + file.name + ' …');
     try {
@@ -32,7 +33,7 @@
     } catch (ex) { console.error(ex); TS.toast('อ่านไฟล์ไม่ได้: ' + (ex && ex.message || ex), 'err'); }
   });
   (async function boot() {
-    await TS.loadAll(); TS.buildIndex(); TS.render();
+    await TS.cloud.boot(); await TS.loadAll(); TS.buildIndex(); TS.render();
     if (navigator.storage && navigator.storage.persist && TS.hasData()) navigator.storage.persist().catch(() => {});
   })();
 })();

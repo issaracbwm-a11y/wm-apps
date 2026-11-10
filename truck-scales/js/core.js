@@ -183,6 +183,7 @@ TS.S = {
 };
 TS.loadAll = async function () {
   const S = TS.S;
+  S.dbError = '';
   try {
     const [m, i, p, meta] = await Promise.all([TS.db.all('machines'), TS.db.all('inspections'), TS.db.all('plans'), TS.db.all('meta')]);
     S.machines = new Map(m.map(x => [x.id, x]));
@@ -191,7 +192,7 @@ TS.loadAll = async function () {
     S.selection = new Set((S.meta.selection || []).filter(id => S.machines.has(id)));
     S.nearDays = S.meta.nearDays || 60;
   } catch (e) {
-    S.dbError = 'เบราว์เซอร์นี้เก็บข้อมูลบนอุปกรณ์ไม่ได้ (' + (e && e.message || e) + ') — ยังเปิดดูยอดสรุปได้ แต่เปิดไฟล์และบันทึกผลตรวจไม่ได้ ลองปิดโหมดส่วนตัวหรือใช้เบราว์เซอร์อื่น';
+    S.dbError = TS.cloud?.active ? (e.message || 'โหลดฐานกลางไม่สำเร็จ') : 'เบราว์เซอร์นี้เก็บข้อมูลบนอุปกรณ์ไม่ได้ (' + (e && e.message || e) + ') — ยังเปิดดูยอดสรุปได้ แต่เปิดไฟล์และบันทึกผลตรวจไม่ได้ ลองปิดโหมดส่วนตัวหรือใช้เบราว์เซอร์อื่น';
   }
   S.ready = true;
 };

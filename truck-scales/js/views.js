@@ -5,19 +5,20 @@
   TS.views = {};
   TS.F = { q: '', province: '', amphoe: '', biz: '', cert: '', work: '', req: '', from: '', to: '', page: 1 };
 
-  TS.deviceNote = () => h('p', { class: 'device-note' }, 'ข้อมูลบันทึกบนอุปกรณ์นี้ การย้ายเครื่องหรือส่งต่อให้ใช้ไฟล์สำรอง');
-  TS.openFileButton = (label) => h('button', { class: 'btn primary', type: 'button', onclick: () => document.getElementById('filePick').click() }, label || 'เปิดไฟล์ Excel จากเครื่อง');
+  TS.deviceNote = () => h('p', { class: 'device-note' }, TS.cloud?.active ? 'กำลังใช้ข้อมูลกลางของทีม · โหลดข้อมูลล่าสุดได้ที่เมนูข้อมูลกลาง' : 'ข้อมูลบันทึกบนอุปกรณ์นี้ การย้ายเครื่องหรือส่งต่อให้ใช้ไฟล์สำรอง');
+  TS.openFileButton = (label) => TS.cloud?.active && !TS.cloud.active.admin ? h('a',{class:'btn',href:'#/sync'},'ตรวจข้อมูลกลาง') : h('button', { class: 'btn primary', type: 'button', onclick: () => document.getElementById('filePick').click() }, label || 'เปิดไฟล์ Excel จากเครื่อง');
   TS.needFile = function (what) {
     return h('section', { class: 'panel need-file' },
       h('h2', null, 'หน้านี้ใช้ข้อมูลรายเครื่อง'),
       h('p', null, what),
-      h('p', { class: 'muted' }, 'เลือกไฟล์ทะเบียน .xlsx จากเครื่องของท่าน ไฟล์จะถูกอ่านในเบราว์เซอร์นี้เท่านั้น ไม่ส่งขึ้นอินเทอร์เน็ต และใช้ร่วมกันทุกเมนู'),
+      h('p', { class: 'muted' }, TS.cloud?.active ? 'เมื่อผู้ดูแลนำเข้าทะเบียนกลางแล้ว ให้โหลดข้อมูลล่าสุดจากเมนูข้อมูลกลางของทีม' : 'เลือกไฟล์ทะเบียน .xlsx จากเครื่องของท่าน ไฟล์จะถูกอ่านในเบราว์เซอร์นี้เท่านั้น ไม่ส่งขึ้นอินเทอร์เน็ต และใช้ร่วมกันทุกเมนู'),
       S.dbError ? h('p', { class: 'warn-box' }, S.dbError) : TS.openFileButton(),
       TS.deviceNote());
   };
   TS.dataBar = function () {
     const li = S.meta.lastImport;
     if (!TS.hasData()) return null;
+    if (TS.cloud?.active) return h('div',{class:'databar'},h('span',null,'ฐานกลาง · '+n(TS.registerList().length)+' เครื่อง'),h('a',{href:'#/sync'},'โหลดข้อมูลล่าสุด'));
     return h('div', { class: 'databar' },
       h('span', null, 'ไฟล์: ', h('b', null, li ? li.fileName : 'ข้อมูลจากไฟล์สำรอง')),
       h('span', null, h('b', null, n(TS.registerList().length)), ' เครื่อง', TS.fieldAddedList().length ? ' · เพิ่มจากภาคสนาม ' + n(TS.fieldAddedList().length) : ''),
@@ -81,7 +82,7 @@
       return;
     }
     const li = S.meta.lastImport;
-    root.append(h('div', { class: 'mode file' }, h('b', null, 'คำนวณจากไฟล์ที่เปิดบนอุปกรณ์นี้'), ' ',
+    root.append(h('div', { class: 'mode file' }, h('b', null, TS.cloud?.active ? 'คำนวณจากฐานกลาง' : 'คำนวณจากไฟล์ที่เปิดบนอุปกรณ์นี้'), ' ',
       (li ? li.fileName + ' · นำเข้า ' + TS.fmtStamp(li.importedAt) : 'ข้อมูลจากไฟล์สำรอง') + ' · ' + n(TS.registerList().length) + ' เครื่อง · สถานะคำนวณ ณ วันนี้ ' + TS.fmtLong(today) + ' รวมค่าที่เจ้าหน้าที่แก้บนอุปกรณ์นี้'));
     root.append(h('div', { class: 'controls' }, provSel,
       sel('dNear', 'ใกล้หมดอายุภายใน', [['30', '30 วัน'], ['60', '60 วัน'], ['90', '90 วัน']], String(S.nearDays), async v => { S.nearDays = Number(v) || 60; await TS.setMeta('nearDays', S.nearDays); TS.render(); }, '60 วัน')));
@@ -114,7 +115,7 @@
       h('section', { class: 'panel' }, h('h2', null, 'สถานะคำขอของเครื่องที่หมดอายุ'),
         bar('ยื่นคำขอแล้ว', req.submitted, c.expired), bar('ยังไม่ยื่นคำขอ (ยืนยันได้)', req.notSubmitted, c.expired), bar('ยังไม่ทราบสถานะคำขอ', req.unknown, c.expired, 'g'),
         h('p', { class: 'muted small' }, 'ค้นแล้วไม่พบ หรือพบหลักฐานเฉพาะระดับสถานประกอบการ นับเป็นยังไม่ทราบ')),
-      h('section', { class: 'panel' }, h('h2', null, 'งานตรวจบนอุปกรณ์นี้'),
+      h('section', { class: 'panel' }, h('h2', null, TS.cloud?.active ? 'งานตรวจของทีม' : 'งานตรวจบนอุปกรณ์นี้'),
         bar('ตรวจแล้ว', insp, ms.length), bar('ตรวจแล้วแต่คำรับรองยังหมดอายุ', inspExpired, Math.max(insp, 1), 'r'), bar('ไม่มีพิกัดหรือพิกัดต้องตรวจสอบ', noCoord, ms.length, 'g'),
         fa.length ? h('p', { class: 'small', id: 'faNote' }, h('button', { class: 'link', type: 'button', onclick: () => { Object.assign(TS.F, { q: 'เพิ่มจากภาคสนาม', province: dashProv, amphoe: '', biz: '', cert: '', work: '', req: '', from: '', to: '', page: 1 }); location.hash = '#/register'; } }, 'สถานที่ที่เพิ่มจากภาคสนาม ' + n(fa.length) + ' รายการ'), ' — รอยืนยันกับทะเบียน ไม่นับในยอดด้านบน') : null)));
     const dl = [...dist].map(([k, v]) => [...k.split('|'), v]).sort((a, b) => b[2].expired - a[2].expired || TS.collator.compare(a[1], b[1]));
@@ -219,14 +220,19 @@
   };
 
   /* ---------- บันทึกค่าที่เจ้าหน้าที่แก้ ---------- */
-  TS.setLocal = async function (m, changes) {
-    m.local = m.local || {}; m.base = m.base || {};
+  function localChanges(m, changes) {
+    m = {...m, local:{...m.local}, base:{...m.base}};
     for (const [f, val] of Object.entries(changes)) {
       if (TS.sameVal(val, m.src[f])) { delete m.local[f]; delete m.base[f]; }
       else { m.local[f] = val; m.base[f] = m.src[f] === undefined ? null : m.src[f]; }
     }
     m.editedAt = Date.now();
-    await TS.db.put('machines', m);
+    return m;
+  }
+  TS.updateMachines = async function (updates) {
+    const saved = updates.map(({machine,changes,details}) => ({...localChanges(machine, changes),...details}));
+    await TS.db.putMany('machines', saved);
+    updates.forEach(({machine}, i) => Object.assign(machine, saved[i]));
   };
   TS.sameStation = function (m) {
     const k = TS.str(m.src.stationKey);
@@ -313,19 +319,20 @@
         if ((ch.lat === null) !== (ch.lon === null)) { err.textContent = 'กรอกละติจูดและลองจิจูดให้ครบทั้งสองค่า หรือเว้นว่างทั้งคู่'; return; }
         if (ch.lat !== null && TS.coordState(ch.lat, ch.lon) !== 'ok' && !confirm('พิกัดนี้อยู่นอกพื้นที่สุราษฎร์ธานี–นครศรีธรรมราช ต้องการบันทึกหรือไม่')) return;
         if (ch.reqState === 'ยื่นคำขอแล้ว' && !ch.reqNo) { err.textContent = 'ยื่นคำขอแล้วต้องระบุเลขคำขอของเครื่องนี้ หากยังไม่มีเลขคำขอรายเครื่องให้เลือก ยังไม่ทราบสถานะคำขอ'; return; }
-        await TS.setLocal(m, ch); m.staffNote = note.value.trim(); await TS.db.put('machines', m);
-        if (both.checked) for (const x of sib) await TS.setLocal(x, { lat: ch.lat, lon: ch.lon });
-        TS.toast('บันทึกการแก้ไขบนอุปกรณ์นี้แล้ว'); view(); TS.render();
+        try {
+          await TS.updateMachines([{machine:m, changes:ch, details:{staffNote:note.value.trim()}}, ...(both.checked ? sib.map(machine=>({machine,changes:{lat:ch.lat,lon:ch.lon}})) : [])]);
+        } catch (error) { err.textContent = error.message; return; }
+        TS.toast(TS.cloud?.active ? 'บันทึกการแก้ไขขึ้นฐานกลางแล้ว' : 'บันทึกการแก้ไขบนอุปกรณ์นี้แล้ว'); view(); TS.render();
       } },
-        h('p', { class: 'muted small' }, 'การแก้ไขเก็บในสำเนาบนอุปกรณ์นี้ ไม่เปลี่ยนไฟล์ Excel ต้นทาง เมื่อเปิดไฟล์รอบใหม่ ค่าที่แก้จะคงอยู่ และหากไฟล์ใหม่ขัดกันจะแสดงทั้งสองค่าให้เลือก'),
+        h('p', { class: 'muted small' }, TS.cloud?.active ? 'การแก้ไขนี้จะบันทึกลงฐานกลางของทีม' : 'การแก้ไขเก็บในสำเนาบนอุปกรณ์นี้ ไม่เปลี่ยนไฟล์ Excel ต้นทาง เมื่อเปิดไฟล์รอบใหม่ ค่าที่แก้จะคงอยู่ และหากไฟล์ใหม่ขัดกันจะแสดงทั้งสองค่าให้เลือก'),
         h('div', { class: 'grid2' }, ['name', 'biz', 'address', 'tambon', 'amphoe', 'province', 'lat', 'lon', 'expiry', 'reqNo', 'reqDate', 'reqState', 'reqSys', 'owner'].map(fld)),
         h('div', { class: 'btnrow' }, h('button', { class: 'btn', type: 'button', onclick: () => { TS.pick = { ids: [id].concat(both.checked ? sib.map(x => x.id) : []), label: TS.label(m) }; dlg.close(); location.hash = '#/map'; TS.render(); } }, 'เลือกพิกัดบนแผนที่'),
           sib.length ? h('label', { class: 'inline' }, both, ' ใช้พิกัดนี้กับเครื่องอื่นในสถานประกอบการเดียวกันอีก ' + n(sib.length) + ' เครื่อง') : null),
         h('label', { class: 'fld' }, h('span', null, 'บันทึกของเจ้าหน้าที่'), note),
         err,
         h('div', { class: 'btnrow' }, h('button', { class: 'btn primary', type: 'submit' }, 'บันทึก'), h('button', { class: 'btn', type: 'button', onclick: view }, 'ยกเลิก'),
-          m.fieldAdded ? h('button', { class: 'btn danger', type: 'button', id: 'delFieldAdded', onclick: async () => { const ni = TS.inspectionsOf(id).length; if (!confirm('ลบรายการที่เพิ่มจากภาคสนามนี้หรือไม่' + (ni ? ' ผลตรวจ ' + ni + ' รายการและไฟล์หลักฐานของรายการนี้จะถูกลบด้วย' : ''))) return; for (const i of TS.inspectionsOf(id)) { for (const ev of i.evidence || []) await TS.db.del('evidence', ev.id); await TS.db.del('inspections', i.id); } S.inspections = S.inspections.filter(i => i.machineId !== id); for (const p of TS.plansOf(id)) { p.items = p.items.filter(x => x !== id); await TS.db.put('plans', p); } await TS.db.del('machines', id); S.machines.delete(id); S.selection.delete(id); await TS.saveSelection(); TS.buildIndex(); dlg.close(); TS.toast('ลบรายการแล้ว'); TS.render(); } }, 'ลบรายการนี้') : null,
-          (!m.fieldAdded && Object.keys(m.local || {}).length) ? h('button', { class: 'btn danger', type: 'button', onclick: async () => { if (!confirm('คืนค่าทุกช่องของเครื่องนี้ตามไฟล์ที่นำเข้าล่าสุดหรือไม่')) return; m.local = {}; m.base = {}; await TS.db.put('machines', m); view(); TS.render(); } }, 'คืนค่าทั้งหมดตามไฟล์') : null)));
+          m.fieldAdded && !TS.cloud?.active ? h('button', { class: 'btn danger', type: 'button', id: 'delFieldAdded', onclick: async () => { const ni = TS.inspectionsOf(id).length; if (!confirm('ลบรายการที่เพิ่มจากภาคสนามนี้หรือไม่' + (ni ? ' ผลตรวจ ' + ni + ' รายการและไฟล์หลักฐานของรายการนี้จะถูกลบด้วย' : ''))) return; for (const i of TS.inspectionsOf(id)) { for (const ev of i.evidence || []) await TS.db.del('evidence', ev.id); await TS.db.del('inspections', i.id); } S.inspections = S.inspections.filter(i => i.machineId !== id); for (const p of TS.plansOf(id)) { p.items = p.items.filter(x => x !== id); await TS.db.put('plans', p); } await TS.db.del('machines', id); S.machines.delete(id); S.selection.delete(id); await TS.saveSelection(); TS.buildIndex(); dlg.close(); TS.toast('ลบรายการแล้ว'); TS.render(); } }, 'ลบรายการนี้') : null,
+          (!m.fieldAdded && Object.keys(m.local || {}).length) ? h('button', { class: 'btn danger', type: 'button', onclick: async () => { if (!confirm('คืนค่าทุกช่องของเครื่องนี้ตามไฟล์ที่นำเข้าล่าสุดหรือไม่')) return; const cleared={...m,local:{},base:{}}; await TS.db.put('machines',cleared); Object.assign(m,cleared); view(); TS.render(); } }, 'คืนค่าทั้งหมดตามไฟล์') : null)));
     };
     dlg = TS.dialog(TS.label(m), body, { cls: 'wide' });
     startEdit ? edit() : view();
@@ -350,7 +357,7 @@
       (i.evidence || []).length ? h('p', null, h('span', { class: 'muted' }, 'หลักฐาน: '), i.evidence.map(ev => h('button', { class: 'link', type: 'button', onclick: () => TS.openEvidence(ev) }, ev.name + ' '))) : null,
       h('div', { class: 'btnrow' },
         h('button', { class: 'btn small', type: 'button', onclick: () => TS.openInspection(i.machineId, i, after) }, 'แก้ไข'),
-        (i.followUp && !i.followDone) ? h('button', { class: 'btn small', type: 'button', onclick: async () => { i.followDone = true; i.updatedAt = Date.now(); await TS.db.put('inspections', i); TS.buildIndex(); after && after(); TS.render(); } }, 'ปิดงานติดตาม') : null));
+        (i.followUp && !i.followDone) ? h('button', { class: 'btn small', type: 'button', onclick: async () => { const done = {...i,followDone:true,updatedAt:Date.now()}; await TS.db.put('inspections',done); Object.assign(i,done); TS.buildIndex(); after && after(); TS.render(); } }, 'ปิดงานติดตาม') : null));
   };
   TS.openInspection = function (machineId, existing, after) {
     const m = S.machines.get(machineId); if (!m) return;
@@ -381,14 +388,17 @@
       if (!TS.isoOK(i.date)) { err.textContent = 'ระบุวันที่ตรวจ'; return; }
       try {
         const recs = files.map(file => ({ id: 'e' + TS.uid(), inspectionId: i.id, machineId, name: file.name, type: file.type, size: file.size, blob: file }));
-        if (recs.length) await TS.db.putMany('evidence', recs);
-        for (const id of removed) await TS.db.del('evidence', id);
         i.evidence = keep.concat(recs.map(r => ({ id: r.id, name: r.name, type: r.type, size: r.size })));
-        await TS.db.put('inspections', i);
-      } catch (ex) { err.textContent = 'บันทึกไม่สำเร็จ: ' + (ex && ex.message || ex) + ' (พื้นที่เก็บข้อมูลของเบราว์เซอร์อาจเต็ม)'; return; }
+        if (TS.cloud?.active) await TS.cloud.saveInspection(i, recs, removed);
+        else {
+          if (recs.length) await TS.db.putMany('evidence', recs);
+          for (const id of removed) await TS.db.del('evidence', id);
+          await TS.db.put('inspections', i);
+        }
+      } catch (ex) { err.textContent = 'บันทึกไม่สำเร็จ: ' + (ex && ex.message || ex); return; }
       const k = S.inspections.findIndex(x => x.id === i.id); if (k >= 0) S.inspections[k] = i; else S.inspections.push(i);
       await TS.setMeta('lastInspector', i.inspector);
-      TS.buildIndex(); dlg.close(); TS.toast('บันทึกผลตรวจแล้ว'); after && after(); TS.render();
+      TS.buildIndex(); dlg.close(); TS.toast(TS.cloud?.active ? 'บันทึกผลตรวจขึ้นฐานกลางแล้ว' : 'บันทึกผลตรวจแล้ว'); after && after(); TS.render();
     } },
       h('p', { class: 'small' }, h('b', null, TS.str(TS.v(m, 'machineNo')) || m.id), ' · สถานะคำรับรองขณะนี้: ', TS.certBadge(m, today), ' ', h('span', { class: 'muted' }, 'ผลตรวจไม่เปลี่ยนวันหมดอายุคำรับรอง')),
       h('div', { class: 'grid2' },
@@ -396,12 +406,16 @@
         h('label', { class: 'fld' }, h('span', null, 'ผลตรวจ'), f.result), h('label', { class: 'fld' }, h('span', null, 'การดำเนินการ'), f.action),
         h('label', { class: 'fld' }, h('span', null, 'วันติดตาม (ถ้ามี)'), f.followUp), h('label', { class: 'inline' }, f.followDone, ' ติดตามเสร็จแล้ว')),
       h('label', { class: 'fld' }, h('span', null, 'หมายเหตุ'), f.note),
-      h('label', { class: 'fld' }, h('span', null, 'หลักฐาน (รูปภาพหรือ PDF เก็บบนอุปกรณ์นี้)'), f.files), evBox, err,
+      h('label', { class: 'fld' }, h('span', null, TS.cloud?.active ? 'หลักฐาน (รูปภาพหรือ PDF เก็บในฐานกลาง)' : 'หลักฐาน (รูปภาพหรือ PDF เก็บบนอุปกรณ์นี้)'), f.files), evBox, err,
       h('div', { class: 'btnrow' }, h('button', { class: 'btn primary', type: 'submit' }, 'บันทึกผลตรวจ'), h('button', { class: 'btn', type: 'button', onclick: () => dlg.close() }, 'ยกเลิก'),
         existing ? h('button', { class: 'btn danger', type: 'button', onclick: async () => {
           if (!confirm('ลบผลตรวจนี้และไฟล์หลักฐานที่แนบหรือไม่')) return;
-          for (const ev of existing.evidence || []) await TS.db.del('evidence', ev.id);
-          await TS.db.del('inspections', existing.id); S.inspections = S.inspections.filter(x => x.id !== existing.id);
+          if (TS.cloud?.active) await TS.cloud.removeInspection(existing);
+          else {
+            for (const ev of existing.evidence || []) await TS.db.del('evidence', ev.id);
+            await TS.db.del('inspections', existing.id);
+          }
+          S.inspections = S.inspections.filter(x => x.id !== existing.id);
           TS.buildIndex(); dlg.close(); after && after(); TS.render();
         } }, 'ลบผลตรวจ') : null));
     dlg = TS.dialog(existing ? 'แก้ไขผลตรวจ' : 'บันทึกผลตรวจ — ' + TS.label(m), form);
@@ -451,7 +465,7 @@
       for (const m of made) S.machines.set(m.id, m);
       if (by) await TS.setMeta('lastInspector', by);
       TS.buildIndex(); TS.addMode = false; TS.mapFocus = { lat, lon, id: made[0].id }; dlg.close();
-      TS.toast('เพิ่มสถานที่แล้ว ' + n(cnt) + ' เครื่อง — บันทึกบนอุปกรณ์นี้'); TS.render();
+      TS.toast('เพิ่มสถานที่แล้ว ' + n(cnt) + (TS.cloud?.active ? ' เครื่อง — บันทึกขึ้นฐานกลางแล้ว' : ' เครื่อง — บันทึกบนอุปกรณ์นี้')); TS.render();
     } },
       h('p', { class: 'muted small' }, 'ใช้เมื่อไปถึงพื้นที่แล้วพบสถานที่ที่มีเครื่องชั่งรถยนต์จริง แต่ไม่มีหมุดในแอป รายการจะติดป้าย เพิ่มจากภาคสนาม เก็บบนอุปกรณ์นี้ และไม่นับในยอดทะเบียนจนกว่าจะยืนยัน'),
       h('div', { class: 'grid2' }, L_('ชื่อสถานประกอบการ', f.name), L_('ประเภทกิจการ', f.biz), L_('หมายเลขประจำเครื่อง (ถ้าทราบ)', f.machineNo), L_('จำนวนเครื่องชั่งรถยนต์ที่พบ', f.count),

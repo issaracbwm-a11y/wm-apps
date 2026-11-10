@@ -118,8 +118,8 @@
       const lat = Number(e.latlng.lat.toFixed(6)), lon = Number(e.latlng.lng.toFixed(6));
       if (TS.coordState(lat, lon) !== 'ok' && !confirm('ตำแหน่งนี้อยู่นอกพื้นที่สุราษฎร์ธานี–นครศรีธรรมราช ต้องการใช้หรือไม่')) return;
       if (!confirm('กำหนดพิกัด ' + lat + ', ' + lon + ' ให้ ' + TS.pick.label + ' หรือไม่')) return;
-      for (const id of TS.pick.ids) { const m = S.machines.get(id); if (m) await TS.setLocal(m, { lat, lon }); }
-      TS.toast('บันทึกพิกัดใหม่บนอุปกรณ์นี้แล้ว'); TS.mapFocus = { lat, lon }; TS.pick = null; TS.render();
+      await TS.updateMachines(TS.pick.ids.map(id => S.machines.get(id)).filter(Boolean).map(machine=>({machine,changes:{lat,lon}})));
+      TS.toast(TS.cloud?.active ? 'บันทึกพิกัดขึ้นฐานกลางแล้ว' : 'บันทึกพิกัดใหม่บนอุปกรณ์นี้แล้ว'); TS.mapFocus = { lat, lon }; TS.pick = null; TS.render();
     });
     const draw = () => {
       layer.clearLayers();
@@ -303,7 +303,7 @@
         h('label', { class: 'fld' }, h('span', null, 'หมายเหตุแผน'), f.note),
         p.straightKm !== undefined ? h('p', { class: 'muted small' }, 'ระยะเส้นตรงรวมตอนจัดกลุ่ม ' + p.straightKm + ' กม. (ไม่ใช่ระยะทางตามถนน)') : null,
         h('div', { class: 'btnrow' },
-          h('button', { class: 'btn primary', type: 'button', onclick: async () => { if (!TS.isoOK(f.date.value)) { TS.toast('ระบุวันตรวจ', 'err'); return; } Object.assign(p, { title: f.title.value.trim() || 'แผนตรวจ', date: f.date.value, owner: f.owner.value.trim(), note: f.note.value.trim() }); await TS.db.put('plans', p); TS.toast('บันทึกแผนแล้ว'); TS.render(); } }, 'บันทึกแผน'),
+          h('button', { class: 'btn primary', type: 'button', onclick: async () => { if (!TS.isoOK(f.date.value)) { TS.toast('ระบุวันตรวจ', 'err'); return; } const next = {...p,title:f.title.value.trim() || 'แผนตรวจ',date:f.date.value,owner:f.owner.value.trim(),note:f.note.value.trim()}; await TS.db.put('plans',next); Object.assign(p,next); TS.toast('บันทึกแผนแล้ว'); TS.render(); } }, 'บันทึกแผน'),
           h('button', { class: 'btn danger', type: 'button', onclick: async () => { if (!confirm('ลบแผนนี้หรือไม่ (ผลตรวจที่บันทึกแล้วไม่ถูกลบ)')) return; await TS.db.del('plans', p.id); S.plans = S.plans.filter(x => x.id !== p.id); TS.buildIndex(); dlg.close(); TS.render(); } }, 'ลบแผน')),
         h('h3', null, 'เครื่องในแผน (' + n((p.items || []).length) + ')'),
         h('ol', { class: 'route' }, (p.items || []).map(id => { const m = S.machines.get(id);
@@ -313,7 +313,7 @@
             h('div', null, TS.workBadge(m), ' ', TS.certBadge(m, today)),
             h('div', { class: 'btnrow' }, h('button', { class: 'btn small', type: 'button', onclick: () => TS.openInspection(id, null, draw) }, 'บันทึกผลตรวจ'),
               c.state === 'ok' ? h('a', { class: 'btn small', target: '_blank', rel: 'noopener', href: 'https://www.google.com/maps/dir/?api=1&destination=' + c.lat + '%2C' + c.lon }, 'นำทาง') : null,
-              h('button', { class: 'btn small', type: 'button', onclick: async () => { p.items = p.items.filter(x => x !== id); await TS.db.put('plans', p); TS.buildIndex(); draw(); TS.render(); } }, 'นำออกจากแผน'))); })));
+              h('button', { class: 'btn small', type: 'button', onclick: async () => { const items = p.items.filter(x => x !== id); await TS.db.put('plans',{...p,items}); p.items = items; TS.buildIndex(); draw(); TS.render(); } }, 'นำออกจากแผน'))); })));
     };
     dlg = TS.dialog('แผนตรวจ', body, { cls: 'wide' }); draw();
   };
@@ -356,6 +356,11 @@
   TS.pending = null;
   TS.views.data = function (root) {
     root.append(h('h1', { class: 'page' }, 'นำเข้าและสำรองข้อมูล'));
+    if (TS.cloud?.active) {
+      TS.cloud.dataPanel(root);
+      if (TS.cloud.active.admin && TS.pending) drawPending(root);
+      return;
+    }
     root.append(h('p', { class: 'device-note big' }, 'ข้อมูลบันทึกบนอุปกรณ์นี้ การย้ายเครื่องหรือส่งต่อให้ใช้ไฟล์สำรอง'));
     if (S.dbError) { root.append(h('p', { class: 'warn-box' }, S.dbError)); return; }
     const li = S.meta.lastImport;
