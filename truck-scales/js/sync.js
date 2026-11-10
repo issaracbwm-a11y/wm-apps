@@ -103,6 +103,18 @@
   };
   TS.cloud = {
     get active() { return active; },
+    async sheetSource(action = 'get', endpoint = null) {
+      return rpc('sheet_source', {p_token:token,p_action:action,p_url:endpoint});
+    },
+    async readSheet() {
+      const response = await fetch(url + '/functions/v1/wm-truck-sheet', {
+        method:'POST',headers:{apikey:key,'Content-Type':'application/json'},
+        body:JSON.stringify({token}),cache:'no-store',credentials:'omit'
+      });
+      const data = await response.json().catch(()=>null);
+      if (!response.ok || !data || data.error) throw new CloudError(data?.error || 'อ่านชีตไม่สำเร็จ');
+      return data;
+    },
     get pending() { return busy > 0; },
     async boot() {
       if (!configured) return;
@@ -217,6 +229,7 @@
       }},'โหลดข้อมูลล่าสุด'),h('a',{class:'btn',href:modeLink(true)},'สลับไปใช้ข้อมูลบนอุปกรณ์')),
       info);
     if (!active.admin) return;
+    if (TS.sheetSync) TS.sheetSync.panel(root);
     const label = h('input',{required:true,maxlength:100,placeholder:'เช่น มือถือทีมตรวจชุด 1'});
     const invite = h('input',{readonly:true,'aria-label':'ลิงก์เปิดสิทธิ์',hidden:true});
     const devices = h('ul',{class:'plain'});
