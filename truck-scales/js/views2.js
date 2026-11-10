@@ -28,7 +28,11 @@
       }, e => { locBtn.disabled = false; locBtn.textContent = 'ตำแหน่งปัจจุบัน'; TS.toast(e.code === 1 ? 'ยังไม่ได้อนุญาตให้ใช้ตำแหน่ง เปิดสิทธิ์ตำแหน่งของเบราว์เซอร์สำหรับเว็บนี้ก่อน' : 'หาตำแหน่งไม่ได้ ลองอีกครั้งในที่โล่ง', 'err'); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
     } }, 'ตำแหน่งปัจจุบัน');
     root.append(pickBar, fb, h('div', { class: 'btnrow' }, locBtn, h('span', { class: 'legend' }, ['expired', 'near', 'ok', 'pending'].map(k => h('span', null, h('i', { style: 'background:' + COLORS[k] }), TS.CERT[k].label)))), info, mapEl, under);
-    if (!data) under.append(TS.needFile('แสดงหมุดตามพิกัดของเครื่องชั่ง คลิกดูรายการเครื่องในจุดเดียวกัน และแก้พิกัดได้ ขณะนี้แสดงเฉพาะแผนที่ฐานและตำแหน่งปัจจุบัน'));
+    if (!data) {
+      pickBar.before(h('div', { class: 'mode public', id: 'mapNoData' }, h('b', null, 'ยังไม่มีจุดตรวจบนอุปกรณ์นี้'), ' แผนที่จะแสดงหมุดหลังเปิดไฟล์ทะเบียน Excel หรือนำไฟล์สำรองกลับเข้าบนอุปกรณ์เครื่องนี้ (ข้อมูลรายเครื่องไม่ได้อยู่บนเว็บ และไม่ส่งข้ามอุปกรณ์เอง) ',
+        S.dbError ? h('span', null, S.dbError) : TS.openFileButton(), h('a', { class: 'btn', href: '#/data' }, 'นำไฟล์สำรองกลับเข้า')));
+      under.append(TS.deviceNote());
+    }
     TS.leaveMap();
     if (typeof L === 'undefined') { mapEl.append(h('p', { class: 'warn-box' }, 'โหลดแผนที่ไม่สำเร็จ ลองโหลดหน้าเว็บใหม่')); return; }
     map = L.map(mapEl, { preferCanvas: true, zoomControl: true }).setView([8.75, 99.45], 9);
