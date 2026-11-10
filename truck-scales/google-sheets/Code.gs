@@ -16,12 +16,14 @@ function doPost(e) {
    payload:JSON.stringify({p_ticket:ticket}),muteHttpExceptions:true
   });
   if(r.getResponseCode()!==200||JSON.parse(r.getContentText())!==true)return wmJson({error:'สิทธิ์อ่านชีตหมดอายุหรือถูกใช้แล้ว กรุณากดดึงข้อมูลใหม่'});
-  const book=SpreadsheetApp.openById(WM_SHEET_ID);
-  const tab=book.getSheetByName('ทะเบียนเครื่องชั่งรถยนต์');
-  if(!tab)throw Error('ไม่พบแท็บทะเบียนเครื่องชั่งรถยนต์');
-  const last=tab.getLastRow();if(last>10001)throw Error('จำนวนแถวเกิน 10000');
-  const cells=tab.getRange(1,1,Math.max(1,last),31).getValues();
-  const rows=cells.map(row=>row.map(v=>v instanceof Date?Utilities.formatDate(v,'Asia/Bangkok','yyyy-MM-dd'):v));
-  return wmJson({version:1,spreadsheetId:WM_SHEET_ID,sheetName:tab.getName(),fetchedAt:new Date().toISOString(),headers:rows.shift(),rows:rows});
+  const sheetName='ทะเบียนเครื่องชั่งรถยนต์';
+  const range="'"+sheetName+"'!A1:AE10002";
+  const response=UrlFetchApp.fetch('https://sheets.googleapis.com/v4/spreadsheets/'+WM_SHEET_ID+'/values/'+encodeURIComponent(range)+'?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER',{
+   headers:{Authorization:'Bearer '+ScriptApp.getOAuthToken()},muteHttpExceptions:true
+  });
+  if(response.getResponseCode()!==200)throw Error('อ่านทะเบียนไม่ได้ ตรวจสิทธิ์อ่าน Google Sheets');
+  const rows=JSON.parse(response.getContentText()).values||[];
+  if(rows.length>10001)throw Error('จำนวนแถวเกิน 10000');
+  return wmJson({version:1,spreadsheetId:WM_SHEET_ID,sheetName:sheetName,fetchedAt:new Date().toISOString(),headers:rows.shift()||[],rows:rows});
  }catch(e){return wmJson({error:'อ่านชีตไม่สำเร็จ: '+e.message});}
 }
