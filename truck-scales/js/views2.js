@@ -69,7 +69,7 @@
       drawLoc();
     });
     const addBtn = h('button', { class: 'btn', type: 'button', id: 'addPlaceBtn', onclick: () => { TS.addMode = !TS.addMode; TS.pick = null; drawPick(); if (TS.addMode) mapEl.scrollIntoView({ block: 'center' }); } }, 'เพิ่มสถานที่ที่พบในพื้นที่');
-    root.append(pickBar, fb, h('div', { class: 'btnrow' }, locBtn, recBtn, data ? addBtn : null, locInfo), h('div', { class: 'btnrow' }, h('span', { class: 'legend', id: 'mapLegend' }, LEGEND.map(([k, t]) => h('span', null, h('i', { style: 'background:' + COLORS[k] + ';border:1px solid ' + (EDGE[k] || COLORS[k]) }), t)), h('span', null, h('i', { style: 'background:#fff;border:3px solid #6d28d9' }), 'ขอบม่วง = เพิ่มจากภาคสนาม'))), info, mapEl, under);
+    root.append(pickBar, fb, h('div', { class: 'btnrow' }, locBtn, recBtn, data ? addBtn : null, locInfo), data ? h('p', { class: 'muted small', id: 'holdHint' }, 'เพิ่มสถานที่ที่ไม่มีในแผนที่: กดค้างบนแผนที่ตรงตำแหน่งของสถานที่ (คอมพิวเตอร์ใช้คลิกขวา) หรือกดปุ่มเพิ่มสถานที่') : null, h('div', { class: 'btnrow' }, h('span', { class: 'legend', id: 'mapLegend' }, LEGEND.map(([k, t]) => h('span', null, h('i', { style: 'background:' + COLORS[k] + ';border:1px solid ' + (EDGE[k] || COLORS[k]) }), t)), h('span', null, h('i', { style: 'background:#fff;border:3px solid #6d28d9' }), 'ขอบม่วง = เพิ่มจากภาคสนาม'))), info, mapEl, under);
     if (!data) {
       pickBar.before(h('div', { class: 'mode public', id: 'mapNoData' }, h('b', null, 'ยังไม่มีจุดตรวจบนอุปกรณ์นี้'), ' แผนที่จะแสดงหมุดหลังเปิดไฟล์ทะเบียน Excel หรือนำไฟล์สำรองกลับเข้าบนอุปกรณ์เครื่องนี้ (ข้อมูลรายเครื่องไม่ได้อยู่บนเว็บ และไม่ส่งข้ามอุปกรณ์เอง) ',
         S.dbError ? h('span', null, S.dbError) : TS.openFileButton(), h('a', { class: 'btn', href: '#/data' }, 'นำไฟล์สำรองกลับเข้า')));
@@ -77,9 +77,16 @@
     }
     TS.leaveMap();
     if (typeof L === 'undefined') { mapEl.append(h('p', { class: 'warn-box' }, 'โหลดแผนที่ไม่สำเร็จ ลองโหลดหน้าเว็บใหม่')); return; }
-    map = L.map(mapEl, { preferCanvas: true, zoomControl: true }).setView([8.75, 99.45], 9);
+    map = L.map(mapEl, { preferCanvas: true, zoomControl: true, tapHold: true }).setView([8.75, 99.45], 9);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
     layer = L.layerGroup().addTo(map);
+    /* กดค้างบนแผนที่ (หรือคลิกขวาบนคอมพิวเตอร์) = เพิ่มสถานที่ ณ พิกัดนั้น */
+    map.on('contextmenu', e => {
+      if (!data || TS.pick || document.querySelector('dialog.dlg[open]')) return;
+      if (e.originalEvent && e.originalEvent.preventDefault) e.originalEvent.preventDefault();
+      if (navigator.vibrate) { try { navigator.vibrate(30); } catch (x) { /* บางเบราว์เซอร์ไม่อนุญาต */ } }
+      TS.openAddPlace({ lat: Number(e.latlng.lat.toFixed(6)), lon: Number(e.latlng.lng.toFixed(6)) });
+    });
     map.on('dragstart', () => { if (T.id !== null && T.follow) { T.follow = false; drawLoc(); } });
     const drawPick = () => {
       TS.put(pickBar, TS.pick ? h('div', { class: 'mode pick' }, h('b', null, 'โหมดเลือกพิกัด: '), 'แตะตำแหน่งบนแผนที่เพื่อกำหนดพิกัดของ ' + TS.pick.label + (TS.pick.ids.length > 1 ? ' (รวม ' + n(TS.pick.ids.length) + ' เครื่องในสถานประกอบการเดียวกัน)' : '') + ' ',
