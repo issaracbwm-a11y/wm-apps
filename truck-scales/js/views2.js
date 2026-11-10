@@ -7,7 +7,11 @@
   TS.MF = { q: '', province: '', amphoe: '', biz: '', cert: '', work: '', req: '', from: '', to: '', page: 1 };
   let map = null, layer = null, meMarker = null;
   TS.leaveMap = function () { if (map) { map.remove(); map = null; layer = null; meMarker = null; } };
-  const COLORS = { expired: '#b3261e', today: '#b26a00', near: '#b26a00', ok: '#1f7a55', pending: '#6b7280' };
+  /* สีหมุด: ตรวจสอบแล้ว = เขียว · ยังไม่ตรวจ ใช้สีตามคำรับรอง (หมดอายุ แดง · ใกล้หมดอายุ ส้ม · ยังไม่หมดอายุ เหลือง · รอตรวจสอบ เทา) */
+  const COLORS = { expired: '#b3261e', today: '#e06c00', near: '#e06c00', ok: '#f2c200', pending: '#6b7280', inspected: '#1f7a55' };
+  const EDGE = { ok: '#6b5200' };
+  const LEGEND = [['expired', 'หมดอายุ'], ['near', 'ใกล้หมดอายุ'], ['ok', 'ยังไม่หมดอายุ'], ['pending', 'รอตรวจสอบวันหมดอายุ'], ['inspected', 'ตรวจสอบแล้ว']];
+  const inspected = m => { const w = TS.workOf(m); return w === 'done' || w === 'follow'; };
   const RANK = { expired: 0, today: 1, near: 2, pending: 3, ok: 4 };
   TS.views.map = function (root) {
     root.append(h('h1', { class: 'page' }, 'แผนที่จุดตรวจ'));
@@ -27,7 +31,7 @@
         map.setView(ll, Math.max(map.getZoom(), 13)); TS.me = { lat: ll[0], lon: ll[1] };
       }, e => { locBtn.disabled = false; locBtn.textContent = 'ตำแหน่งปัจจุบัน'; TS.toast(e.code === 1 ? 'ยังไม่ได้อนุญาตให้ใช้ตำแหน่ง เปิดสิทธิ์ตำแหน่งของเบราว์เซอร์สำหรับเว็บนี้ก่อน' : 'หาตำแหน่งไม่ได้ ลองอีกครั้งในที่โล่ง', 'err'); }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
     } }, 'ตำแหน่งปัจจุบัน');
-    root.append(pickBar, fb, h('div', { class: 'btnrow' }, locBtn, h('span', { class: 'legend' }, ['expired', 'near', 'ok', 'pending'].map(k => h('span', null, h('i', { style: 'background:' + COLORS[k] }), TS.CERT[k].label)))), info, mapEl, under);
+    root.append(pickBar, fb, h('div', { class: 'btnrow' }, locBtn, h('span', { class: 'legend', id: 'mapLegend' }, LEGEND.map(([k, t]) => h('span', null, h('i', { style: 'background:' + COLORS[k] + ';border:1px solid ' + (EDGE[k] || COLORS[k]) }), t)))), info, mapEl, under);
     if (!data) {
       pickBar.before(h('div', { class: 'mode public', id: 'mapNoData' }, h('b', null, 'ยังไม่มีจุดตรวจบนอุปกรณ์นี้'), ' แผนที่จะแสดงหมุดหลังเปิดไฟล์ทะเบียน Excel หรือนำไฟล์สำรองกลับเข้าบนอุปกรณ์เครื่องนี้ (ข้อมูลรายเครื่องไม่ได้อยู่บนเว็บ และไม่ส่งข้ามอุปกรณ์เอง) ',
         S.dbError ? h('span', null, S.dbError) : TS.openFileButton(), h('a', { class: 'btn', href: '#/data' }, 'นำไฟล์สำรองกลับเข้า')));
@@ -63,9 +67,10 @@
         groups.get(k).ms.push(m);
       }
       for (const g of groups.values()) {
-        const worst = g.ms.map(m => TS.certOf(m, today)).sort((a, b) => RANK[a] - RANK[b])[0];
+        const todo = g.ms.filter(m => !inspected(m));
+        const worst = todo.length ? todo.map(m => TS.certOf(m, today)).sort((a, b) => RANK[a] - RANK[b])[0] : 'inspected';
         const anySel = g.ms.some(m => S.selection.has(m.id));
-        const mk = L.circleMarker([g.lat, g.lon], { radius: g.ms.length > 1 ? 8 : 6, color: anySel ? '#111827' : '#ffffff', weight: anySel ? 3 : 1.5, fillColor: COLORS[worst], fillOpacity: .92 });
+        const mk = L.circleMarker([g.lat, g.lon], { radius: g.ms.length > 1 ? 8 : 6, color: anySel ? '#111827' : (EDGE[worst] || '#ffffff'), weight: anySel ? 3 : 1.5, fillColor: COLORS[worst], fillOpacity: .92 });
         mk.bindPopup(() => {
           const names = [...new Set(g.ms.map(TS.label))];
           return h('div', { class: 'pop' },

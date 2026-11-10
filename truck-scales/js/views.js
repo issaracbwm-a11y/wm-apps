@@ -62,8 +62,8 @@
       root.append(h('section', { class: 'cards', 'aria-live': 'polite' },
         card('เครื่องชั่งทั้งหมด', sum('count'), 'เครื่องตามทะเบียน'),
         card('หมดอายุ', sum('expired'), 'เครื่องที่เลยวันสิ้นอายุ ณ วันที่อ้างอิง', 'red'),
-        card('ใกล้หมดอายุ', '–', 'คำนวณเมื่อเปิดไฟล์ Excel', 'amber'),
-        card('ยังไม่หมดอายุ', sum('count') - sum('expired') - sum('unknown'), 'รวมครบกำหนดวันอ้างอิง ' + n(sum('today')) + ' เครื่อง', 'green'),
+        card('ใกล้หมดอายุ', '–', 'คำนวณเมื่อเปิดไฟล์ Excel', 'orange'),
+        card('ยังไม่หมดอายุ', sum('count') - sum('expired') - sum('unknown'), 'รวมครบกำหนดวันอ้างอิง ' + n(sum('today')) + ' เครื่อง', 'yellow'),
         card('รอตรวจสอบวันหมดอายุ', sum('unknown'), 'เครื่องที่ยังยืนยันวันไม่ได้', 'gray')));
       const kinds = ['ปาล์ม', 'ยางพารา', 'ปาล์มและยางพารา'].map(k => [k, groups.reduce((t, r) => t + (r.kinds[k] || 0), 0)]);
       const provs = Object.entries(snap.totals).filter(([k]) => !dashProv || k === dashProv);
@@ -103,8 +103,8 @@
     root.append(h('section', { class: 'cards', 'aria-live': 'polite' },
       cl(card('เครื่องชั่งทั้งหมด', ms.length, 'หนึ่งแถวต่อหนึ่งเครื่อง'), go('')),
       cl(card('หมดอายุ', c.expired, 'เลยวันหมดอายุคำรับรอง', 'red'), go('expired')),
-      cl(card('ใกล้หมดอายุ', c.near + c.today, 'ภายใน ' + S.nearDays + ' วัน · ครบกำหนดวันนี้ ' + n(c.today), 'amber'), go('near')),
-      cl(card('ยังไม่หมดอายุ', c.ok, 'เกิน ' + S.nearDays + ' วัน', 'green'), go('ok')),
+      cl(card('ใกล้หมดอายุ', c.near + c.today, 'ภายใน ' + S.nearDays + ' วัน · ครบกำหนดวันนี้ ' + n(c.today), 'orange'), go('near')),
+      cl(card('ยังไม่หมดอายุ', c.ok, 'เกิน ' + S.nearDays + ' วัน', 'yellow'), go('ok')),
       cl(card('รอตรวจสอบวันหมดอายุ', c.pending, 'ไม่มีวันที่หรือยังยืนยันไม่ได้', 'gray'), go('pending'))));
     const kl = [...kinds].sort((a, b) => b[1] - a[1]), pl = [...provs].sort((a, b) => b[1] - a[1]);
     root.append(h('div', { class: 'panels' },

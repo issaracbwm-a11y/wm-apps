@@ -205,9 +205,9 @@ TS.edited = (m, f) => !!(m.local && f in m.local);
 
 TS.CERT = {
   expired: { label: 'หมดอายุ', cls: 'red' },
-  today: { label: 'ครบกำหนดวันนี้', cls: 'amber' },
-  near: { label: 'ใกล้หมดอายุ', cls: 'amber' },
-  ok: { label: 'ยังไม่หมดอายุ', cls: 'green' },
+  today: { label: 'ครบกำหนดวันนี้', cls: 'orange' },
+  near: { label: 'ใกล้หมดอายุ', cls: 'orange' },
+  ok: { label: 'ยังไม่หมดอายุ', cls: 'yellow' },
   pending: { label: 'รอตรวจสอบวันหมดอายุ', cls: 'gray' }
 };
 TS.certOf = function (m, today) {
@@ -240,7 +240,7 @@ TS.reqOf = function (m) {
 };
 TS.WORK = {
   follow: { label: 'รอติดตาม', cls: 'amber' },
-  done: { label: 'ตรวจแล้ว', cls: 'blue' },
+  done: { label: 'ตรวจแล้ว', cls: 'green' },
   planned: { label: 'วางแผนแล้ว', cls: 'violet' },
   none: { label: 'ยังไม่ตรวจ', cls: 'gray' }
 };

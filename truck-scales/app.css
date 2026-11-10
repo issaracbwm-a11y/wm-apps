@@ -45,7 +45,7 @@ input[type=checkbox],input[type=radio]{width:19px;height:19px;accent-color:var(-
 .card,.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
 .panel{margin:12px 0}
 .card{border-top:4px solid #8fb5a5}.card strong{display:block;font-size:clamp(23px,4.4vw,33px);font-variant-numeric:tabular-nums;line-height:1.2}
-.card.red{border-top-color:var(--red)}.card.red strong{color:var(--red)}.card.amber{border-top-color:#d08a12}.card.amber strong{color:var(--amber)}.card.green{border-top-color:#2f8f6c}.card.gray{border-top-color:#9aa5a1}
+.card.red{border-top-color:var(--red)}.card.red strong{color:var(--red)}.card.amber{border-top-color:#d08a12}.card.amber strong{color:var(--amber)}.card.green{border-top-color:#2f8f6c}.card.yellow{border-top-color:#f2c200}.card.yellow strong{color:#6b5200}.card.orange{border-top-color:#e06c00}.card.orange strong{color:#9a4300}.card.gray{border-top-color:#9aa5a1}
 .card small{display:block;color:var(--muted);margin-top:4px}
 .click{cursor:pointer}.card.click:hover,tr.click:hover{background:#f3f8f5}
 .panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}.panels .panel{margin:0}
@@ -61,7 +61,7 @@ td.ck,th.ck{width:38px}tr.dim{opacity:.65}
 .listhead{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0}
 .pager{display:flex;gap:12px;align-items:center;justify-content:center;margin:12px 0}
 .badge{display:inline-block;border-radius:20px;padding:1px 10px;font-size:.82rem;font-weight:650;white-space:nowrap;border:1px solid}
-.badge.red{background:#fde8e8;color:#8f1d27;border-color:#efb4b4}.badge.amber{background:#fff1d6;color:#7a4700;border-color:#eccb8a}.badge.green{background:#dff3e8;color:#0f5a3d;border-color:#a5d6bd}.badge.gray{background:#eceeed;color:#414b48;border-color:#c9d0cd}.badge.blue{background:#e2edfb;color:#173f78;border-color:#a9c4ea}.badge.violet{background:#ece5fa;color:#47307c;border-color:#c5b4e8}
+.badge.red{background:#fde8e8;color:#8f1d27;border-color:#efb4b4}.badge.amber{background:#fff1d6;color:#7a4700;border-color:#eccb8a}.badge.green{background:#dff3e8;color:#0f5a3d;border-color:#a5d6bd}.badge.yellow{background:#fff3b0;color:#5c4700;border-color:#e3c53a}.badge.orange{background:#ffe1c7;color:#8a3d00;border-color:#f0b07a}.badge.gray{background:#eceeed;color:#414b48;border-color:#c9d0cd}.badge.blue{background:#e2edfb;color:#173f78;border-color:#a9c4ea}.badge.violet{background:#ece5fa;color:#47307c;border-color:#c5b4e8}
 .need-file{max-width:720px}
 .dlg{border:0;border-radius:16px;padding:0;width:min(620px,96vw);max-height:92vh;box-shadow:0 20px 60px rgba(0,0,0,.3);color:inherit}
 .dlg.wide{width:min(860px,96vw)}.dlg::backdrop{background:rgba(10,30,26,.5)}
