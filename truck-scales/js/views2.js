@@ -78,7 +78,18 @@
     TS.leaveMap();
     if (typeof L === 'undefined') { mapEl.append(h('p', { class: 'warn-box' }, 'โหลดแผนที่ไม่สำเร็จ ลองโหลดหน้าเว็บใหม่')); return; }
     map = L.map(mapEl, { preferCanvas: true, zoomControl: true, tapHold: true }).setView([8.75, 99.45], 9);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
+    const tileStatus = h('p', { class: 'warn-box', role: 'status', hidden: true }, 'โหลดแผนที่พื้นหลังไม่สำเร็จ ลองโหลดหน้านี้ใหม่ หมุดจากไฟล์ทะเบียนยังใช้งานได้');
+    mapEl.before(tileStatus);
+    let tileFailed = false;
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      referrerPolicy: 'strict-origin-when-cross-origin',
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+    }).on({
+      loading: () => { tileFailed = false; },
+      tileerror: () => { tileFailed = true; tileStatus.hidden = false; },
+      load: () => { tileStatus.hidden = !tileFailed; }
+    }).addTo(map);
     layer = L.layerGroup().addTo(map);
     /* กดค้างบนแผนที่ (หรือคลิกขวาบนคอมพิวเตอร์) = เพิ่มสถานที่ ณ พิกัดนั้น */
     map.on('contextmenu', e => {
