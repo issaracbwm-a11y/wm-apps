@@ -8,7 +8,7 @@
   let map = null, layer = null, meMarker = null, accCircle = null;
   const track = { id: null, last: null, follow: true, onpos: null, onerr: null };
   /* stop=true เมื่อออกจากหน้าแผนที่: เลิกติดตามตำแหน่งเพื่อไม่ให้ใช้ GPS ค้าง */
-  TS.leaveMap = function (stop) { if (stop && track.id !== null) { navigator.geolocation.clearWatch(track.id); track.id = null; track.last = null; track.follow = true; } if (map) { map.remove(); map = null; layer = null; meMarker = null; accCircle = null; } };
+  TS.leaveMap = function (stop) { if (stop) TS.addMode = false; if (stop && track.id !== null) { navigator.geolocation.clearWatch(track.id); track.id = null; track.last = null; track.follow = true; } if (map) { map.remove(); map = null; layer = null; meMarker = null; accCircle = null; } };
   /* สีหมุด: ตรวจสอบแล้ว = เขียว · ยังไม่ตรวจ ใช้สีตามคำรับรอง (หมดอายุ แดง · ใกล้หมดอายุ ส้ม · ยังไม่หมดอายุ เหลือง · รอตรวจสอบ เทา) */
   const COLORS = { expired: '#b3261e', today: '#e06c00', near: '#e06c00', ok: '#f2c200', pending: '#6b7280', inspected: '#1f7a55' };
   const EDGE = { ok: '#6b5200' };
@@ -61,7 +61,8 @@
       T.id = navigator.geolocation.watchPosition(p => T.onpos(p), e => T.onerr(e), { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 });
       drawLoc();
     });
-    root.append(pickBar, fb, h('div', { class: 'btnrow' }, locBtn, recBtn, locInfo), h('div', { class: 'btnrow' }, h('span', { class: 'legend', id: 'mapLegend' }, LEGEND.map(([k, t]) => h('span', null, h('i', { style: 'background:' + COLORS[k] + ';border:1px solid ' + (EDGE[k] || COLORS[k]) }), t)))), info, mapEl, under);
+    const addBtn = h('button', { class: 'btn', type: 'button', id: 'addPlaceBtn', onclick: () => { TS.addMode = !TS.addMode; TS.pick = null; drawPick(); if (TS.addMode) mapEl.scrollIntoView({ block: 'center' }); } }, 'เพิ่มสถานที่ที่พบในพื้นที่');
+    root.append(pickBar, fb, h('div', { class: 'btnrow' }, locBtn, recBtn, data ? addBtn : null, locInfo), h('div', { class: 'btnrow' }, h('span', { class: 'legend', id: 'mapLegend' }, LEGEND.map(([k, t]) => h('span', null, h('i', { style: 'background:' + COLORS[k] + ';border:1px solid ' + (EDGE[k] || COLORS[k]) }), t)), h('span', null, h('i', { style: 'background:#fff;border:3px solid #6d28d9' }), 'ขอบม่วง = เพิ่มจากภาคสนาม'))), info, mapEl, under);
     if (!data) {
       pickBar.before(h('div', { class: 'mode public', id: 'mapNoData' }, h('b', null, 'ยังไม่มีจุดตรวจบนอุปกรณ์นี้'), ' แผนที่จะแสดงหมุดหลังเปิดไฟล์ทะเบียน Excel หรือนำไฟล์สำรองกลับเข้าบนอุปกรณ์เครื่องนี้ (ข้อมูลรายเครื่องไม่ได้อยู่บนเว็บ และไม่ส่งข้ามอุปกรณ์เอง) ',
         S.dbError ? h('span', null, S.dbError) : TS.openFileButton(), h('a', { class: 'btn', href: '#/data' }, 'นำไฟล์สำรองกลับเข้า')));
@@ -76,9 +77,18 @@
     const drawPick = () => {
       TS.put(pickBar, TS.pick ? h('div', { class: 'mode pick' }, h('b', null, 'โหมดเลือกพิกัด: '), 'แตะตำแหน่งบนแผนที่เพื่อกำหนดพิกัดของ ' + TS.pick.label + (TS.pick.ids.length > 1 ? ' (รวม ' + n(TS.pick.ids.length) + ' เครื่องในสถานประกอบการเดียวกัน)' : '') + ' ',
         h('button', { class: 'btn', type: 'button', onclick: () => { TS.pick = null; drawPick(); } }, 'ยกเลิก')) : null);
-      mapEl.classList.toggle('picking', !!TS.pick);
+      if (TS.addMode && !TS.pick) TS.put(pickBar, h('div', { class: 'mode pick', id: 'addBar' }, h('b', null, 'เพิ่มสถานที่: '), 'แตะตำแหน่งของสถานที่บนแผนที่ หรือ ',
+        h('button', { class: 'btn primary', type: 'button', id: 'addHere', onclick: () => {
+          if (T.last) { TS.openAddPlace({ lat: Number(T.last.lat.toFixed(6)), lon: Number(T.last.lon.toFixed(6)) }); return; }
+          if (!navigator.geolocation) { TS.toast('อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง แตะบนแผนที่แทน', 'err'); return; }
+          TS.toast('กำลังหาตำแหน่งปัจจุบัน…');
+          navigator.geolocation.getCurrentPosition(p => TS.openAddPlace({ lat: Number(p.coords.latitude.toFixed(6)), lon: Number(p.coords.longitude.toFixed(6)) }), () => TS.toast('หาตำแหน่งไม่ได้ แตะตำแหน่งบนแผนที่แทน', 'err'), { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 });
+        } }, 'ใช้ตำแหน่งปัจจุบันของฉัน'), ' ', h('button', { class: 'btn', type: 'button', onclick: () => { TS.addMode = false; drawPick(); } }, 'ยกเลิก')));
+      addBtn.classList.toggle('on', !!TS.addMode);
+      mapEl.classList.toggle('picking', !!TS.pick || !!TS.addMode);
     };
     map.on('click', async e => {
+      if (TS.addMode && !TS.pick) { TS.openAddPlace({ lat: Number(e.latlng.lat.toFixed(6)), lon: Number(e.latlng.lng.toFixed(6)) }); return; }
       if (!TS.pick) return;
       const lat = Number(e.latlng.lat.toFixed(6)), lon = Number(e.latlng.lng.toFixed(6));
       if (TS.coordState(lat, lon) !== 'ok' && !confirm('ตำแหน่งนี้อยู่นอกพื้นที่สุราษฎร์ธานี–นครศรีธรรมราช ต้องการใช้หรือไม่')) return;
@@ -100,8 +110,8 @@
       for (const g of groups.values()) {
         const todo = g.ms.filter(m => !inspected(m));
         const worst = todo.length ? todo.map(m => TS.certOf(m, today)).sort((a, b) => RANK[a] - RANK[b])[0] : 'inspected';
-        const anySel = g.ms.some(m => S.selection.has(m.id));
-        const mk = L.circleMarker([g.lat, g.lon], { radius: g.ms.length > 1 ? 8 : 6, color: anySel ? '#111827' : (EDGE[worst] || '#ffffff'), weight: anySel ? 3 : 1.5, fillColor: COLORS[worst], fillOpacity: .92 });
+        const anySel = g.ms.some(m => S.selection.has(m.id)), isNew = g.ms.some(m => m.fieldAdded);
+        const mk = L.circleMarker([g.lat, g.lon], { radius: g.ms.length > 1 ? 8 : 6, color: anySel ? '#111827' : isNew ? '#6d28d9' : (EDGE[worst] || '#ffffff'), weight: anySel || isNew ? 3 : 1.5, fillColor: COLORS[worst], fillOpacity: .92 });
         mk.bindPopup(() => {
           const names = [...new Set(g.ms.map(TS.label))];
           return h('div', { class: 'pop' },
@@ -328,7 +338,7 @@
       TS.hasData() ? h('dl', { class: 'kvs', id: 'devInfo' },
         h('div', { class: 'kv' }, h('dt', null, 'ไฟล์ที่นำเข้าล่าสุด'), h('dd', null, li ? li.fileName + ' (แท็บ ' + li.sheetName + ')' : 'กู้คืนจากไฟล์สำรอง')),
         h('div', { class: 'kv' }, h('dt', null, 'วันที่นำเข้าล่าสุด'), h('dd', null, li ? TS.fmtStamp(li.importedAt) : TS.fmtStamp(S.meta.restoredAt))),
-        h('div', { class: 'kv' }, h('dt', null, 'จำนวนเครื่อง'), h('dd', null, n(S.machines.size) + ' เครื่อง · ผลตรวจ ' + n(S.inspections.length) + ' รายการ · แผนตรวจ ' + n(S.plans.length) + ' แผน · เครื่องที่มีค่าแก้บนอุปกรณ์ ' + n(TS.machineList().filter(m => Object.keys(m.local || {}).length).length))))
+        h('div', { class: 'kv' }, h('dt', null, 'จำนวนเครื่อง'), h('dd', null, n(TS.registerList().length) + ' เครื่อง · เพิ่มจากภาคสนาม ' + n(TS.fieldAddedList().length) + ' รายการ · ผลตรวจ ' + n(S.inspections.length) + ' รายการ · แผนตรวจ ' + n(S.plans.length) + ' แผน · เครื่องที่มีค่าแก้บนอุปกรณ์ ' + n(TS.machineList().filter(m => Object.keys(m.local || {}).length).length))))
         : h('p', { class: 'muted' }, 'ยังไม่มีข้อมูลรายเครื่องบนอุปกรณ์นี้ แดชบอร์ดแสดงยอดสรุปสาธารณะ')));
     /* นำเข้า */
     const imp = h('section', { class: 'panel', id: 'importPanel' }, h('h2', null, 'นำเข้าไฟล์ Excel'),
@@ -394,6 +404,7 @@
         h('li', null, 'วันหมดอายุว่าง ' + n(an.warns.noExpiry) + ' เครื่อง — จะแสดงเป็น รอตรวจสอบวันหมดอายุ' + (an.warns.badDate ? ' (ในจำนวนนี้อ่านเป็นวันที่ไม่ได้ ' + n(an.warns.badDate) + ')' : '')),
         h('li', null, 'ไม่มีพิกัด ' + n(an.warns.noCoord) + ' เครื่อง · พิกัดอยู่นอกพื้นที่ ' + n(an.warns.badCoord) + ' เครื่อง — แยกไว้ให้ตรวจสอบในหน้าแผนที่'),
         an.missing.length ? h('li', null, 'เครื่องที่ไม่อยู่ในไฟล์นี้จะยังเก็บไว้พร้อมผลตรวจ และติดป้าย ไม่อยู่ในไฟล์ล่าสุด') : null,
+        an.fieldAdded ? h('li', null, 'สถานที่ที่เพิ่มจากภาคสนาม ' + n(an.fieldAdded) + ' รายการจะคงอยู่ ระบบไม่จับคู่กับไฟล์ใหม่ให้อัตโนมัติ หากไฟล์ใหม่มีสถานที่นั้นแล้วให้ลบรายการที่เพิ่มเองออก') : null,
         TS.hasData() ? h('li', null, 'ผลตรวจ ' + n(S.inspections.length) + ' รายการ แผนตรวจ ' + n(S.plans.length) + ' แผน และค่าที่เจ้าหน้าที่แก้ จะคงอยู่หลังนำเข้า') : null),
       an.dupes.length ? h('details', null, h('summary', null, 'เครื่องซ้ำในไฟล์ ' + n(an.dupes.length) + ' แถว (ใช้แถวแรก)'), h('ul', { class: 'small' }, an.dupes.slice(0, 100).map(d => h('li', null, 'แถว ' + d.rowNo + ' ซ้ำกับแถว ' + d.firstRow + ' · ' + d.id.replace(/^(lm|no):/, '') + ' · ' + TS.str(d.name))))) : null,
       an.unreadable.length ? h('details', null, h('summary', null, 'แถวที่อ่านไม่ได้ ' + n(an.unreadable.length) + ' แถว'), h('ul', { class: 'small' }, an.unreadable.slice(0, 100).map(d => h('li', null, 'แถว ' + d.rowNo + ' · ' + d.why + (d.name ? ' · ' + d.name : ''))))) : null,

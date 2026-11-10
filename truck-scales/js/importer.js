@@ -142,7 +142,8 @@ TS.analyze = function (wb, sheetName, map) {
         out.conflicts.push({ id, f, name: TS.str(TS.v(old, 'name')), machineNo: old.src.machineNo, local: old.local[f], incoming: src[f], choice: 'local' });
     }
   }
-  for (const m of TS.S.machines.values()) if (!seen.has(m.id)) out.missing.push(m);
+  for (const m of TS.S.machines.values()) if (!seen.has(m.id) && !m.fieldAdded) out.missing.push(m);
+  out.fieldAdded = TS.fieldAddedList().length;
   return out;
 };
 

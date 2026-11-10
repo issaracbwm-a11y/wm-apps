@@ -20,7 +20,7 @@
     if (!TS.hasData()) return null;
     return h('div', { class: 'databar' },
       h('span', null, 'ไฟล์: ', h('b', null, li ? li.fileName : 'ข้อมูลจากไฟล์สำรอง')),
-      h('span', null, h('b', null, n(S.machines.size)), ' เครื่อง'),
+      h('span', null, h('b', null, n(TS.registerList().length)), ' เครื่อง', TS.fieldAddedList().length ? ' · เพิ่มจากภาคสนาม ' + n(TS.fieldAddedList().length) : ''),
       h('span', null, 'นำเข้าล่าสุด ', h('b', null, li ? TS.fmtStamp(li.importedAt) : TS.fmtStamp(S.meta.restoredAt))),
       h('a', { href: '#/data' }, 'นำเข้า/สำรอง'));
   };
@@ -82,10 +82,11 @@
     }
     const li = S.meta.lastImport;
     root.append(h('div', { class: 'mode file' }, h('b', null, 'คำนวณจากไฟล์ที่เปิดบนอุปกรณ์นี้'), ' ',
-      (li ? li.fileName + ' · นำเข้า ' + TS.fmtStamp(li.importedAt) : 'ข้อมูลจากไฟล์สำรอง') + ' · ' + n(S.machines.size) + ' เครื่อง · สถานะคำนวณ ณ วันนี้ ' + TS.fmtLong(today) + ' รวมค่าที่เจ้าหน้าที่แก้บนอุปกรณ์นี้'));
+      (li ? li.fileName + ' · นำเข้า ' + TS.fmtStamp(li.importedAt) : 'ข้อมูลจากไฟล์สำรอง') + ' · ' + n(TS.registerList().length) + ' เครื่อง · สถานะคำนวณ ณ วันนี้ ' + TS.fmtLong(today) + ' รวมค่าที่เจ้าหน้าที่แก้บนอุปกรณ์นี้'));
     root.append(h('div', { class: 'controls' }, provSel,
       sel('dNear', 'ใกล้หมดอายุภายใน', [['30', '30 วัน'], ['60', '60 วัน'], ['90', '90 วัน']], String(S.nearDays), async v => { S.nearDays = Number(v) || 60; await TS.setMeta('nearDays', S.nearDays); TS.render(); }, '60 วัน')));
-    const ms = TS.machineList().filter(m => !dashProv || TS.v(m, 'province') === dashProv);
+    const ms = TS.registerList().filter(m => !dashProv || TS.v(m, 'province') === dashProv);
+    const fa = TS.fieldAddedList().filter(m => !dashProv || TS.v(m, 'province') === dashProv);
     const c = { expired: 0, today: 0, near: 0, ok: 0, pending: 0 }, req = { submitted: 0, notSubmitted: 0, unknown: 0 };
     const kinds = new Map(), dist = new Map(), provs = new Map(); let insp = 0, inspExpired = 0, noCoord = 0;
     for (const m of ms) {
@@ -114,7 +115,8 @@
         bar('ยื่นคำขอแล้ว', req.submitted, c.expired), bar('ยังไม่ยื่นคำขอ (ยืนยันได้)', req.notSubmitted, c.expired), bar('ยังไม่ทราบสถานะคำขอ', req.unknown, c.expired, 'g'),
         h('p', { class: 'muted small' }, 'ค้นแล้วไม่พบ หรือพบหลักฐานเฉพาะระดับสถานประกอบการ นับเป็นยังไม่ทราบ')),
       h('section', { class: 'panel' }, h('h2', null, 'งานตรวจบนอุปกรณ์นี้'),
-        bar('ตรวจแล้ว', insp, ms.length), bar('ตรวจแล้วแต่คำรับรองยังหมดอายุ', inspExpired, Math.max(insp, 1), 'r'), bar('ไม่มีพิกัดหรือพิกัดต้องตรวจสอบ', noCoord, ms.length, 'g'))));
+        bar('ตรวจแล้ว', insp, ms.length), bar('ตรวจแล้วแต่คำรับรองยังหมดอายุ', inspExpired, Math.max(insp, 1), 'r'), bar('ไม่มีพิกัดหรือพิกัดต้องตรวจสอบ', noCoord, ms.length, 'g'),
+        fa.length ? h('p', { class: 'small', id: 'faNote' }, h('button', { class: 'link', type: 'button', onclick: () => { Object.assign(TS.F, { q: 'เพิ่มจากภาคสนาม', province: dashProv, amphoe: '', biz: '', cert: '', work: '', req: '', from: '', to: '', page: 1 }); location.hash = '#/register'; } }, 'สถานที่ที่เพิ่มจากภาคสนาม ' + n(fa.length) + ' รายการ'), ' — รอยืนยันกับทะเบียน ไม่นับในยอดด้านบน') : null)));
     const dl = [...dist].map(([k, v]) => [...k.split('|'), v]).sort((a, b) => b[2].expired - a[2].expired || TS.collator.compare(a[1], b[1]));
     root.append(h('section', { class: 'panel' }, h('h2', null, 'แยกตามอำเภอ'),
       h('div', { class: 'table-wrap' }, h('table', { class: 'num3' },
@@ -139,7 +141,7 @@
       }
       if (F.from || F.to) { const e = TS.v(m, 'expiry'); if (!TS.isoOK(e)) return false; if (F.from && e < F.from) return false; if (F.to && e > F.to) return false; }
       if (q) {
-        const hay = [TS.v(m, 'name'), TS.v(m, 'machineNo'), TS.v(m, 'lmId'), TS.v(m, 'reqNo'), TS.v(m, 'placeCode'), TS.v(m, 'stationKey'), TS.v(m, 'placeReq')].map(x => TS.str(x).toLowerCase()).join('\n');
+        const hay = [TS.v(m, 'name'), TS.v(m, 'machineNo'), TS.v(m, 'lmId'), TS.v(m, 'reqNo'), TS.v(m, 'placeCode'), TS.v(m, 'stationKey'), TS.v(m, 'placeReq'), m.fieldAdded ? 'เพิ่มจากภาคสนาม' : ''].map(x => TS.str(x).toLowerCase()).join('\n');
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -201,7 +203,7 @@
             ['สถานประกอบการ', 'หมายเลขเครื่อง', 'อำเภอ / จังหวัด', 'วันหมดอายุ', 'สถานะคำรับรอง', 'สถานะงาน'].map(t => h('th', { scope: 'col' }, t)))),
           h('tbody', null, view.map(m => h('tr', { class: 'click' + (m.missing ? ' dim' : ''), onclick: e => { if (e.target.closest('.ck')) return; TS.openMachine(m.id); } },
             h('td', { class: 'ck' }, h('input', { type: 'checkbox', 'aria-label': 'เลือกเครื่องนี้', checked: S.selection.has(m.id), onchange: e => TS.toggleSel([m.id], e.target.checked) })),
-            h('td', { 'data-l': 'สถานประกอบการ' }, h('b', null, TS.label(m)), h('br'), h('span', { class: 'muted small' }, TS.str(TS.v(m, 'biz')), Object.keys(m.local || {}).length ? ' · มีค่าที่แก้บนอุปกรณ์' : '', m.missing ? ' · ไม่อยู่ในไฟล์ล่าสุด' : '')),
+            h('td', { 'data-l': 'สถานประกอบการ' }, h('b', null, TS.label(m)), h('br'), h('span', { class: 'muted small' }, TS.str(TS.v(m, 'biz')), Object.keys(m.local || {}).length ? ' · มีค่าที่แก้บนอุปกรณ์' : '', m.missing ? ' · ไม่อยู่ในไฟล์ล่าสุด' : '', m.fieldAdded ? [' ', TS.badge('เพิ่มจากภาคสนาม', 'violet')] : null)),
             h('td', { 'data-l': 'หมายเลขเครื่อง', class: 'mono' }, TS.str(TS.v(m, 'machineNo')) || '–'),
             h('td', { 'data-l': 'อำเภอ / จังหวัด' }, TS.str(TS.v(m, 'amphoe')) + ' · ' + TS.str(TS.v(m, 'province'))),
             h('td', { 'data-l': 'วันหมดอายุ' }, TS.fmtBE(TS.v(m, 'expiry')) || '–'),
@@ -256,6 +258,7 @@
           h('div', null, h('span', { class: 'muted small' }, 'สถานะงานตรวจ'), h('div', null, TS.workBadge(m)), h('div', { class: 'small' }, ins[0] ? 'ตรวจล่าสุด ' + TS.fmtBE(ins[0].date) + ' · ' + TS.str(ins[0].result) : plans[0] ? 'อยู่ในแผน ' + TS.fmtBE(plans[0].date) : 'ยังไม่มีแผนหรือผลตรวจ'))),
         (ins.length && TS.certOf(m, today) === 'expired') ? h('p', { class: 'warn-box' }, 'เครื่องนี้ตรวจแล้ว แต่คำรับรองยังหมดอายุ — วันหมดอายุจะเปลี่ยนเมื่อมีหลักฐานคำรับรองใหม่เท่านั้น') : null,
         m.missing ? h('p', { class: 'warn-box' }, 'เครื่องนี้ไม่อยู่ในไฟล์ที่นำเข้าล่าสุด ข้อมูลและผลตรวจเดิมยังเก็บไว้') : null,
+        m.fieldAdded ? h('p', { class: 'mode pick' }, h('b', null, 'เพิ่มจากภาคสนาม'), ' รายการนี้เจ้าหน้าที่เพิ่มเองบนอุปกรณ์นี้ ยังไม่อยู่ในทะเบียน และไม่นับในยอดแดชบอร์ดจนกว่าจะยืนยันกับทะเบียน') : null,
         h('div', { class: 'btnrow' },
           h('button', { class: 'btn primary', type: 'button', onclick: () => TS.openInspection(id, null, view) }, 'บันทึกผลตรวจ'),
           h('button', { class: 'btn', type: 'button', onclick: edit }, 'แก้ข้อมูล'),
@@ -321,7 +324,8 @@
         h('label', { class: 'fld' }, h('span', null, 'บันทึกของเจ้าหน้าที่'), note),
         err,
         h('div', { class: 'btnrow' }, h('button', { class: 'btn primary', type: 'submit' }, 'บันทึก'), h('button', { class: 'btn', type: 'button', onclick: view }, 'ยกเลิก'),
-          Object.keys(m.local || {}).length ? h('button', { class: 'btn danger', type: 'button', onclick: async () => { if (!confirm('คืนค่าทุกช่องของเครื่องนี้ตามไฟล์ที่นำเข้าล่าสุดหรือไม่')) return; m.local = {}; m.base = {}; await TS.db.put('machines', m); view(); TS.render(); } }, 'คืนค่าทั้งหมดตามไฟล์') : null)));
+          m.fieldAdded ? h('button', { class: 'btn danger', type: 'button', id: 'delFieldAdded', onclick: async () => { const ni = TS.inspectionsOf(id).length; if (!confirm('ลบรายการที่เพิ่มจากภาคสนามนี้หรือไม่' + (ni ? ' ผลตรวจ ' + ni + ' รายการและไฟล์หลักฐานของรายการนี้จะถูกลบด้วย' : ''))) return; for (const i of TS.inspectionsOf(id)) { for (const ev of i.evidence || []) await TS.db.del('evidence', ev.id); await TS.db.del('inspections', i.id); } S.inspections = S.inspections.filter(i => i.machineId !== id); for (const p of TS.plansOf(id)) { p.items = p.items.filter(x => x !== id); await TS.db.put('plans', p); } await TS.db.del('machines', id); S.machines.delete(id); S.selection.delete(id); await TS.saveSelection(); TS.buildIndex(); dlg.close(); TS.toast('ลบรายการแล้ว'); TS.render(); } }, 'ลบรายการนี้') : null,
+          (!m.fieldAdded && Object.keys(m.local || {}).length) ? h('button', { class: 'btn danger', type: 'button', onclick: async () => { if (!confirm('คืนค่าทุกช่องของเครื่องนี้ตามไฟล์ที่นำเข้าล่าสุดหรือไม่')) return; m.local = {}; m.base = {}; await TS.db.put('machines', m); view(); TS.render(); } }, 'คืนค่าทั้งหมดตามไฟล์') : null)));
     };
     dlg = TS.dialog(TS.label(m), body, { cls: 'wide' });
     startEdit ? edit() : view();
@@ -401,5 +405,61 @@
           TS.buildIndex(); dlg.close(); after && after(); TS.render();
         } }, 'ลบผลตรวจ') : null));
     dlg = TS.dialog(existing ? 'แก้ไขผลตรวจ' : 'บันทึกผลตรวจ — ' + TS.label(m), form);
+  };
+  /* ---------- เพิ่มสถานที่ที่พบในพื้นที่จริงแต่ไม่มีในทะเบียน ---------- */
+  TS.openAddPlace = function (pos) {
+    const all = TS.registerList();
+    /* เดาจังหวัด/อำเภอจากเครื่องในทะเบียนที่ใกล้ที่สุด (ระยะเส้นตรง) ให้เจ้าหน้าที่แก้ได้ */
+    let near = null, nd = Infinity;
+    if (pos) for (const m of all) { const c = TS.coordOf(m); if (c.state !== 'ok') continue; const d = TS.km(pos.lat, pos.lon, c.lat, c.lon); if (d < nd) { nd = d; near = m; } }
+    const guess = near && nd <= 15 ? { province: TS.str(TS.v(near, 'province')), amphoe: TS.str(TS.v(near, 'amphoe')) } : { province: '', amphoe: '' };
+    const dlist = (id, vals) => h('datalist', { id }, [...new Set(vals.filter(Boolean))].sort(TS.collator.compare).map(v => h('option', { value: v })));
+    const f = {
+      name: h('input', { type: 'text', required: true, placeholder: 'ชื่อป้ายหน้าร้าน หรือชื่อผู้ประกอบการ' }),
+      biz: h('select', null, ['ปาล์ม', 'ยางพารา', 'ปาล์มและยางพารา', 'ยังไม่ทราบ'].map(o => h('option', { value: o === 'ยังไม่ทราบ' ? '' : o }, o))),
+      machineNo: h('input', { type: 'text', placeholder: 'ตามแผ่นป้ายประจำเครื่อง (ถ้าเห็น)' }),
+      count: h('input', { type: 'number', min: 1, max: 20, value: 1 }),
+      address: h('input', { type: 'text', placeholder: 'เลขที่ หมู่ ถนน' }),
+      tambon: h('input', { type: 'text', list: 'dlTambon' }),
+      amphoe: h('input', { type: 'text', list: 'dlAmphoe', value: guess.amphoe }),
+      province: h('select', null, h('option', { value: '' }, 'เลือกจังหวัด'), ['สุราษฎร์ธานี', 'นครศรีธรรมราช'].map(o => h('option', { value: o, selected: o === guess.province }, o))),
+      lat: h('input', { type: 'text', inputmode: 'decimal', value: pos ? String(pos.lat) : '' }),
+      lon: h('input', { type: 'text', inputmode: 'decimal', value: pos ? String(pos.lon) : '' }),
+      expiry: h('input', { type: 'date' }),
+      by: h('input', { type: 'text', value: S.meta.lastInspector || '', autocomplete: 'name' }),
+      note: h('textarea', { rows: 3, placeholder: 'เช่น ลักษณะที่ตั้ง ผู้ให้ข้อมูล เบอร์โทร สภาพเครื่อง' })
+    };
+    const err = h('p', { class: 'err', role: 'alert' }); let dlg;
+    const L_ = (t, el) => h('label', { class: 'fld' }, h('span', null, t), el);
+    const form = h('form', { class: 'form', id: 'addPlaceForm', onsubmit: async e => {
+      e.preventDefault(); err.textContent = '';
+      const lat = TS.parseNum(f.lat.value.trim()), lon = TS.parseNum(f.lon.value.trim());
+      if (lat === null || lon === null) { err.textContent = 'ระบุพิกัดเป็นตัวเลขทศนิยมทั้งละติจูดและลองจิจูด'; return; }
+      if (TS.coordState(lat, lon) !== 'ok' && !confirm('พิกัดนี้อยู่นอกพื้นที่สุราษฎร์ธานี–นครศรีธรรมราช ต้องการบันทึกหรือไม่')) return;
+      const no = f.machineNo.value.trim(), key = no.replace(/\s+/g, '');
+      if (key) { const dup = TS.machineList().find(m => TS.str(TS.v(m, 'machineNo')).replace(/\s+/g, '') === key);
+        if (dup) { err.replaceChildren('หมายเลขเครื่องนี้มีในระบบแล้ว: ', h('button', { class: 'link', type: 'button', onclick: () => { dlg.close(); TS.openMachine(dup.id); } }, TS.label(dup)), ' — เปิดรายการเดิมเพื่อแก้พิกัดแทนการเพิ่มใหม่'); return; } }
+      const cnt = Math.min(20, Math.max(1, Number(f.count.value) || 1)), now = Date.now(), station = 'FIELD-' + TS.uid(), by = f.by.value.trim(), made = [];
+      for (let k = 0; k < cnt; k++) {
+        const m = { id: 'new:' + TS.uid() + k, fieldAdded: true, local: {}, base: {}, createdAt: now, staffNote: f.note.value.trim(),
+          src: { lmId: '', machineNo: k === 0 ? no : '', name: f.name.value.trim(), biz: f.biz.value, placeCode: '', stationKey: station, address: f.address.value.trim(), tambon: f.tambon.value.trim(), amphoe: f.amphoe.value.trim(), province: f.province.value,
+            lat, lon, expiry: k === 0 ? f.expiry.value : '', reqNo: '', reqDate: '', reqState: 'ยังไม่ทราบสถานะคำขอ', reqSys: '', owner: '', apptDate: '', placeReq: '', type: 'เครื่องชั่งรถยนต์ (พบในพื้นที่ รอยืนยัน)', capacity: null, source: 'เพิ่มจากภาคสนาม', note: '',
+            extra: { 'เพิ่มเมื่อ': TS.fmtStamp(now), 'ผู้บันทึก': by, 'ลำดับเครื่องในสถานที่': (k + 1) + ' / ' + cnt }, problems: [] } };
+        made.push(m);
+      }
+      try { await TS.db.putMany('machines', made); } catch (ex) { err.textContent = 'บันทึกไม่สำเร็จ: ' + (ex && ex.message || ex); return; }
+      for (const m of made) S.machines.set(m.id, m);
+      if (by) await TS.setMeta('lastInspector', by);
+      TS.buildIndex(); TS.addMode = false; TS.mapFocus = { lat, lon, id: made[0].id }; dlg.close();
+      TS.toast('เพิ่มสถานที่แล้ว ' + n(cnt) + ' เครื่อง — บันทึกบนอุปกรณ์นี้'); TS.render();
+    } },
+      h('p', { class: 'muted small' }, 'ใช้เมื่อไปถึงพื้นที่แล้วพบสถานที่ที่มีเครื่องชั่งรถยนต์จริง แต่ไม่มีหมุดในแอป รายการจะติดป้าย เพิ่มจากภาคสนาม เก็บบนอุปกรณ์นี้ และไม่นับในยอดทะเบียนจนกว่าจะยืนยัน'),
+      h('div', { class: 'grid2' }, L_('ชื่อสถานประกอบการ', f.name), L_('ประเภทกิจการ', f.biz), L_('หมายเลขประจำเครื่อง (ถ้าทราบ)', f.machineNo), L_('จำนวนเครื่องชั่งรถยนต์ที่พบ', f.count),
+        L_('ที่อยู่', f.address), L_('ตำบล', f.tambon), L_('อำเภอ', f.amphoe), L_('จังหวัด', f.province), L_('ละติจูด', f.lat), L_('ลองจิจูด', f.lon), L_('วันหมดอายุคำรับรองตามป้าย (ถ้าเห็น)', f.expiry), L_('ผู้บันทึก', f.by)),
+      near && nd <= 15 ? h('p', { class: 'muted small' }, 'จังหวัดและอำเภอเติมให้จากเครื่องในทะเบียนที่ใกล้ที่สุด (เส้นตรง ' + nd.toFixed(1) + ' กม.) ตรวจและแก้ได้') : null,
+      L_('รายละเอียดเพิ่มเติม', f.note), dlist('dlTambon', all.map(m => TS.str(TS.v(m, 'tambon')))), dlist('dlAmphoe', all.map(m => TS.str(TS.v(m, 'amphoe')))), err,
+      h('div', { class: 'btnrow' }, h('button', { class: 'btn primary', type: 'submit' }, 'บันทึกสถานที่'), h('button', { class: 'btn', type: 'button', onclick: () => dlg.close() }, 'ยกเลิก')),
+      h('p', { class: 'muted small' }, 'หลังบันทึก เปิดรายการนี้เพื่อบันทึกผลตรวจและแนบรูปถ่ายเป็นหลักฐานได้'));
+    dlg = TS.dialog('เพิ่มสถานที่ที่พบในพื้นที่', form, { cls: 'wide' });
   };
 })();

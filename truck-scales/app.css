@@ -105,7 +105,7 @@ details{margin:8px 0}summary{cursor:pointer;font-weight:650;padding:6px 0}
  table.reg td.ck{position:absolute;right:6px;top:6px;width:auto}table.reg td:nth-child(2){padding-right:36px}
  table.reg.maptable td{display:block}
  .week{grid-template-columns:1fr}.day{min-height:0}.cell{min-height:58px;padding:2px}.ev{font-size:.7rem;padding:1px 3px}
- .dlg{width:100vw;max-width:100vw;max-height:100vh;height:100vh;border-radius:0;margin:0}
+ .dlg,.dlg.wide{width:100vw;max-width:100vw;max-height:100vh;height:100vh;border-radius:0;margin:0}
  .map{height:58vh}
 }
 @media print{.top,#nav,.btn,.filters,.foot{display:none}}

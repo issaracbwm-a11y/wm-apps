@@ -270,4 +270,7 @@ TS.coordOf = function (m) {
   return { lat, lon, state: TS.coordState(lat, lon) };
 };
 TS.machineList = () => [...TS.S.machines.values()];
+/* รายการที่เจ้าหน้าที่เพิ่มเองจากภาคสนาม ยังไม่อยู่ในทะเบียน จึงไม่นับรวมในยอดทะเบียน */
+TS.registerList = () => TS.machineList().filter(m => !m.fieldAdded);
+TS.fieldAddedList = () => TS.machineList().filter(m => m.fieldAdded);
 TS.label = m => TS.str(TS.v(m, 'name')) || '(ไม่มีชื่อ)';
