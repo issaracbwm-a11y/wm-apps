@@ -23,6 +23,23 @@ select invitation.code as invite_code, inserted.expires_at from invitation cross
 
 หลังเปิดสิทธิ์ผู้ดูแล ใช้เมนู **ข้อมูลกลางของทีม** สร้างลิงก์สำหรับเจ้าหน้าที่และถอนสิทธิ์อุปกรณ์ของเจ้าหน้าที่ได้ หากต้องถอนสิทธิ์อุปกรณ์ผู้ดูแล ให้ผู้ดูแลฐานข้อมูลอัปเดต `revoked_at` ให้กับแถวอุปกรณ์ที่ยืนยันแล้ว
 
+## เผยแพร่หน้าเจ้าหน้าที่บน Cloudflare Pages
+
+ถ้าศูนย์ยังไม่มีโดเมน ใช้ชื่อโฮสต์ HTTPS ที่ Cloudflare Pages ให้กับโปรเจกต์ เช่น `https://<ชื่อโปรเจกต์>.pages.dev` โดยใช้ URL ที่ Cloudflare แสดงจริง
+
+| การตั้งค่า Pages | ค่า |
+|---|---|
+| Repository | `issaracbwm-a11y/wm-apps` |
+| Production branch สำหรับทดสอบ | `feat/truck-scales-supabase-sync` |
+| Root directory | `truck-scales` |
+| Build command | `node build-staff.mjs` |
+| Build output directory | `dist-staff` |
+| WM_SUPABASE_URL | HTTPS Project URL ของ `wm-smart-inspection` |
+| WM_SUPABASE_PUBLISHABLE_KEY | Publishable key ของโปรเจกต์ |
+| WM_STAFF_ORIGIN | URL `https://…pages.dev` ของหน้าเจ้าหน้าที่ โดยไม่มีเครื่องหมายทับท้าย |
+
+การ build สำหรับหน้าเจ้าหน้าที่จะตั้งค่า Supabase เฉพาะไฟล์ผลลัพธ์ ส่วน GitHub Pages เดิมใช้ค่าเริ่มต้นสำหรับหน้าสาธารณะ ผลลัพธ์ build มีเฉพาะไฟล์หน้าเว็บและไลบรารีที่ใช้ในเบราว์เซอร์
+
 ## ย้ายข้อมูลและตรวจรับ
 
 - รวมไฟล์สำรองเดิมในโหมดบนอุปกรณ์ ตรวจรายการซ้ำและยอดตามประเภท แล้วให้ผู้ดูแลนำไฟล์รวมเข้าฐานกลางครั้งแรก หรือเปิด Excel เมื่อยังไม่มีผลตรวจเดิม ฐานกลางที่มีข้อมูลแล้วใช้วิธีนำเข้า Excel รอบใหม่พร้อมตรวจค่าที่ขัดกัน
