@@ -113,5 +113,6 @@
 
   const api = { SOURCE, TYPES, build, typeOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  else if (root && root.TS) root.TS.siRegister = api;
+  /* TS ประกาศด้วย const ใน core.js จึงไม่อยู่บน window — อ้างชื่อตรงเมื่อมี */
+  else if (typeof TS !== 'undefined') TS.siRegister = api; // eslint-disable-line no-undef
 })(typeof window !== 'undefined' ? window : this);
