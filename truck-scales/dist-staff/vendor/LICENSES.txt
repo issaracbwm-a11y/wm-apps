@@ -1,3 +1,0 @@
-xlsx.core.min.js — SheetJS Community Edition 0.18.5, Apache License 2.0, https://sheetjs.com
-leaflet.js / leaflet.css / images — Leaflet 1.9.4, BSD 2-Clause License, https://leafletjs.com
-Map tiles are loaded at runtime from OpenStreetMap (© OpenStreetMap contributors, ODbL).
