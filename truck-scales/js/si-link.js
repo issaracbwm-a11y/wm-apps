@@ -126,6 +126,12 @@
   document.addEventListener('DOMContentLoaded', () => { const a = document.querySelector('#nav [data-route="si"]'); if (a) a.hidden = false; });
 
   /** ปุ่มในรายละเอียดเครื่อง (เลือกเป็นรายเครื่องเสมอ) */
+  /** ไปหน้าเข้าสู่ระบบ/ส่งทะเบียนของเครื่องนี้ — ปิดหน้าต่างรายละเอียดเครื่องก่อน (หน้าต่างแบบ modal บังหน้าใหม่ไว้ ดูเหมือนกดแล้วไม่ไป) */
+  function goSiPage(id) {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const target = '#/si?start=' + encodeURIComponent(id);
+    if (location.hash === target) TS.render(); else location.hash = target;
+  }
   TS.siStartButton = function (m) {
     const b = h('button', { class: 'btn primary', type: 'button', 'data-si-start': m.id });
     b.textContent = 'เริ่มตรวจใน Smart Inspection';
@@ -133,12 +139,12 @@
       if (b.disabled) return;
       b.disabled = true; const old = b.textContent; b.textContent = 'กำลังตรวจสอบเครื่องในฐานกลาง…';
       try {
-        if (!client.signedIn()) { location.hash = '#/si?start=' + encodeURIComponent(m.id); return; }
+        if (!client.signedIn()) { goSiPage(m.id); return; }
         const u = await loadMe();
         const r = await resolveForStart(m, { known: known(), orgId: u.org_id, build: TS.siRegister.build, rpc: client.rpc });
         if (r.id) { await remember([[m.id, r.id]]); TS.siLink.go(linkUrl(cfg.siUrl, r.id, newNonce())); return; }
         TS.toast('เครื่องนี้ยังไม่อยู่ในฐานกลาง — ตรวจทานและส่งทะเบียนก่อน', 'err');
-        location.hash = '#/si?start=' + encodeURIComponent(m.id);
+        goSiPage(m.id);
       } catch (e) { TS.toast(e.message || String(e), 'err'); }
       finally { b.disabled = false; b.textContent = old; }
     });

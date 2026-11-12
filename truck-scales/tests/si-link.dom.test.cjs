@@ -70,6 +70,16 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     await tick();
     assert.equal(w.location.hash, '#/si?start=lm%3A2');
     assert.equal(went.length, 0); assert.equal(calls.length, 0);
+    // หน้าต่างรายละเอียดเครื่อง (modal) ต้องปิด มิฉะนั้นบังหน้าเข้าสู่ระบบ — พบบน iPhone จริง
+    assert.equal(w.document.querySelectorAll('dialog[open]').length, 0, 'ปิดหน้าต่างรายละเอียดเครื่องแล้ว');
+    let renders = 0; w.TS.render = () => { renders++; const v = w.document.getElementById('view'); v.innerHTML = ''; w.TS.views.si(v); }; // แทน app.js (ไม่ได้โหลดในชุดทดสอบนี้)
+    w.TS.render(); await tick();
+    assert.ok(w.document.querySelector('#view input[type=password]'), 'เห็นฟอร์มเข้าสู่ระบบ Smart Inspection');
+    // เปิดเครื่องเดิมแล้วกดอีกครั้ง (hash เดิม) → ยังปิดหน้าต่างและแสดงหน้าเข้าสู่ระบบ
+    w.TS.openMachine('lm:2');
+    w.document.querySelector('[data-si-start="lm:2"]').click(); await tick();
+    assert.equal(w.document.querySelectorAll('dialog[open]').length, 0, 'กดซ้ำด้วย hash เดิม → ปิดหน้าต่างเช่นกัน');
+    assert.equal(renders, 2, 'hash เดิม → แสดงหน้าใหม่ด้วย render (ไม่ค้าง)');
   });
   await t('หน้าสาธารณะ: ไม่มีปุ่มเริ่มตรวจ ไม่มีการเข้าสู่ระบบ และมีทางเข้าหน้าเจ้าหน้าที่', async () => {
     const { w } = await boot({ staff: false, machines: [M('lm:1', 'A-1')] });
