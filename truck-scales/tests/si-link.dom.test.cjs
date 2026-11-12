@@ -28,7 +28,7 @@ async function boot({ staff, machines = [], session }) {
     const body = init && init.body ? JSON.parse(init.body) : null; calls.push({ url, body });
     if (url.endsWith('/rpc/app_me')) return { ok: true, status: 200, json: async () => ({ org_id: 'org-1', full_name: 'นายตรวจ (สมมติ)', org: { short_name: 'สฎ' } }) };
     if (url.endsWith('/rpc/register_import_truck_scales')) return { ok: true, status: 200, json: async () => ({ machines: body.p.machines.map((m) => ({ source_machine_id: m.source_machine_id, status: 'same', id: m.source_machine_id === 'lm:2' ? U2 : U1 })) }) };
-    if (url.endsWith('/rpc/truck_instrument_results')) return { ok: true, status: 200, json: async () => HIST };
+    if (url.endsWith('/rpc/truck_instrument_results')) { const m = w.__hist || 'ok'; if (m === '401') return { ok: false, status: 401, json: async () => ({}) }; if (m === '500') return { ok: false, status: 500, json: async () => ({ message: 'boom' }) }; if (m === '42501') return { ok: false, status: 403, json: async () => ({ code: '42501', message: 'permission denied' }) }; return { ok: true, status: 200, json: async () => (m === 'empty' ? [] : HIST) }; }
     return { ok: false, status: 404, json: async () => ({}) };
   };
   const inject = (code) => { const el = w.document.createElement('script'); el.textContent = code; w.document.body.append(el); };
@@ -116,6 +116,30 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     panel.querySelector('button').click(); await tick();
     assert.match(panel.textContent, /ต้องเข้าสู่ระบบ/);
     assert.equal(calls.filter((c) => /\/rpc\//.test(c.url)).length, 0);
+  });
+  await t('ระยะที่ 4: แยก ไม่พบประวัติ / โหลดไม่สำเร็จ / ไม่มีสิทธิ์ / session หมดอายุ', async () => {
+    const { w } = await boot({ staff: true, session: true, machines: [M('lm:1', 'A-1')] });
+    w.TS.openMachine('lm:1');
+    const panel = w.document.querySelector('[data-si-history="lm:1"]');
+    const go = async (mode) => { w.__hist = mode; panel.querySelector('button').click(); for (let i = 0; i < 30 && !panel.querySelector('[data-si-history-state]'); i++) await tick(); await tick(); return panel.querySelector('[data-si-history-state]'); };
+    let e = await go('empty'); assert.equal(e.getAttribute('data-si-history-state'), 'empty'); assert.match(e.textContent, /โหลดสำเร็จ — ไม่พบงาน/);
+    e = await go('500'); assert.equal(e.getAttribute('data-si-history-state'), 'error'); assert.match(e.textContent, /ไม่ได้แปลว่าไม่มีประวัติ/);
+    e = await go('42501'); assert.equal(e.getAttribute('data-si-history-state'), 'forbidden');
+    e = await go('401'); assert.equal(e.getAttribute('data-si-history-state'), 'expired'); assert.match(e.textContent, /หมดอายุ/);
+    assert.equal(w.TS.siLink.client.signedIn(), false);
+    assert.equal(panel.querySelectorAll('[data-si-job]').length, 0);
+  });
+  await t('ระยะที่ 4: ออกจากระบบ → ประวัติของบัญชีเดิมหายจากหน้าจอทันที', async () => {
+    const { w } = await boot({ staff: true, session: true, machines: [M('lm:1', 'A-1')] });
+    w.TS.openMachine('lm:1');
+    const panel = w.document.querySelector('[data-si-history="lm:1"]');
+    panel.querySelector('button').click();
+    for (let i = 0; i < 30 && !panel.querySelector('[data-si-job]'); i++) await tick();
+    assert.equal(panel.querySelectorAll('[data-si-job]').length, 2);
+    w.TS.siLink.client.signOut();
+    assert.equal(panel.querySelectorAll('[data-si-job]').length, 0, 'ไม่ค้างรายการงาน');
+    assert.ok(!panel.textContent.includes('1001') && !panel.textContent.includes('1003'));
+    assert.match(panel.textContent, /ออกจากระบบแล้ว/);
   });
   await t('ระยะที่ 4: หน้าสาธารณะไม่มีส่วนประวัติ', async () => {
     const { w } = await boot({ staff: false, machines: [M('lm:1', 'A-1')] });

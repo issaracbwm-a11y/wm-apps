@@ -56,7 +56,8 @@
     const k = 'wm-si-auth:' + cfg.url;
     let ses = null;
     try { ses = JSON.parse(store.getItem(k) || 'null'); } catch (_) { ses = null; }
-    const save = (s) => { ses = s; try { if (s) store.setItem(k, JSON.stringify(s)); else store.removeItem(k); } catch (_) { /* โหมดส่วนตัว */ } };
+    const outCbs = [];
+    const save = (s) => { const was = !!ses; ses = s; if (was && !s) outCbs.forEach((f) => { try { f(); } catch (_) { /* ไม่ให้ผู้ฟังทำให้ออกจากระบบล้ม */ } }); try { if (s) store.setItem(k, JSON.stringify(s)); else store.removeItem(k); } catch (_) { /* โหมดส่วนตัว */ } };
     async function auth(grant, body) {
       let res;
       try { res = await fetch(cfg.url + '/auth/v1/token?grant_type=' + grant, { method: 'POST', headers: { apikey: cfg.key, 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'omit', cache: 'no-store' }); }
@@ -69,7 +70,7 @@
       if (!ses) throw new Error('ยังไม่ได้เข้าสู่ระบบ Smart Inspection');
       if (Date.now() > ses.expires_at - 60000) {
         try { await auth('refresh_token', { refresh_token: ses.refresh_token }); }
-        catch (e) { save(null); throw new Error('การเข้าสู่ระบบหมดอายุ เข้าสู่ระบบใหม่'); }
+        catch (e) { save(null); throw Object.assign(new Error('การเข้าสู่ระบบหมดอายุ เข้าสู่ระบบใหม่'), { kind: 'expired' }); }
       }
       return ses.access_token;
     }
@@ -79,10 +80,10 @@
       try { res = await fetch(cfg.url + '/rest/v1/rpc/' + name, { method: 'POST', headers: { apikey: cfg.key, Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'omit', cache: 'no-store' }); }
       catch (_) { throw new Error('เชื่อมต่อฐานกลางไม่ได้ ข้อมูลยังไม่ได้ส่ง'); }
       const j = await res.json().catch(() => null);
-      if (res.status === 401) { save(null); throw new Error('การเข้าสู่ระบบหมดอายุ เข้าสู่ระบบใหม่'); }
+      if (res.status === 401) { save(null); throw Object.assign(new Error('การเข้าสู่ระบบหมดอายุ เข้าสู่ระบบใหม่'), { kind: 'expired' }); }
       if (!res.ok) {
         if (j && j.code === 'PGRST202') throw new Error('ฐานกลางยังไม่รองรับการส่งทะเบียน (ยังไม่ได้อัปเดตระบบ)');
-        if (j && j.code === '42501') throw new Error((j.message || 'ไม่มีสิทธิ์') + '');
+        if (j && j.code === '42501') throw Object.assign(new Error((j.message || 'ไม่มีสิทธิ์') + ''), { kind: 'forbidden' });
         throw new Error('ฐานกลางไม่รับรายการ: ' + ((j && j.message) || res.status));
       }
       return j;
@@ -91,6 +92,8 @@
       signedIn: () => !!ses,
       signIn: (username, password) => auth('password', { email: String(username).trim().toLowerCase() + '@' + cfg.domain, password }),
       signOut: () => save(null),
+      /** เรียกเมื่อ session สิ้นสุด (ออกจากระบบ/หมดอายุ/401) — ใช้ล้างข้อมูลของบัญชีเดิมบนหน้าจอ */
+      onSignOut: (f) => { outCbs.push(f); },
       rpc
     };
   }
@@ -140,6 +143,7 @@
   const known = () => TS.S.meta.siInstrumentIds || {};
   const remember = async (pairs) => { const m = Object.assign({}, known()); for (const [k, v] of pairs) if (UUID_RE.test(v)) m[k] = v; await TS.setMeta('siInstrumentIds', m); };
   let me = null;
+  client.onSignOut(() => { me = null; });
   async function loadMe() { if (!me) me = await client.rpc('app_me', {}); if (!me) throw new Error('ไม่พบบัญชีนี้ใน Smart Inspection'); return me; }
 
   document.addEventListener('DOMContentLoaded', () => { const a = document.querySelector('#nav [data-route="si"]'); if (a) a.hidden = false; });
@@ -176,16 +180,23 @@
     const box = h('div', { class: 'si-history', 'data-si-history': m.id });
     const btn = h('button', { class: 'btn', type: 'button' }, 'ดูประวัติผลตรวจจาก Smart Inspection');
     const out = h('div');
+    let seq = 0;
+    const loginMsg = (t) => h('p', { class: 'muted small', 'data-si-history-state': 'signin' }, t, h('a', { href: '#/si?start=' + encodeURIComponent(m.id) }, 'เข้าสู่ระบบ'));
+    // session สิ้นสุด (ออกจากระบบ/หมดอายุ) → ล้างประวัติของบัญชีเดิมออกจากหน้าจอทันที และทิ้งผลที่กำลังโหลด
+    client.onSignOut(() => { seq++; if (out.childNodes.length) out.replaceChildren(loginMsg('ออกจากระบบแล้ว — ประวัติถูกซ่อน · ')); });
     btn.addEventListener('click', async () => {
       if (btn.disabled) return;
+      const my = ++seq;
       btn.disabled = true; out.replaceChildren(h('p', { class: 'muted small' }, 'กำลังโหลดประวัติ…'));
       try {
-        if (!client.signedIn()) { out.replaceChildren(h('p', { class: 'muted small' }, 'ต้องเข้าสู่ระบบด้วยบัญชี Smart Inspection ก่อน — ', h('a', { href: '#/si?start=' + encodeURIComponent(m.id) }, 'เข้าสู่ระบบ'))); return; }
+        if (!client.signedIn()) { out.replaceChildren(loginMsg('ต้องเข้าสู่ระบบด้วยบัญชี Smart Inspection ก่อน — ')); return; }
         const u = await loadMe();
         const r = await resolveForStart(m, { known: known(), orgId: u.org_id, build: TS.siRegister.build, rpc: client.rpc });
         if (!r.id) { out.replaceChildren(h('p', { class: 'muted small', 'data-si-history-state': 'unlinked' }, 'เครื่องนี้ยังไม่ผูกกับฐานกลาง Smart Inspection — ส่งทะเบียนก่อนจึงจะมีประวัติ')); return; }
         await remember([[m.id, r.id]]);
         const rows = await client.rpc('truck_instrument_results', { p_instruments: [r.id] });
+        if (my !== seq || !client.signedIn()) return; // ออกจากระบบ/กดใหม่ระหว่างโหลด → ไม่แสดงผลของคำขอเก่า
+        if (!Array.isArray(rows)) throw new Error('ฐานกลางตอบกลับไม่ถูกรูปแบบ');
         const v = historyView(rows, r.id, cfg.siUrl);
         const cert = h('div', { class: 'small' }, h('b', null, 'สถานะคำรับรอง: '), TS.certText ? TS.certText(m, TS.todayISO()) : '', h('span', { class: 'muted' }, ' (จากทะเบียน — ผลตรวจใน Smart Inspection ไม่เปลี่ยนวันหมดอายุ)'));
         const prog = h('div', { class: 'small', 'data-si-progress': '' }, h('b', null, 'ความคืบหน้างานตรวจล่าสุด: '), v.progress);
@@ -194,9 +205,14 @@
           h('div', { class: 'small' }, 'งาน: ', it.status, ' · ผลที่บันทึก ณ วันส่ง: ', h('b', { 'data-si-saved': it.savedKey }, it.saved), ' (ผลคำนวณอ้างอิง สูตร ' + it.formula + ')',
             it.returned ? h('span', { class: 'warn' }, ' — อยู่ระหว่างส่งกลับแก้ไข ยังไม่ใช่ผลสุดท้าย') : null),
           it.url ? h('a', { href: it.url, target: '_blank', rel: 'noopener', class: 'small' }, 'เปิดรายงานใน Smart Inspection (ตามสิทธิ์บัญชี)') : null)))
-          : h('p', { class: 'muted small' }, 'ยังไม่มีงานที่ส่งแล้วสำหรับเครื่องนี้ (ฉบับร่างไม่แสดง)');
+          : h('p', { class: 'muted small', 'data-si-history-state': 'empty' }, 'โหลดสำเร็จ — ไม่พบงานที่ส่งแล้วของเครื่องนี้ที่บัญชีนี้มีสิทธิ์เห็น (ฉบับร่างไม่แสดง · บัญชีที่ไม่มีบทบาทในหน่วยงานจะไม่เห็นงาน)');
         out.replaceChildren(cert, prog, list, h('p', { class: 'muted small' }, 'แสดงเฉพาะงานที่บัญชีนี้มีสิทธิ์เห็นใน Smart Inspection · ไม่แสดงค่าที่วัด ลายมือชื่อ หรือฉบับร่าง · ไม่ได้เชื่อมกับระบบ Back Office ของกรม'));
-      } catch (e) { out.replaceChildren(h('p', { class: 'warn-box' }, 'โหลดประวัติไม่ได้: ' + (e.message || String(e)))); }
+      } catch (e) {
+        if (my !== seq && e.kind !== 'expired') return;
+        if (e.kind === 'expired') { me = null; out.replaceChildren(loginMsg('การเข้าสู่ระบบหมดอายุ — ยังไม่ได้โหลดประวัติ · ')); out.firstChild.setAttribute('data-si-history-state', 'expired'); }
+        else if (e.kind === 'forbidden') out.replaceChildren(h('p', { class: 'warn-box', 'data-si-history-state': 'forbidden' }, 'บัญชีนี้ไม่มีสิทธิ์ดูประวัติ: ' + e.message));
+        else out.replaceChildren(h('p', { class: 'warn-box', 'data-si-history-state': 'error' }, 'โหลดประวัติไม่สำเร็จ (ไม่ได้แปลว่าไม่มีประวัติ): ' + (e.message || String(e)) + ' — ลองกดอีกครั้ง'));
+      }
       finally { btn.disabled = false; }
     });
     box.append(btn, out);
