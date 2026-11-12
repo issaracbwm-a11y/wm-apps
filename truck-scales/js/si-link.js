@@ -95,7 +95,26 @@
     };
   }
 
-  const api = { LINK_PROTOCOL, STAFF_URL, STATUS, configOf, linkUrl, newNonce, resolveForStart, makeClient };
+  /* ---------- ระยะที่ 4: ประวัติผลตรวจจาก Smart Inspection (อ่านอย่างเดียว ตามสิทธิ์อ่านงานเดิม) ---------- */
+  const JOB_STATUS = { submitted: 'ส่งแล้ว — รอหัวหน้ากลุ่มงานตรวจทาน', returned: 'ส่งกลับแก้ไข', reviewed: 'ผ่านการตรวจทาน (รับรองความครบถ้วนของรายงาน)' };
+  const SAVED = { pass: 'ผ่าน', fail: 'ไม่ผ่าน', pending: 'รอผล' };
+  const MODE = { use: 'ตรวจระหว่างใช้งาน', verify: 'ตรวจสอบให้คำรับรอง' };
+  /** แปลงแถวจาก truck_instrument_results เป็นข้อมูลแสดงผล — กรองเฉพาะเครื่องนี้ (UUID) และไม่ใช้ฟิลด์อื่นนอกจากที่กำหนด */
+  function historyView(rows, instrumentId, siUrl) {
+    const id = String(instrumentId || '').toLowerCase();
+    const list = (Array.isArray(rows) ? rows : []).filter((r) => r && String(r.instrument_id).toLowerCase() === id && r.job_status !== 'draft' && r.job_status !== 'pending_sync')
+      .sort((a, b) => String(b.inspected_on).localeCompare(String(a.inspected_on)) || String(b.submitted_at || '').localeCompare(String(a.submitted_at || '')));
+    const items = list.map((r) => ({
+      jobId: r.job_id, code: r.job_code, date: r.inspected_on, mode: MODE[r.inspection_mode] || r.inspection_mode || '',
+      status: JOB_STATUS[r.job_status] || r.job_status, returned: r.job_status === 'returned',
+      saved: SAVED[r.saved_result] || r.saved_result || '', savedKey: r.saved_result, version: r.job_version, formula: r.formula_version || '',
+      url: siUrl && UUID_RE.test(String(r.job_id)) ? siUrl.replace(/\/+$/, '') + '/jobs/' + String(r.job_id).toLowerCase() : null
+    }));
+    const latest = items[0] || null;
+    return { items, latest, progress: latest ? latest.status : 'ยังไม่มีงานที่ส่งใน Smart Inspection' };
+  }
+
+  const api = { LINK_PROTOCOL, STAFF_URL, STATUS, JOB_STATUS, configOf, linkUrl, newNonce, resolveForStart, makeClient, historyView };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   /* TS ประกาศด้วย const ใน core.js จึงไม่อยู่บน window — รับเข้ามาเป็นอาร์กิวเมนต์ */
   const TS = appTS;
@@ -149,6 +168,39 @@
       finally { b.disabled = false; b.textContent = old; }
     });
     return h('div', null, b, h('p', { class: 'muted small' }, 'เปิดแบบตรวจของเครื่องนี้ใน Smart Inspection · ลิงก์ไม่มีข้อมูลทะเบียนหรือข้อมูลส่วนบุคคล · ถ้า Smart Inspection แจ้งว่าไม่พบหน้า ให้กดอัปเดตแอปแล้วลองใหม่'));
+  };
+
+  /** ประวัติผลตรวจจาก Smart Inspection ในรายละเอียดเครื่อง — โหลดเมื่อกดเท่านั้น
+   *  แยก 3 เรื่อง: สถานะคำรับรอง (จากทะเบียนแผนที่ ไม่เปลี่ยนตามผลตรวจ) · ความคืบหน้างาน · ผลที่บันทึก ณ วันส่ง */
+  TS.siHistoryPanel = function (m) {
+    const box = h('div', { class: 'si-history', 'data-si-history': m.id });
+    const btn = h('button', { class: 'btn', type: 'button' }, 'ดูประวัติผลตรวจจาก Smart Inspection');
+    const out = h('div');
+    btn.addEventListener('click', async () => {
+      if (btn.disabled) return;
+      btn.disabled = true; out.replaceChildren(h('p', { class: 'muted small' }, 'กำลังโหลดประวัติ…'));
+      try {
+        if (!client.signedIn()) { out.replaceChildren(h('p', { class: 'muted small' }, 'ต้องเข้าสู่ระบบด้วยบัญชี Smart Inspection ก่อน — ', h('a', { href: '#/si?start=' + encodeURIComponent(m.id) }, 'เข้าสู่ระบบ'))); return; }
+        const u = await loadMe();
+        const r = await resolveForStart(m, { known: known(), orgId: u.org_id, build: TS.siRegister.build, rpc: client.rpc });
+        if (!r.id) { out.replaceChildren(h('p', { class: 'muted small', 'data-si-history-state': 'unlinked' }, 'เครื่องนี้ยังไม่ผูกกับฐานกลาง Smart Inspection — ส่งทะเบียนก่อนจึงจะมีประวัติ')); return; }
+        await remember([[m.id, r.id]]);
+        const rows = await client.rpc('truck_instrument_results', { p_instruments: [r.id] });
+        const v = historyView(rows, r.id, cfg.siUrl);
+        const cert = h('div', { class: 'small' }, h('b', null, 'สถานะคำรับรอง: '), TS.certText ? TS.certText(m, TS.todayISO()) : '', h('span', { class: 'muted' }, ' (จากทะเบียน — ผลตรวจใน Smart Inspection ไม่เปลี่ยนวันหมดอายุ)'));
+        const prog = h('div', { class: 'small', 'data-si-progress': '' }, h('b', null, 'ความคืบหน้างานตรวจล่าสุด: '), v.progress);
+        const list = v.items.length ? h('ul', { class: 'si-history-list' }, v.items.map((it) => h('li', { 'data-si-job': it.code },
+          h('div', null, h('b', null, TS.fmtBE ? TS.fmtBE(it.date) : it.date), ' · ', it.code, ' · ', it.mode, ' · v' + it.version),
+          h('div', { class: 'small' }, 'งาน: ', it.status, ' · ผลที่บันทึก ณ วันส่ง: ', h('b', { 'data-si-saved': it.savedKey }, it.saved), ' (ผลคำนวณอ้างอิง สูตร ' + it.formula + ')',
+            it.returned ? h('span', { class: 'warn' }, ' — อยู่ระหว่างส่งกลับแก้ไข ยังไม่ใช่ผลสุดท้าย') : null),
+          it.url ? h('a', { href: it.url, target: '_blank', rel: 'noopener', class: 'small' }, 'เปิดรายงานใน Smart Inspection (ตามสิทธิ์บัญชี)') : null)))
+          : h('p', { class: 'muted small' }, 'ยังไม่มีงานที่ส่งแล้วสำหรับเครื่องนี้ (ฉบับร่างไม่แสดง)');
+        out.replaceChildren(cert, prog, list, h('p', { class: 'muted small' }, 'แสดงเฉพาะงานที่บัญชีนี้มีสิทธิ์เห็นใน Smart Inspection · ไม่แสดงค่าที่วัด ลายมือชื่อ หรือฉบับร่าง · ไม่ได้เชื่อมกับระบบ Back Office ของกรม'));
+      } catch (e) { out.replaceChildren(h('p', { class: 'warn-box' }, 'โหลดประวัติไม่ได้: ' + (e.message || String(e)))); }
+      finally { btn.disabled = false; }
+    });
+    box.append(btn, out);
+    return box;
   };
 
   /* ---------- หน้า "ส่งทะเบียนเข้าฐานกลาง" ---------- */

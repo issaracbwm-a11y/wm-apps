@@ -8,6 +8,9 @@ const req = (m) => require(path.join(siDir, 'node_modules', m));
 const { JSDOM } = req('jsdom');
 const root = path.resolve(__dirname, '..');
 const U1 = '11111111-1111-4111-8111-111111111111', U2 = '22222222-2222-4222-8222-222222222222';
+const J = (inst, code, date, status, result, ver = 1) => ({ instrument_id: inst, job_id: '3' + code.padStart(7, '0') + '-0000-4000-8000-000000000000', job_code: code, inspected_on: date, inspection_mode: 'use', job_status: status, job_version: ver, submitted_at: date + 'T08:00:00Z', reviewed_at: null, item_label: 'x', saved_result: result, formula_id: 'truck-scale.mpe', formula_version: '1.0.0-src', data: { input: { ref: { I: '30123' } } } });
+// ฐานจำลองคืนแถวของสองเครื่องปนกัน + แถวร่าง — หน้าแผนที่ต้องแสดงเฉพาะเครื่องที่เปิดและไม่แสดงร่าง/ค่าที่วัด
+const HIST = [J(U1, '1001', '2026-11-01', 'reviewed', 'pass'), J(U2, '2002', '2026-11-11', 'submitted', 'fail'), J(U1, '1003', '2026-11-10', 'returned', 'fail'), J(U1, '1004', '2026-11-12', 'draft', 'pass')];
 
 async function boot({ staff, machines = [], session }) {
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8').replace(/<script src="[^"]+"><\/script>/g, '');
@@ -25,6 +28,7 @@ async function boot({ staff, machines = [], session }) {
     const body = init && init.body ? JSON.parse(init.body) : null; calls.push({ url, body });
     if (url.endsWith('/rpc/app_me')) return { ok: true, status: 200, json: async () => ({ org_id: 'org-1', full_name: 'นายตรวจ (สมมติ)', org: { short_name: 'สฎ' } }) };
     if (url.endsWith('/rpc/register_import_truck_scales')) return { ok: true, status: 200, json: async () => ({ machines: body.p.machines.map((m) => ({ source_machine_id: m.source_machine_id, status: 'same', id: m.source_machine_id === 'lm:2' ? U2 : U1 })) }) };
+    if (url.endsWith('/rpc/truck_instrument_results')) return { ok: true, status: 200, json: async () => HIST };
     return { ok: false, status: 404, json: async () => ({}) };
   };
   const inject = (code) => { const el = w.document.createElement('script'); el.textContent = code; w.document.body.append(el); };
@@ -80,6 +84,43 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     w.document.querySelector('[data-si-start="lm:2"]').click(); await tick();
     assert.equal(w.document.querySelectorAll('dialog[open]').length, 0, 'กดซ้ำด้วย hash เดิม → ปิดหน้าต่างเช่นกัน');
     assert.equal(renders, 2, 'hash เดิม → แสดงหน้าใหม่ด้วย render (ไม่ค้าง)');
+  });
+  await t('ระยะที่ 4: ประวัติผลตรวจ — เฉพาะเครื่องที่เปิด (UUID) · แยกสถานะคำรับรอง/ความคืบหน้า/ผลที่บันทึก · ส่งกลับแก้ไข · ไม่แสดงร่าง/ค่าที่วัด', async () => {
+    const { w, calls } = await boot({ staff: true, session: true, machines: [M('lm:1', 'A-1'), M('lm:2', 'A-2')] });
+    w.TS.openMachine('lm:1');
+    const before = calls.length;
+    const panel = w.document.querySelector('dialog [data-si-history="lm:1"]');
+    assert.ok(panel, 'มีส่วนประวัติในรายละเอียดเครื่อง');
+    assert.equal(calls.length, before, 'ไม่โหลดเองจนกว่าจะกด');
+    panel.querySelector('button').click();
+    for (let i = 0; i < 30 && !panel.querySelector('[data-si-job]'); i++) await tick();
+    const rpc = calls.find((c) => c.url.endsWith('/rpc/truck_instrument_results'));
+    assert.deepEqual(rpc.body, { p_instruments: [U1] }, 'ขอด้วย UUID ของเครื่องนี้เท่านั้น');
+    const jobs = [...panel.querySelectorAll('[data-si-job]')].map((e) => e.getAttribute('data-si-job'));
+    assert.deepEqual(jobs, ['1003', '1001'], 'เฉพาะเครื่องนี้ เรียงล่าสุดก่อน ไม่มีร่าง');
+    const txt = panel.textContent;
+    assert.ok(!txt.includes('2002'), 'ไม่ปนงานของเครื่องที่สอง');
+    assert.ok(!txt.includes('30123') && !txt.includes('30,123'), 'ไม่แสดงค่าที่วัด');
+    assert.match(txt, /สถานะคำรับรอง:.*ผลตรวจใน Smart Inspection ไม่เปลี่ยนวันหมดอายุ/);
+    assert.match(panel.querySelector('[data-si-progress]').textContent, /ส่งกลับแก้ไข/);
+    assert.match(panel.querySelector('[data-si-job="1003"]').textContent, /ยังไม่ใช่ผลสุดท้าย/);
+    assert.match(panel.querySelector('[data-si-job="1001"]').textContent, /ผ่านการตรวจทาน.*ผลที่บันทึก ณ วันส่ง: ผ่าน/);
+    assert.match(panel.querySelector('[data-si-job="1001"] a').getAttribute('href'), /^https:\/\/si\.example\.app\/jobs\/[0-9a-f-]{36}$/);
+    assert.match(txt, /ไม่ได้เชื่อมกับระบบ Back Office/);
+    assert.equal(w.TS.S.machines.get('lm:1').src.expiry, '2027-01-01', 'วันหมดอายุในทะเบียนไม่เปลี่ยน');
+  });
+  await t('ระยะที่ 4: ยังไม่เข้าสู่ระบบ → ไม่เรียกฐานกลาง และบอกให้เข้าสู่ระบบ', async () => {
+    const { w, calls } = await boot({ staff: true, session: false, machines: [M('lm:1', 'A-1')] });
+    w.TS.openMachine('lm:1');
+    const panel = w.document.querySelector('[data-si-history="lm:1"]');
+    panel.querySelector('button').click(); await tick();
+    assert.match(panel.textContent, /ต้องเข้าสู่ระบบ/);
+    assert.equal(calls.filter((c) => /\/rpc\//.test(c.url)).length, 0);
+  });
+  await t('ระยะที่ 4: หน้าสาธารณะไม่มีส่วนประวัติ', async () => {
+    const { w } = await boot({ staff: false, machines: [M('lm:1', 'A-1')] });
+    w.TS.openMachine('lm:1');
+    assert.equal(w.document.querySelectorAll('[data-si-history]').length, 0);
   });
   await t('หน้าสาธารณะ: ไม่มีปุ่มเริ่มตรวจ ไม่มีการเข้าสู่ระบบ และมีทางเข้าหน้าเจ้าหน้าที่', async () => {
     const { w } = await boot({ staff: false, machines: [M('lm:1', 'A-1')] });

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12352f">
+<meta name="referrer" content="no-referrer">
+<title>ทะเบียนและแผนตรวจเครื่องชั่งรถยนต์ · ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><strong>ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)</strong><span>ทะเบียนและแผนตรวจเครื่องชั่งรถยนต์</span></div>
+  </div>
+  <nav id="nav" aria-label="เมนูหลัก">
+    <a href="#/dashboard" data-route="dashboard">แดชบอร์ด</a>
+    <a href="#/register" data-route="register">ทะเบียนรายเครื่อง</a>
+    <a href="#/map" data-route="map">แผนที่จุดตรวจ</a>
+    <a href="#/plan" data-route="plan">แผนตรวจและปฏิทิน <b id="navSel" class="count" hidden></b></a>
+    <a href="#/tasks" data-route="tasks">งานค้างและผลตรวจ</a>
+    <a href="#/data" data-route="data">นำเข้าและสำรองข้อมูล</a>
+    <a href="#/sync" data-route="sync" hidden>ข้อมูลกลางของทีม</a>
+    <a href="#/si" data-route="si" hidden>ส่งทะเบียนเข้า Smart Inspection</a>
+  </nav>
+</header>
+<main id="view" tabindex="-1"><p class="muted">กำลังเปิด…</p></main>
+<noscript><p style="padding:16px">ภาพรวม ณ 10 พฤศจิกายน 2569 มีเครื่องชั่งรถยนต์ 1,850 เครื่อง และหมดอายุ 511 เครื่อง เปิด JavaScript เพื่อใช้เมนูทั้งหมด</p></noscript>
+<footer class="foot">แหล่งข้อมูลสาธารณะ · ยอดสรุปจากทะเบียนเครื่องชั่งรถยนต์ของศูนย์ ณ วันที่ระบุ · กองชั่งตวงวัด กรมการค้าภายใน</footer>
+<input type="file" id="filePick" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+<div id="toast" aria-live="polite"></div>
+<script type="application/json" id="snapshot">{"asOfText": "10 พฤศจิกายน 2569", "totals": {"นครศรีธรรมราช": {"count": 730, "expired": 231, "unknown": 11, "today": 1, "submitted": 44, "unsubmitted": 0, "requestUnknown": 187, "kinds": {"ปาล์ม": 530, "ยางพารา": 163, "ปาล์มและยางพารา": 37}}, "สุราษฎร์ธานี": {"count": 1120, "expired": 280, "unknown": 9, "today": 2, "submitted": 36, "unsubmitted": 0, "requestUnknown": 244, "kinds": {"ปาล์ม": 868, "ยางพารา": 185, "ปาล์มและยางพารา": 67}}}, "districts": [["นครศรีธรรมราช", "ขนอม", 32, 5], ["นครศรีธรรมราช", "จุฬาภรณ์", 22, 10], ["นครศรีธรรมราช", "ฉวาง", 42, 18], ["นครศรีธรรมราช", "ชะอวด", 32, 9], ["นครศรีธรรมราช", "ช้างกลาง", 20, 4], ["นครศรีธรรมราช", "ถ้ำพรรณรา", 21, 11], ["นครศรีธรรมราช", "ทุ่งสง", 56, 18], ["นครศรีธรรมราช", "ทุ่งใหญ่", 88, 29], ["นครศรีธรรมราช", "ท่าศาลา", 25, 5], ["นครศรีธรรมราช", "นบพิตำ", 15, 7], ["นครศรีธรรมราช", "นาบอน", 18, 9], ["นครศรีธรรมราช", "บางขัน", 45, 16], ["นครศรีธรรมราช", "ปากพนัง", 32, 5], ["นครศรีธรรมราช", "พรหมคีรี", 12, 6], ["นครศรีธรรมราช", "พระพรหม", 13, 4], ["นครศรีธรรมราช", "พิปูน", 15, 6], ["นครศรีธรรมราช", "ร่อนพิบูลย์", 29, 10], ["นครศรีธรรมราช", "ลานสกา", 6, 4], ["นครศรีธรรมราช", "สิชล", 79, 20], ["นครศรีธรรมราช", "หัวไทร", 33, 9], ["นครศรีธรรมราช", "เฉลิมพระเกียรติ", 25, 4], ["นครศรีธรรมราช", "เชียรใหญ่", 37, 15], ["นครศรีธรรมราช", "เมืองนครศรีธรรมราช", 33, 7], ["สุราษฎร์ธานี", "กาญจนดิษฐ์", 86, 29], ["สุราษฎร์ธานี", "คีรีรัฐนิคม", 79, 18], ["สุราษฎร์ธานี", "ชัยบุรี", 71, 17], ["สุราษฎร์ธานี", "ดอนสัก", 36, 7], ["สุราษฎร์ธานี", "ท่าฉาง", 63, 13], ["สุราษฎร์ธานี", "ท่าชนะ", 84, 13], ["สุราษฎร์ธานี", "บ้านตาขุน", 16, 4], ["สุราษฎร์ธานี", "บ้านนาสาร", 45, 12], ["สุราษฎร์ธานี", "บ้านนาเดิม", 24, 8], ["สุราษฎร์ธานี", "พนม", 85, 30], ["สุราษฎร์ธานี", "พระแสง", 135, 33], ["สุราษฎร์ธานี", "พุนพิน", 108, 21], ["สุราษฎร์ธานี", "วิภาวดี", 32, 10], ["สุราษฎร์ธานี", "เคียนซา", 110, 31], ["สุราษฎร์ธานี", "เมืองสุราษฎร์ธานี", 19, 2], ["สุราษฎร์ธานี", "เวียงสระ", 57, 20], ["สุราษฎร์ธานี", "ไชยา", 70, 12]]}</script>
+<script src="vendor/xlsx.core.min.js"></script>
+<script src="vendor/leaflet.js"></script>
+<script src="js/core.js?v=team-sync-1"></script>
+<script src="js/importer.js"></script>
+<script src="js/views.js?v=si-link-1"></script>
+<script src="js/views2.js?v=no-coord-search-1"></script>
+<script src="js/sync-config.js?v=staff-build-1"></script>
+<script src="js/sync.js?v=sheet-sync-1"></script>
+<script src="js/sheet-sync.js?v=sheet-sync-1"></script>
+<script src="js/si-register.js?v=si-link-1"></script>
+<script src="js/si-link.js?v=si-link-1"></script>
+<script src="js/app.js?v=si-link-1"></script>
+</body>
+</html>

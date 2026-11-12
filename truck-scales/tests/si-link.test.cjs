@@ -82,5 +82,16 @@ const M = (id, src = {}, extra = {}) => ({ id, src: { lmId: id.startsWith('lm:')
     await assert.rejects(() => c.rpc('other', {}), /หมดอายุ/);
     assert.equal(c.signedIn(), false);
   });
+  await t('ระยะที่ 4 historyView: กรองตาม UUID · ไม่เอาร่าง · เรียงล่าสุด · แยกสถานะงานกับผล · ลิงก์รายงานเฉพาะ job UUID', () => {
+    const r = (inst, id, d, st, res) => ({ instrument_id: inst, job_id: id, job_code: 'J' + d, inspected_on: d, inspection_mode: 'verify', job_status: st, job_version: 2, saved_result: res, formula_version: '1.0.0-src' });
+    const J1 = '33333333-3333-4333-8333-333333333333';
+    const v = L.historyView([r(U1, J1, '2026-11-01', 'reviewed', 'pass'), r(U2, J1, '2026-11-05', 'submitted', 'fail'), r(U1, 'not-a-uuid', '2026-11-03', 'returned', 'pending'), r(U1, J1, '2026-11-04', 'draft', 'pass')], U1.toUpperCase(), 'https://si.example.app/');
+    assert.deepEqual(v.items.map((x) => x.date), ['2026-11-03', '2026-11-01']);
+    assert.equal(v.progress, 'ส่งกลับแก้ไข');
+    assert.equal(v.items[0].returned, true); assert.equal(v.items[0].saved, 'รอผล'); assert.equal(v.items[0].url, null);
+    assert.equal(v.items[1].status, L.JOB_STATUS.reviewed); assert.equal(v.items[1].mode, 'ตรวจสอบให้คำรับรอง');
+    assert.equal(v.items[1].url, 'https://si.example.app/jobs/' + J1);
+    assert.equal(L.historyView(null, U1, '').progress, 'ยังไม่มีงานที่ส่งใน Smart Inspection');
+  });
   console.log('PASS ' + pass + ' รายการ: si-link');
 })().catch((e) => { console.error(e); process.exit(1); });

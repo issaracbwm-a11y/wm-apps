@@ -272,6 +272,7 @@
           h('button', { class: 'btn', type: 'button', onclick: async () => { const on = !S.selection.has(id); await TS.toggleSel([id], on); view(); } }, S.selection.has(id) ? 'นำออกจากรายการเลือก' : 'เลือกเข้าแผนตรวจ'),
           co.state === 'ok' ? h('button', { class: 'btn', type: 'button', onclick: () => { TS.mapFocus = { lat: co.lat, lon: co.lon, id }; dlg.close(); location.hash = '#/map'; TS.render(); } }, 'ดูบนแผนที่') : null,
           co.state === 'ok' ? h('a', { class: 'btn', target: '_blank', rel: 'noopener', href: 'https://www.google.com/maps/dir/?api=1&destination=' + co.lat + '%2C' + co.lon }, 'นำทาง') : null),
+        TS.siHistoryPanel ? TS.siHistoryPanel(m) : null,
         h('dl', { class: 'kvs' },
           dl('หมายเลขประจำเครื่อง', TS.str(TS.v(m, 'machineNo'))), dl('รหัสเครื่อง (lmId)', TS.str(TS.v(m, 'lmId'))),
           dl('ชื่อสถานประกอบการ', TS.str(TS.v(m, 'name')), ed('name')), dl('ประเภทกิจการ', TS.str(TS.v(m, 'biz')), ed('biz')),
