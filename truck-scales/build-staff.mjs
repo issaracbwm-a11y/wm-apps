@@ -4,6 +4,10 @@ const url = process.env.WM_SUPABASE_URL || '';
 const key = process.env.WM_SUPABASE_PUBLISHABLE_KEY || '';
 const origin = process.env.WM_STAFF_ORIGIN || '';
 const publicOrigin = 'https://issaracbwm-a11y.github.io';
+// ปลายทางปุ่ม "เริ่มตรวจใน Smart Inspection" (ไม่บังคับ — ว่าง = ซ่อนฟีเจอร์เชื่อม) ต้องเป็น origin HTTPS
+const siUrl = (process.env.WM_SI_URL || '').trim().replace(/\/+$/, '');
+if (siUrl && (!/^https:\/\/[a-z0-9.-]+$/i.test(siUrl) || new URL(siUrl).origin !== siUrl)) throw new Error('WM_SI_URL ต้องเป็น origin HTTPS ของ Smart Inspection เช่น https://wm-smart-inspection.netlify.app');
+const siEmailDomain = (process.env.WM_SI_EMAIL_DOMAIN || 'wmsi.local').trim();
 
 if (!/^https:\/\/[a-z0-9]+\.supabase\.co$/.test(url)) throw new Error('Set WM_SUPABASE_URL to the project HTTPS URL');
 if (!/^sb_publishable_[a-zA-Z0-9_-]+$/.test(key)) throw new Error('Set WM_SUPABASE_PUBLISHABLE_KEY to a publishable key');
@@ -23,5 +27,5 @@ const html = await readFile(indexPath, 'utf8');
 const configScript = 'src="js/sync-config.js"';
 if (!html.includes(configScript)) throw new Error('Staff configuration script was not found');
 await writeFile(indexPath, html.replace(configScript, 'src="js/sync-config.js?v=staff-build-1"'));
-await writeFile(new URL('js/sync-config.js', output), "'use strict';\nTS.cloudConfig = " + JSON.stringify({ url, key, origin }) + ';\n');
-console.log('Staff site output: dist-staff');
+await writeFile(new URL('js/sync-config.js', output), "'use strict';\nTS.cloudConfig = " + JSON.stringify({ url, key, origin, siUrl, siEmailDomain }) + ';\n');
+console.log('Staff site output: dist-staff' + (siUrl ? ' · Smart Inspection link → ' + siUrl : ' · Smart Inspection link off'));

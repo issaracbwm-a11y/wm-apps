@@ -1,7 +1,7 @@
 /* เริ่มระบบ: เมนู เส้นทางหน้า และการเปิดไฟล์ */
 'use strict';
 (function () {
-  const ROUTES = { dashboard: 'แดชบอร์ด', register: 'ทะเบียนรายเครื่อง', map: 'แผนที่จุดตรวจ', plan: 'แผนตรวจและปฏิทิน', tasks: 'งานค้างและผลตรวจ', data: 'นำเข้าและสำรองข้อมูล', sync: 'ข้อมูลกลางของทีม' };
+  const ROUTES = { dashboard: 'แดชบอร์ด', register: 'ทะเบียนรายเครื่อง', map: 'แผนที่จุดตรวจ', plan: 'แผนตรวจและปฏิทิน', tasks: 'งานค้างและผลตรวจ', data: 'นำเข้าและสำรองข้อมูล', sync: 'ข้อมูลกลางของทีม', si: 'ส่งทะเบียนเข้าฐานกลาง' };
   const routeOf = () => { const r = (location.hash || '').replace(/^#\/?/, '').split(/[/?]/)[0]; return ROUTES[r] ? r : 'dashboard'; };
   let current = '';
   TS.render = function () {
