@@ -181,7 +181,7 @@
     const btn = h('button', { class: 'btn', type: 'button' }, 'ดูประวัติผลตรวจจาก Smart Inspection');
     const out = h('div');
     let seq = 0;
-    const loginMsg = (t) => h('p', { class: 'muted small', 'data-si-history-state': 'signin' }, t, h('a', { href: '#/si?start=' + encodeURIComponent(m.id) }, 'เข้าสู่ระบบ'));
+    const loginMsg = (t) => h('p', { class: 'muted small', 'data-si-history-state': 'signin' }, t, h('a', { href: '#/si?start=' + encodeURIComponent(m.id), onclick: (e) => { e.preventDefault(); goSiPage(m.id); } }, 'เข้าสู่ระบบ'));
     // session สิ้นสุด (ออกจากระบบ/หมดอายุ) → ล้างประวัติของบัญชีเดิมออกจากหน้าจอทันที และทิ้งผลที่กำลังโหลด
     client.onSignOut(() => { seq++; if (out.childNodes.length) out.replaceChildren(loginMsg('ออกจากระบบแล้ว — ประวัติถูกซ่อน · ')); });
     btn.addEventListener('click', async () => {

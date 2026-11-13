@@ -85,6 +85,21 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     assert.equal(w.document.querySelectorAll('dialog[open]').length, 0, 'กดซ้ำด้วย hash เดิม → ปิดหน้าต่างเช่นกัน');
     assert.equal(renders, 2, 'hash เดิม → แสดงหน้าใหม่ด้วย render (ไม่ค้าง)');
   });
+  await t('ประวัติผลตรวจ: ยังไม่เข้าสู่ระบบ → ลิงก์ "เข้าสู่ระบบ" ปิดหน้าต่างรายละเอียดแล้วไปหน้าเข้าสู่ระบบ (ไม่ค้างใต้หน้าต่าง)', async () => {
+    const { w } = await boot({ staff: true, session: false, machines: [M('lm:1', 'A-1')] });
+    w.TS.openMachine('lm:1');
+    const dlg = w.document.querySelector('dialog');
+    const panel = w.document.querySelector('dialog [data-si-history="lm:1"]');
+    assert.ok(dlg.open && panel, 'เปิดรายละเอียดเครื่องแล้ว');
+    panel.querySelector('button').click();
+    let a;
+    for (let i = 0; i < 30 && !a; i++) { await tick(); a = [...panel.querySelectorAll('a')].find((x) => x.textContent === 'เข้าสู่ระบบ'); }
+    assert.ok(a, 'มีลิงก์เข้าสู่ระบบ');
+    a.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true }));
+    await tick();
+    assert.equal(dlg.open, false, 'ปิดหน้าต่างรายละเอียดเครื่อง');
+    assert.equal(w.location.hash, '#/si?start=lm%3A1', 'ไปหน้าเข้าสู่ระบบของเครื่องนี้');
+  });
   await t('ระยะที่ 4: ประวัติผลตรวจ — เฉพาะเครื่องที่เปิด (UUID) · แยกสถานะคำรับรอง/ความคืบหน้า/ผลที่บันทึก · ส่งกลับแก้ไข · ไม่แสดงร่าง/ค่าที่วัด', async () => {
     const { w, calls } = await boot({ staff: true, session: true, machines: [M('lm:1', 'A-1'), M('lm:2', 'A-2')] });
     w.TS.openMachine('lm:1');
