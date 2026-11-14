@@ -1,0 +1,14 @@
+{
+  "name": "ตรวจหัวจ่ายน้ำมัน ชว.สฎ",
+  "short_name": "ตรวจหัวจ่าย",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#1d4f91",
+  "theme_color": "#1d4f91",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

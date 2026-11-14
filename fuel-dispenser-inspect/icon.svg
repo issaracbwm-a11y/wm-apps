@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#143a6e"/><stop offset="1" stop-color="#2a6bb8"/></linearGradient>
+<linearGradient id="pump" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c47a12"/><stop offset="0.35" stop-color="#f4bd45"/><stop offset="0.6" stop-color="#e9a72e"/><stop offset="1" stop-color="#b06a0e"/></linearGradient>
+<linearGradient id="steel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9aa6b4"/><stop offset="0.5" stop-color="#e9eef3"/><stop offset="1" stop-color="#8d99a8"/></linearGradient>
+</defs>
+<rect width="512" height="512" fill="url(#bg)"/>
+<circle cx="256" cy="256" r="205" fill="#fff" opacity="0.05"/>
+<!-- hose -->
+<path d="M318 372 C400 372 402 330 402 290 V196" fill="none" stroke="#0d2440" stroke-width="18" stroke-linecap="round"/>
+<!-- nozzle -->
+<rect x="384" y="150" width="36" height="62" rx="9" fill="url(#steel)"/>
+<path d="M394 156 L360 124" stroke="#c9d2dc" stroke-width="15" stroke-linecap="round"/>
+<path d="M386 196 q-18 0 -18 16" fill="none" stroke="#c9d2dc" stroke-width="8" stroke-linecap="round"/>
+<!-- pump cap -->
+<rect x="120" y="78" width="228" height="44" rx="14" fill="#ffffff"/>
+<rect x="120" y="108" width="228" height="10" fill="#1d4f91" opacity="0.35"/>
+<!-- pump body -->
+<rect x="134" y="112" width="200" height="300" rx="22" fill="url(#pump)"/>
+<!-- display -->
+<rect x="160" y="140" width="148" height="84" rx="10" fill="#0d2440"/>
+<text x="234" y="196" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-weight="700" font-size="42" fill="#7cf0a8">20.00</text>
+<text x="294" y="216" text-anchor="end" font-family="DejaVu Sans, Arial, sans-serif" font-weight="700" font-size="15" fill="#7cf0a8" opacity="0.8">L</text>
+<!-- drop panel -->
+<rect x="160" y="242" width="148" height="104" rx="12" fill="#ffffff"/>
+<path d="M234 258 C234 258 206 292 206 310 a28 28 0 0 0 56 0 C262 292 234 258 234 258 Z" fill="#1d4f91"/>
+<path d="M222 312 a12 12 0 0 0 12 12" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity="0.8"/>
+<!-- base -->
+<rect x="112" y="406" width="244" height="26" rx="8" fill="url(#steel)"/>
+<!-- check badge -->
+<circle cx="380" cy="380" r="52" fill="#1f7a45" stroke="#ffffff" stroke-width="9"/>
+<path d="M355 381 L372 398 L405 364" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
