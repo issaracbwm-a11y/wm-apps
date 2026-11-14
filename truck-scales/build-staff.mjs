@@ -18,7 +18,7 @@ if (!/^https:\/\/[a-z0-9.-]+$/i.test(origin) || new URL(origin).origin !== origi
 const output = new URL('./dist-staff/', import.meta.url);
 await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
-for (const path of ['index.html', 'app.css', 'js', 'vendor', 'google-sheets']) {
+for (const path of ['index.html', 'app.css', 'js', 'vendor', 'google-sheets', 'icons']) {
   await cp(new URL(path, import.meta.url), new URL(path, output), { recursive: true });
 }
 
