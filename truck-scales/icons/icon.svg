@@ -1,21 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- ไอคอนทะเบียนและแผนตรวจเครื่องชั่งรถยนต์: รถบรรทุกบนแท่นชั่ง + หน้าจอแสดงน้ำหนัก (ออกแบบเอง) -->
+  <!-- ไอคอนทะเบียนและแผนตรวจเครื่องชั่งรถยนต์: แผนที่จุดตรวจ + หมุดตำแหน่งที่มีรถบรรทุกบนแท่นชั่ง (ออกแบบเอง) -->
   <rect width="512" height="512" fill="#12352f"/>
-  <!-- หน้าจอแสดงค่า -->
-  <rect x="300" y="78" width="150" height="70" rx="12" fill="#0b2420" stroke="#d9b45a" stroke-width="8"/>
-  <text x="375" y="128" text-anchor="middle" font-family="Menlo,Consolas,monospace" font-size="42" font-weight="700" fill="#d9b45a">kg</text>
-  <path d="M375 148 V190" stroke="#d9b45a" stroke-width="8"/>
-  <!-- รถบรรทุก -->
+  <!-- แผนที่พับ 3 ทบ -->
+  <path d="M64 150 L176 116 L304 150 L448 116 V410 L304 444 L176 410 L64 444 Z" fill="#e8efe9"/>
+  <path d="M176 116 V410 L64 444 V150 Z" fill="#d3ded6"/>
+  <path d="M304 150 L448 116 V410 L304 444 Z" fill="#d3ded6"/>
+  <!-- ถนน/เส้นทาง -->
+  <path d="M80 380 C150 340 170 300 240 300 S340 330 430 250" fill="none" stroke="#9fb7aa" stroke-width="14" stroke-linecap="round"/>
+  <path d="M120 200 L230 240 L300 210 L420 190" fill="none" stroke="#9fb7aa" stroke-width="10" stroke-linecap="round" stroke-dasharray="4 18"/>
+  <!-- จุดตรวจอื่น ๆ -->
+  <circle cx="110" cy="250" r="14" fill="#2f6b5f"/><circle cx="400" cy="330" r="14" fill="#2f6b5f"/><circle cx="350" cy="190" r="12" fill="#c0392b"/>
+  <!-- หมุดหลัก -->
+  <path d="M256 412 C220 360 168 304 168 240 A88 88 0 0 1 344 240 C344 304 292 360 256 412 Z" fill="#d9b45a" stroke="#12352f" stroke-width="10"/>
+  <circle cx="256" cy="240" r="62" fill="#12352f"/>
+  <!-- รถบรรทุกบนแท่นชั่ง ในหมุด -->
   <g fill="#ffffff">
-    <rect x="70" y="190" width="230" height="128" rx="10"/>
-    <path d="M312 230 H382 L432 282 V318 H312 Z" />
+    <rect x="214" y="214" width="52" height="34" rx="3"/>
+    <path d="M270 226 H286 L298 240 V248 H270 Z"/>
   </g>
-  <path d="M330 246 H376 L406 280 H330 Z" fill="#12352f"/>
-  <g fill="#12352f" stroke="#ffffff" stroke-width="12">
-    <circle cx="130" cy="330" r="30"/><circle cx="220" cy="330" r="30"/><circle cx="380" cy="330" r="30"/>
-  </g>
-  <!-- แท่นชั่ง -->
-  <rect x="40" y="360" width="432" height="34" rx="6" fill="#d9b45a"/>
-  <rect x="62" y="394" width="26" height="34" fill="#d9b45a"/><rect x="424" y="394" width="26" height="34" fill="#d9b45a"/>
-  <path d="M40 450 H472" stroke="#2f6b5f" stroke-width="10" stroke-linecap="round" stroke-dasharray="2 22"/>
+  <circle cx="226" cy="252" r="7" fill="#ffffff"/><circle cx="252" cy="252" r="7" fill="#ffffff"/><circle cx="288" cy="252" r="7" fill="#ffffff"/>
+  <rect x="206" y="262" width="100" height="8" rx="2" fill="#d9b45a"/>
 </svg>
