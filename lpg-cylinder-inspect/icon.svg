@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#143a6e"/><stop offset="1" stop-color="#2a6bb8"/></linearGradient>
+<linearGradient id="tank" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a8261b"/><stop offset="0.35" stop-color="#e8513a"/><stop offset="0.55" stop-color="#d8412c"/><stop offset="1" stop-color="#8f1f16"/></linearGradient>
+<linearGradient id="brass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f0c46a"/><stop offset="1" stop-color="#a8741f"/></linearGradient>
+<linearGradient id="steel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9aa6b4"/><stop offset="0.5" stop-color="#e9eef3"/><stop offset="1" stop-color="#8d99a8"/></linearGradient>
+</defs>
+<rect width="512" height="512" fill="url(#bg)"/>
+<circle cx="256" cy="250" r="205" fill="#fff" opacity="0.05"/>
+<!-- valve -->
+<rect x="238" y="70" width="36" height="34" rx="5" fill="url(#brass)"/>
+<rect x="226" y="62" width="60" height="14" rx="7" fill="#d9a54d"/>
+<!-- collar / handle -->
+<path d="M180 150 V104 Q180 92 192 92 H320 Q332 92 332 104 V150 Z" fill="url(#steel)"/>
+<rect x="206" y="104" width="100" height="26" rx="13" fill="#1d4f91"/>
+<!-- body -->
+<rect x="150" y="138" width="212" height="250" rx="70" fill="url(#tank)"/>
+<rect x="150" y="196" width="212" height="10" fill="#7d1a12" opacity="0.45"/>
+<rect x="150" y="322" width="212" height="10" fill="#7d1a12" opacity="0.45"/>
+<!-- label -->
+<rect x="190" y="222" width="132" height="84" rx="12" fill="#ffffff"/>
+<text x="256" y="282" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-weight="700" font-size="52" fill="#b4232a">LPG</text>
+<!-- foot ring -->
+<rect x="176" y="382" width="160" height="22" rx="4" fill="url(#steel)"/>
+<!-- scale platform -->
+<rect x="104" y="404" width="304" height="22" rx="11" fill="url(#brass)"/>
+<rect x="196" y="426" width="120" height="44" rx="8" fill="#0d2440"/>
+<text x="256" y="459" text-anchor="middle" font-family="DejaVu Sans Mono, monospace" font-weight="700" font-size="30" fill="#7cf0a8">15.0</text>
+<!-- check badge -->
+<circle cx="372" cy="170" r="50" fill="#1f7a45" stroke="#ffffff" stroke-width="9"/>
+<path d="M348 171 L365 188 L397 154" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
