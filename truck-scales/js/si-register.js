@@ -29,8 +29,10 @@
     return { type_code: null, commodities: [], type_state: 'pending', note: 'ไม่ทราบประเภทกิจการ — เลือกประเภทสถานประกอบการก่อนนำเข้า' };
   }
   function capacityOf(m, confirmed) {
-    const c = num(val(m, 'capacity'));
+    let c = num(val(m, 'capacity'));
     if (c === null) return { max_capacity: null, unit: null };
+    // เจ้าหน้าที่ยืนยันว่าค่าในทะเบียนกรอกเป็น "ตัน" → แปลงเป็นกิโลกรัม (เช่น 80 → 80,000)
+    if (confirmed === 'ton') { c = c * 1000; if (c >= CAP_MIN && c <= CAP_MAX) return { max_capacity: c, unit: 'kg' }; }
     if (c > 0 && (confirmed || (c >= CAP_MIN && c <= CAP_MAX))) return { max_capacity: c, unit: 'kg' };
     return { max_capacity: null, unit: null, warn: 'พิกัดกำลัง ' + c + ' อยู่นอกช่วง ' + CAP_MIN.toLocaleString('en-US') + '–' + CAP_MAX.toLocaleString('en-US') + ' กก. อาจเป็นหน่วยตัน — ไม่ส่งค่า จนกว่าจะยืนยัน' };
   }
@@ -46,7 +48,7 @@
   /**
    * machines: รายการเครื่องจาก IndexedDB (รูปแบบ { id, src, local, fieldAdded, missing })
    * opts: { orgId, dryRun=true, typeChoices:{[stationKey]:type_code}, establishmentLinks:{[stationKey]:uuid},
-   *         capacityConfirmed:{[machineId]:true}, rekeyFrom:{[machineId]:oldSourceId}, createNew:{[machineId]:true},
+   *         capacityConfirmed:{[machineId]:true | 'ton'}, rekeyFrom:{[machineId]:oldSourceId}, createNew:{[machineId]:true},
    *         acceptChanges:{[machineId|stationKey]:true}, only:Set<machineId> }
    * คืน { payload, review:[…ต่อสถานที่…], counts }
    */

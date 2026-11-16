@@ -276,7 +276,8 @@
         h('button', { class: 'btn primary', type: 'submit' }, 'เข้าสู่ระบบ')));
   }
   function draw(box, u, start) {
-    const R = TS.siRegister, allM = TS.machineList();
+    // เครื่องที่ไม่มีตำบล: ไม่แสดงและไม่นำเข้า (ผู้ใช้กำหนด 16 พ.ย. 69)
+    const R = TS.siRegister, everyM = TS.machineList(), allM = everyM.filter((m) => TS.str(TS.v(m, 'tambon')));
     // ประเภทที่ใช้กรอง: ที่เลือกไว้ในหน้านี้ → ค่าแนะนำจากประเภทกิจการ → "ปาล์มและยาง (รอเลือก)" / "ไม่ทราบ"
     const typeOfM = (m) => { const k = R.stationKeyOf(m).key; if (st.types[k]) return st.types[k]; const t = R.typeOf(TS.v(m, 'biz')); return t.type_code || (t.commodities.length > 1 ? 'mixed' : 'unknown'); };
     const list = allM.filter((m) => (!st.prov || TS.str(TS.v(m, 'province')) === st.prov) && (!st.amp || TS.str(TS.v(m, 'amphoe')) === st.amp) && (!st.type || typeOfM(m) === st.type)
@@ -335,7 +336,7 @@
       groupsView(pending)) : null;
     function groupsView(all) {
       // ต้องจัดการ (ส่งไม่ได้/รอเลือกประเภท/ยืนยันพิกัดกำลัง) แสดงเปิด · ที่ใช้ค่าแนะนำได้พับไว้ (ทะเบียนทั้งหมดมีนับพันแห่ง)
-      const need = (g) => candOf(g).length > 0 || !!st.links[g.key] || !g.ready || (g.type_state === 'pending' && !st.types[g.key]) || g.machines.some((x) => x.warns.length) || g.warns.length;
+      const need = (g) => g.machines.some((x) => st.cap[x.id]) || candOf(g).length > 0 || !!st.links[g.key] || !g.ready || (g.type_state === 'pending' && !st.types[g.key]) || g.machines.some((x) => x.warns.length) || g.warns.length;
       const one = (g) => h('div', { class: 'group' }, h('b', null, g.name || g.key), ' ', h('span', { class: 'muted small mono' }, g.key),
         h('label', { class: 'fld' }, h('span', null, 'ประเภทสถานประกอบการ' + (g.type_state === 'suggested' ? ' (ค่าแนะนำจากประเภทกิจการ — ตรวจทาน)' : '')),
           h('select', { onchange: (e) => { if (e.target.value) st.types[g.key] = e.target.value; else delete st.types[g.key]; st.result = null; draw(box, u, start); } },
@@ -345,7 +346,12 @@
         g.commodities.length ? h('p', { class: 'muted small' }, 'สินค้า: ' + g.commodities.join(', ')) : null,
         g.reasons.filter((x) => !/ประเภท/.test(x)).length ? h('p', { class: 'warn-box' }, 'ยังส่งไม่ได้: ' + g.reasons.filter((x) => !/ประเภท/.test(x)).join(' · ') + ' — แก้ข้อมูลเครื่องในหน้าทะเบียนก่อน') : null,
         g.warns.map((w) => h('p', { class: 'muted small' }, w)),
-        g.machines.filter((x) => x.warns.some((w) => w.includes('หน่วยตัน'))).map((x) => h('label', { class: 'chk' }, h('input', { type: 'checkbox', checked: !!st.cap[x.id], onchange: (e) => { if (e.target.checked) st.cap[x.id] = true; else delete st.cap[x.id]; st.result = null; draw(box, u, start); } }), ' ยืนยันพิกัดกำลังของ ' + x.id + ' เป็นกิโลกรัม')));
+        g.machines.filter((x) => x.warns.some((w) => w.includes('หน่วยตัน')) || st.cap[x.id]).map((x) => { const m0 = TS.S.machines.get(x.id), raw = m0 ? Number(TS.v(m0, 'capacity')) : NaN;
+          const set = (v) => { if (v) st.cap[x.id] = v; else delete st.cap[x.id]; st.result = null; draw(box, u, start); };
+          return h('div', { class: 'group', 'data-si-cap': x.id }, h('p', { class: 'small' }, 'พิกัดกำลังของ ' + x.id + ' ในทะเบียนคือ ' + raw + ' — เลือกหน่วย'),
+            h('label', { class: 'chk' }, h('input', { type: 'radio', name: 'cap-' + x.id, value: 'ton', checked: st.cap[x.id] === 'ton', onchange: () => set('ton') }), ' เป็นตัน — ส่ง ' + TS.n(raw * 1000) + ' กก.'),
+            h('label', { class: 'chk' }, h('input', { type: 'radio', name: 'cap-' + x.id, value: 'kg', checked: st.cap[x.id] === true, onchange: () => set(true) }), ' เป็นกิโลกรัมจริง — ส่ง ' + TS.n(raw) + ' กก.'),
+            h('label', { class: 'chk' }, h('input', { type: 'radio', name: 'cap-' + x.id, value: '', checked: !st.cap[x.id], onchange: () => set(null) }), ' ยังไม่ทราบ — ไม่ส่งพิกัดกำลัง')); }));
       const open = all.filter(need), rest = all.filter((g) => !need(g));
       return [open.map(one), rest.length ? h('details', { 'data-si-suggested': '' }, h('summary', null, 'ใช้ประเภทตามค่าแนะนำ ' + TS.n(rest.length) + ' แห่ง (กดเพื่อดู/เปลี่ยน)'), rest.slice(0, 300).map(one),
         rest.length > 300 ? h('p', { class: 'muted small' }, 'แสดง 300 แห่งแรก — กรองตามอำเภอเพื่อดูส่วนที่เหลือ') : null) : null];
