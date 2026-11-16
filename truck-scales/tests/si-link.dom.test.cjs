@@ -33,7 +33,7 @@ async function boot({ staff, machines = [], session }) {
       return { ok: true, status: 200, json: async () => ({ machines: body.p.machines.map((m) => ({ source_machine_id: m.source_machine_id, status: st, id: m.source_machine_id === 'lm:2' ? U2 : U1 })), counts: { [st]: body.p.machines.length } }) };
     }
     if (url.endsWith('/rpc/truck_instrument_results')) { const m = w.__hist || 'ok'; if (m === '401') return { ok: false, status: 401, json: async () => ({}) }; if (m === '500') return { ok: false, status: 500, json: async () => ({ message: 'boom' }) }; if (m === '42501') return { ok: false, status: 403, json: async () => ({ code: '42501', message: 'permission denied' }) }; return { ok: true, status: 200, json: async () => (m === 'empty' ? [] : HIST) }; }
-    if (url.includes('/rest/v1/instruments?')) return { ok: true, status: 200, json: async () => (w.__instruments || []) };
+    if (url.includes('/rest/v1/instruments?')) { const all = w.__instruments || [], off = +(new URL(url).searchParams.get('offset') || 0), lim = Math.min(1000, +(new URL(url).searchParams.get('limit') || 1000)); return { ok: true, status: 200, json: async () => all.slice(off, off + lim) }; }
     if (url.includes('/rest/v1/establishments?')) return { ok: true, status: 200, json: async () => (w.__unlinked || []) };
     return { ok: false, status: 404, json: async () => ({}) };
   };
@@ -325,6 +325,15 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     const panel = w.TS.siHistoryPanel(m1);
     assert.ok(panel.querySelector('[data-si-done]'), 'รายละเอียดเครื่องแสดงงานที่ส่งแล้ว + ลิงก์รายงาน');
     assert.ok(panel.querySelector('[data-si-done] a[href^="https://si.example.app/jobs/"]'));
+  });
+  await t('ผลตรวจจาก Smart Inspection: อ่านรหัสเครื่องเกิน 1,000 รายการทีละหน้า (ฐานกลางจำกัด 1,000 แถว)', async () => {
+    const { w, calls } = await boot({ staff: true, session: true, machines: [M('lm:1', 'A-1')] });
+    w.__instruments = []; for (let i = 0; i < 1848; i++) w.__instruments.push({ id: '5' + String(i).padStart(7, '0') + '-0000-4000-8000-000000000000', source_machine_id: 'lm:x' + i });
+    w.TS.render = () => {};
+    await w.TS.siSyncDone({ quiet: true });
+    assert.equal(w.TS.S.meta.siDone.linked, 1848);
+    assert.equal(calls.filter((c) => c.url.includes('/rest/v1/instruments?')).length, 2);
+    assert.equal(calls.filter((c) => c.url.endsWith('/rpc/truck_instrument_results')).length, 4, 'ทีละ 500');
   });
   console.log('PASS ' + pass + ' รายการ: si-link.dom');
 })().catch((e) => { console.error(e); process.exit(1); });

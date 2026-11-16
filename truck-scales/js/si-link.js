@@ -216,7 +216,13 @@
     if (!client.signedIn()) throw new Error('ยังไม่ได้เข้าสู่ระบบ Smart Inspection');
     if (syncing) return syncing;
     syncing = (async () => {
-      const rows = await client.get('instruments?select=id,source_machine_id&source_system=eq.wm-truck-scales&source_machine_id=not.is.null&limit=10000');
+      // ฐานกลางคืนได้ครั้งละไม่เกิน 1,000 แถว → อ่านทีละหน้า
+      const rows = [];
+      for (let off = 0; off < 20000; off += 1000) {
+        const page = await client.get('instruments?select=id,source_machine_id&source_system=eq.wm-truck-scales&source_machine_id=not.is.null&order=id&limit=1000&offset=' + off);
+        rows.push(...(page || []));
+        if (!page || page.length < 1000) break;
+      }
       const idBySource = {}; for (const r of rows || []) if (r.source_machine_id && UUID_RE.test(String(r.id))) idBySource[r.source_machine_id] = r.id;
       const ids = Object.values(idBySource), res = [];
       for (let i = 0; i < ids.length; i += 500) res.push(...(await client.rpc('truck_instrument_results', { p_instruments: ids.slice(i, i + 500) })) || []);
