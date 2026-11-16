@@ -27,7 +27,11 @@ async function boot({ staff, machines = [], session }) {
   w.fetch = async (url, init) => {
     const body = init && init.body ? JSON.parse(init.body) : null; calls.push({ url, body });
     if (url.endsWith('/rpc/app_me')) return { ok: true, status: 200, json: async () => ({ org_id: 'org-1', full_name: 'นายตรวจ (สมมติ)', org: { short_name: 'สฎ' } }) };
-    if (url.endsWith('/rpc/register_import_truck_scales')) return { ok: true, status: 200, json: async () => ({ machines: body.p.machines.map((m) => ({ source_machine_id: m.source_machine_id, status: 'same', id: m.source_machine_id === 'lm:2' ? U2 : U1 })) }) };
+    if (url.endsWith('/rpc/register_import_truck_scales')) {
+      if (body.p.dry_run === false) { w.__sends = (w.__sends || 0) + 1; if (w.__failAt === w.__sends) return { ok: false, status: 500, json: async () => ({ message: 'canceling statement due to statement timeout' }) }; }
+      const st = body.p.dry_run === false ? 'new' : (w.__regStatus || 'same');
+      return { ok: true, status: 200, json: async () => ({ machines: body.p.machines.map((m) => ({ source_machine_id: m.source_machine_id, status: st, id: m.source_machine_id === 'lm:2' ? U2 : U1 })), counts: { [st]: body.p.machines.length } }) };
+    }
     if (url.endsWith('/rpc/truck_instrument_results')) { const m = w.__hist || 'ok'; if (m === '401') return { ok: false, status: 401, json: async () => ({}) }; if (m === '500') return { ok: false, status: 500, json: async () => ({ message: 'boom' }) }; if (m === '42501') return { ok: false, status: 403, json: async () => ({ code: '42501', message: 'permission denied' }) }; return { ok: true, status: 200, json: async () => (m === 'empty' ? [] : HIST) }; }
     return { ok: false, status: 404, json: async () => ({}) };
   };
@@ -236,6 +240,37 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     assert.notEqual(s1, s2, 'ช่องค้นหาถูกสร้างใหม่');
     assert.equal(w.document.activeElement, s2, 'โฟกัสอยู่ที่ช่องค้นหาใหม่');
     assert.equal(s2.value, '311');
+  });
+  await t('ส่งทะเบียน: แบ่งส่งชุดละไม่เกิน 100 เครื่อง · ชุดที่ล้มหยุดทันทีและแจ้งว่าส่งไปแล้วกี่ชุด', async () => {
+    const many = []; for (let i = 0; i < 320; i++) { const m = M('lm:7' + String(i).padStart(4, '0'), 'C-' + i); m.src.stationKey = 'CH-' + i; m.src.amphoe = 'แบ่งชุด'; many.push(m); }
+    const { w, calls } = await boot({ staff: true, session: true, machines: many });
+    w.__regStatus = 'new';
+    w.location.hash = '#/si';
+    const view = w.document.getElementById('view'); w.TS.views.si(view);
+    for (let i = 0; i < 20 && !view.querySelector('[data-si-select-all]'); i++) await tick();
+    const amp = [...view.querySelectorAll('.si-filters label')].find((l) => l.textContent.startsWith('อำเภอ')).querySelector('select');
+    amp.value = 'แบ่งชุด'; amp.dispatchEvent(new w.Event('change')); await tick();
+    view.querySelector('[data-si-select-all]').click(); await tick();
+    const verify = () => [...view.querySelectorAll('button')].find((b) => b.textContent.includes('ตรวจสอบกับฐานกลาง'));
+    verify().click(); for (let i = 0; i < 20 && view.querySelector('[data-si-send]').disabled; i++) await tick();
+    w.__failAt = 2;
+    view.querySelector('[data-si-send]').click();
+    for (let i = 0; i < 40 && !view.querySelector('[data-si-error]'); i++) await tick();
+    const sends = calls.filter((c) => c.url.endsWith('register_import_truck_scales') && c.body.p.dry_run === false);
+    assert.equal(sends.length, 2, 'หยุดหลังชุดที่ล้ม');
+    assert.ok(sends.every((c) => c.body.p.machines.length <= 100));
+    assert.equal(sends[0].body.p.machines.length, 100);
+    assert.equal(sends[0].body.p.establishments.length, 100, 'สถานที่ไปพร้อมเครื่องของตัวเอง');
+    assert.match(view.querySelector('[data-si-error]').textContent, /ส่งชุด 2\/4 ไม่สำเร็จ.*1 ชุดแรกบันทึกแล้ว/);
+    assert.ok(view.textContent.includes('ส่งแล้ว: เพิ่มใหม่ 100') || view.textContent.includes('ส่งแล้ว: new 100'), 'แสดงจำนวนที่บันทึกแล้วจริง');
+    // ส่งต่อ: ตรวจสอบใหม่แล้วส่งทั้งหมดอีกรอบ → 3 ชุด สำเร็จ
+    w.__failAt = 0; w.__sends = 0;
+    verify().click(); for (let i = 0; i < 20 && view.querySelector('[data-si-send]').disabled; i++) await tick();
+    view.querySelector('[data-si-send]').click();
+    for (let i = 0; i < 40 && !(view.querySelector('.mode.public') && !view.querySelector('[data-si-progress]') && w.__sends === 4); i++) await tick();
+    assert.equal(w.__sends, 4);
+    assert.ok(!view.querySelector('[data-si-error]'));
+    assert.ok(/ส่งแล้ว: (เพิ่มใหม่|new) 320/.test(view.textContent));
   });
   console.log('PASS ' + pass + ' รายการ: si-link.dom');
 })().catch((e) => { console.error(e); process.exit(1); });

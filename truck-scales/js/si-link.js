@@ -15,6 +15,24 @@
     linked: 'ผูกกับสถานประกอบการเดิม', rekeyed: 'เปลี่ยนรหัส (คงเครื่องเดิม)', alias: 'รหัสเดิมของเครื่องที่เปลี่ยนรหัสแล้ว', needs_confirmation: 'ต้องยืนยันก่อน'
   };
   const HAS_ID = ['same', 'updated', 'conflict', 'rekeyed', 'alias', 'new'];
+  const CHUNK = 100;
+  /** แบ่ง payload ส่งทะเบียนเป็นชุดละไม่เกิน max เครื่อง โดยไม่แยกเครื่องของสถานที่เดียวกัน (สถานที่ที่มีเครื่องเกิน max อยู่ชุดของตัวเอง) */
+  function chunkPayload(p, max) {
+    const byKey = new Map();
+    for (const m of p.machines) { if (!byKey.has(m.station_key)) byKey.set(m.station_key, []); byKey.get(m.station_key).push(m); }
+    const estBy = new Map(p.establishments.map((e) => [e.key, e]));
+    const out = []; let cur = null;
+    const head = () => ({ org_id: p.org_id, source_system: p.source_system, dry_run: false, establishments: [], machines: [] });
+    for (const [k, ms] of byKey) {
+      if (!cur || (cur.machines.length && cur.machines.length + ms.length > max)) { cur = head(); out.push(cur); }
+      if (estBy.has(k)) cur.establishments.push(estBy.get(k));
+      cur.machines.push(...ms);
+    }
+    const used = new Set(byKey.keys());
+    const lone = p.establishments.filter((e) => !used.has(e.key));
+    if (lone.length) { if (!cur) { cur = head(); out.push(cur); } cur.establishments.push(...lone); }
+    return out;
+  }
 
   function configOf(c) {
     const cfg = c || {};
@@ -123,7 +141,7 @@
     return { items, latest, progress: latest ? latest.status : 'ยังไม่มีงานที่ส่งใน Smart Inspection' };
   }
 
-  const api = { LINK_PROTOCOL, STAFF_URL, STATUS, JOB_STATUS, configOf, linkUrl, newNonce, resolveForStart, makeClient, historyView };
+  const api = { LINK_PROTOCOL, STAFF_URL, STATUS, JOB_STATUS, configOf, linkUrl, newNonce, resolveForStart, makeClient, historyView, chunkPayload };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   /* TS ประกาศด้วย const ใน core.js จึงไม่อยู่บน window — รับเข้ามาเป็นอาร์กิวเมนต์ */
   const TS = appTS;
@@ -226,7 +244,7 @@
   };
 
   /* ---------- หน้า "ส่งทะเบียนเข้าฐานกลาง" ---------- */
-  const st = { q: '', prov: '', amp: '', type: '', sel: null, types: {}, cap: {}, accept: {}, rekey: {}, create: {}, result: null, sent: null, busy: false };
+  const st = { q: '', prov: '', amp: '', type: '', progress: '', error: '', sel: null, types: {}, cap: {}, accept: {}, rekey: {}, create: {}, result: null, sent: null, busy: false };
   TS.views.si = function (rootEl) {
     const qs = new URLSearchParams((location.hash.split('?')[1]) || '');
     const start = qs.get('start');
@@ -314,16 +332,28 @@
     const actions = h('div', { class: 'btnrow' },
       h('button', { class: 'btn', type: 'button', disabled: !b.payload.machines.length || st.busy, onclick: async () => {
         st.busy = true; draw(box, u, start);
-        try { st.result = await client.rpc('register_import_truck_scales', { p: Object.assign({}, b.payload, { dry_run: true }) }); st.sent = null; }
+        try { st.error = ''; st.result = await client.rpc('register_import_truck_scales', { p: Object.assign({}, b.payload, { dry_run: true }) }); st.sent = null; }
         catch (e) { TS.toast(e.message, 'err'); } finally { st.busy = false; draw(box, u, start); } } }, 'ตรวจสอบกับฐานกลาง (ยังไม่บันทึก)'),
       h('button', { class: 'btn primary', type: 'button', disabled: !sendable || st.busy, 'data-si-send': '', onclick: async () => {
         st.busy = true; draw(box, u, start);
         try {
           const nb = TS.siRegister.build(sel, { orgId: u.org_id, dryRun: false, typeChoices: st.types, capacityConfirmed: st.cap, acceptChanges: st.accept, rekeyFrom: st.rekey, createNew: st.create });
-          const r = await client.rpc('register_import_truck_scales', { p: Object.assign({}, nb.payload, { dry_run: false }) });
-          await remember((r.machines || []).filter((x) => x.id && HAS_ID.includes(x.status)).map((x) => [x.source_machine_id, x.id]));
+          // ฐานกลางจำกัดเวลาต่อคำสั่ง (8 วินาที) → แบ่งส่งเป็นชุด เครื่องของสถานที่เดียวกันอยู่ชุดเดียวกัน
+          const chunks = chunkPayload(nb.payload, CHUNK);
+          const r = { dry_run: false, establishments: [], machines: [], counts: {} };
+          st.sent = null;
+          for (let i = 0; i < chunks.length; i++) {
+            st.progress = 'กำลังส่งชุด ' + (i + 1) + '/' + chunks.length + ' (' + TS.n(chunks[i].machines.length) + ' เครื่อง)'; draw(box, u, start);
+            let part;
+            try { part = await client.rpc('register_import_truck_scales', { p: chunks[i] }); }
+            catch (e) { throw Object.assign(new Error('ส่งชุด ' + (i + 1) + '/' + chunks.length + ' ไม่สำเร็จ: ' + e.message + (i ? ' — ' + i + ' ชุดแรกบันทึกแล้ว กด "ตรวจสอบกับฐานกลาง" แล้วส่งต่อได้ (ส่วนที่บันทึกแล้วจะเป็น "ตรงกัน")' : ' — ยังไม่มีการบันทึก')), { partial: r, kind: e.kind }); }
+            r.establishments.push(...(part.establishments || [])); r.machines.push(...(part.machines || []));
+            for (const [k, v] of Object.entries(part.counts || {})) r.counts[k] = (r.counts[k] || 0) + v;
+            await remember((part.machines || []).filter((x) => x.id && HAS_ID.includes(x.status)).map((x) => [x.source_machine_id, x.id]));
+          }
           st.sent = r; st.result = r; TS.toast('ส่งทะเบียนแล้ว · ' + Object.entries(r.counts || {}).map(([k, v]) => (STATUS[k] || k) + ' ' + v).join(' · '));
-        } catch (e) { TS.toast(e.message, 'err'); } finally { st.busy = false; draw(box, u, start); } } }, 'ส่งรายการที่ตรวจทานแล้วเข้าฐานกลาง'));
+        } catch (e) { if (e.partial && e.partial.machines.length) { st.sent = e.partial; st.result = null; } TS.toast(e.message, 'err'); st.error = e.message; }
+        finally { st.busy = false; st.progress = ''; draw(box, u, start); } } }, 'ส่งรายการที่ตรวจทานแล้วเข้าฐานกลาง'));
     const startM = start && TS.S.machines.get(start);
     const startBox = startM ? h('section', { class: 'panel' }, h('h2', null, 'เครื่องที่จะเริ่มตรวจ'), h('p', null, TS.label(startM), ' · ', h('span', { class: 'mono' }, startM.id)),
       known()[startM.id] ? TS.siStartButton(startM) : h('p', { class: 'muted small' }, 'ส่งเครื่องนี้เข้าฐานกลางก่อน แล้วปุ่มเริ่มตรวจจะปรากฏที่นี่')) : null;
@@ -333,6 +363,8 @@
         list.length > 200 ? h('p', { class: 'muted small' }, 'แสดง 200 รายการแรก พิมพ์คำค้นเพื่อให้เหลือน้อยลง') : null),
       typeBox, decisions.length ? h('section', { class: 'panel' }, h('h2', null, 'ต้องตัดสินใจก่อนส่ง'), decisions) : null,
       h('section', { class: 'panel' }, h('p', null, 'พร้อมส่ง ', h('b', null, TS.n(b.counts.machinesReady)), ' เครื่อง · รอแก้/รอยืนยัน ', h('b', null, TS.n(b.counts.pending)), ' สถานที่'), actions,
+        st.progress ? h('p', { class: 'mode', 'data-si-progress': '' }, st.progress) : null,
+        st.error ? h('p', { class: 'warn-box', 'data-si-error': '' }, st.error) : null,
         st.sent ? h('p', { class: 'mode public' }, 'ส่งแล้ว: ' + Object.entries(st.sent.counts || {}).map(([k, v]) => (STATUS[k] || k) + ' ' + v).join(' · ')) : null));
   }
 })(typeof window !== 'undefined' ? window : this, typeof TS !== 'undefined' ? TS : undefined); // eslint-disable-line no-undef
