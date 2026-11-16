@@ -103,5 +103,17 @@ const M = (id, src = {}, extra = {}) => ({ id, src: { lmId: id.startsWith('lm:')
     assert.equal(v.items[1].url, 'https://si.example.app/jobs/' + J1);
     assert.equal(L.historyView(null, U1, '').progress, 'ยังไม่มีงานที่ส่งใน Smart Inspection');
   });
+  await t('chunkPayload: ไม่แยกเครื่องของสถานที่เดียวกัน · ไม่เกินชุดละ max · ครบทุกรายการ', async () => {
+    const p = { org_id: 'o', source_system: 'wm-truck-scales', dry_run: false, establishments: [], machines: [] };
+    for (let i = 0; i < 10; i++) { p.establishments.push({ key: 'S' + i }); for (let k = 0; k < (i === 3 ? 4 : 1); k++) p.machines.push({ source_machine_id: 'm' + i + '-' + k, station_key: 'S' + i }); }
+    p.establishments.push({ key: 'LONE' });
+    const cs = L.chunkPayload(p, 3);
+    assert.ok(cs.every((c) => c.dry_run === false && c.org_id === 'o'));
+    assert.equal(cs.reduce((a, c) => a + c.machines.length, 0), 13);
+    assert.equal(cs.reduce((a, c) => a + c.establishments.length, 0), 11);
+    const s3 = cs.filter((c) => c.machines.some((m) => m.station_key === 'S3'));
+    assert.equal(s3.length, 1, 'สถานที่ S3 (4 เครื่อง) อยู่ชุดเดียว'); assert.ok(s3[0].establishments.some((e) => e.key === 'S3'));
+    assert.ok(cs.filter((c) => !c.machines.some((m) => m.station_key === 'S3')).every((c) => c.machines.length <= 3));
+  });
   console.log('PASS ' + pass + ' รายการ: si-link');
 })().catch((e) => { console.error(e); process.exit(1); });
