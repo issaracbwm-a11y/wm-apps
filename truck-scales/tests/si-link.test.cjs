@@ -115,5 +115,14 @@ const M = (id, src = {}, extra = {}) => ({ id, src: { lmId: id.startsWith('lm:')
     assert.equal(s3.length, 1, 'สถานที่ S3 (4 เครื่อง) อยู่ชุดเดียว'); assert.ok(s3[0].establishments.some((e) => e.key === 'S3'));
     assert.ok(cs.filter((c) => !c.machines.some((m) => m.station_key === 'S3')).every((c) => c.machines.length <= 3));
   });
+  await t('summarizeDone: นับเฉพาะส่งแล้ว/ผ่านการตรวจทาน · เลือกงานล่าสุด · ไม่นับส่งกลับ', async () => {
+    const A = '11111111-1111-4111-8111-111111111111', B = '22222222-2222-4222-8222-222222222222', C = '33333333-3333-4333-8333-333333333333';
+    const J = (inst, code, date, status, sub) => ({ instrument_id: inst, job_id: '4' + code.padStart(7, '0') + '-0000-4000-8000-000000000000', job_code: code, inspected_on: date, job_status: status, submitted_at: sub || date + 'T08:00:00Z', saved_result: 'pass' });
+    const rows = [J(A, '1', '2026-11-01', 'reviewed'), J(A, '2', '2026-11-10', 'submitted'), J(B, '3', '2026-11-12', 'returned'), J(C, '4', '2026-11-05', 'draft'), J('99999999-9999-4999-8999-999999999999', '5', '2026-11-05', 'reviewed')];
+    const d = L.summarizeDone(rows, { 'lm:a': A, 'lm:b': B, 'lm:c': C }, 'https://si.example.app/');
+    assert.deepEqual(Object.keys(d), ['lm:a']);
+    assert.equal(d['lm:a'].code, '2');
+    assert.equal(d['lm:a'].url, 'https://si.example.app/jobs/' + rows[1].job_id);
+  });
   console.log('PASS ' + pass + ' รายการ: si-link');
 })().catch((e) => { console.error(e); process.exit(1); });

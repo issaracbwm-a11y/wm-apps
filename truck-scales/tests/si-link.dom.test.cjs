@@ -33,6 +33,7 @@ async function boot({ staff, machines = [], session }) {
       return { ok: true, status: 200, json: async () => ({ machines: body.p.machines.map((m) => ({ source_machine_id: m.source_machine_id, status: st, id: m.source_machine_id === 'lm:2' ? U2 : U1 })), counts: { [st]: body.p.machines.length } }) };
     }
     if (url.endsWith('/rpc/truck_instrument_results')) { const m = w.__hist || 'ok'; if (m === '401') return { ok: false, status: 401, json: async () => ({}) }; if (m === '500') return { ok: false, status: 500, json: async () => ({ message: 'boom' }) }; if (m === '42501') return { ok: false, status: 403, json: async () => ({ code: '42501', message: 'permission denied' }) }; return { ok: true, status: 200, json: async () => (m === 'empty' ? [] : HIST) }; }
+    if (url.includes('/rest/v1/instruments?')) return { ok: true, status: 200, json: async () => (w.__instruments || []) };
     if (url.includes('/rest/v1/establishments?')) return { ok: true, status: 200, json: async () => (w.__unlinked || []) };
     return { ok: false, status: 404, json: async () => ({}) };
   };
@@ -306,6 +307,24 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     const dry = calls.filter((c) => c.url.endsWith('register_import_truck_scales')).pop();
     assert.equal(dry.body.p.machines[0].max_capacity, 30000);
     assert.ok(view.querySelector('[data-si-cap="lm:9101"] input[value=ton]').checked, 'ตัวเลือกยังแสดงหลังเลือก');
+  });
+  await t('ผลตรวจจาก Smart Inspection: ดึงแล้วเครื่องที่ส่งงานแล้วนับเป็น "ตรวจแล้ว (SI)" · ส่งกลับไม่นับ · วันสิ้นอายุไม่เปลี่ยน', async () => {
+    const { w, calls } = await boot({ staff: true, session: true, machines: [M('lm:1', 'A-1'), M('lm:2', 'A-2')] });
+    w.__instruments = [{ id: U1, source_machine_id: 'lm:1' }, { id: U2, source_machine_id: 'lm:2' }];
+    const m1 = w.TS.S.machines.get('lm:1'), m2 = w.TS.S.machines.get('lm:2');
+    const expBefore = w.TS.v(m1, 'expiry');
+    assert.equal(w.TS.workOf(m1), 'none');
+    w.TS.render = () => {};
+    await w.TS.siSyncDone({ quiet: true });
+    assert.ok(calls.some((c) => c.url.endsWith('/rpc/truck_instrument_results') && c.body.p_instruments.length === 2));
+    assert.equal(w.TS.workOf(m1), 'done', 'lm:1 มีงานผ่านการตรวจทาน');
+    assert.equal(w.TS.workOf(m2), 'done', 'lm:2 มีงานส่งแล้ว (submitted)');
+    assert.match(w.TS.workBadge(m1).textContent, /ตรวจแล้ว \(SI\)/);
+    assert.equal(w.TS.v(m1, 'expiry'), expBefore, 'ไม่ต่ออายุคำรับรอง');
+    assert.equal(w.TS.siDoneOf(m1).code, '1001', 'งานส่งกลับ (1003) และร่าง (1004) ไม่นับ');
+    const panel = w.TS.siHistoryPanel(m1);
+    assert.ok(panel.querySelector('[data-si-done]'), 'รายละเอียดเครื่องแสดงงานที่ส่งแล้ว + ลิงก์รายงาน');
+    assert.ok(panel.querySelector('[data-si-done] a[href^="https://si.example.app/jobs/"]'));
   });
   console.log('PASS ' + pass + ' รายการ: si-link.dom');
 })().catch((e) => { console.error(e); process.exit(1); });
