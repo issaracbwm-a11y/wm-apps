@@ -111,7 +111,7 @@
     return { payload, review, counts };
   }
 
-  const api = { SOURCE, TYPES, build, typeOf };
+  const api = { SOURCE, TYPES, build, typeOf, stationKeyOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   /* TS ประกาศด้วย const ใน core.js จึงไม่อยู่บน window — อ้างชื่อตรงเมื่อมี */
   else if (typeof TS !== 'undefined') TS.siRegister = api; // eslint-disable-line no-undef

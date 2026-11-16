@@ -51,9 +51,19 @@ const M = (id, src = {}, extra = {}) => ({ id, src: { lmId: id.startsWith('lm:')
       assert.ok(calls.every((c) => c.body.p.dry_run === true));
     }
   });
-  await t('ประเภทกิจการรอยืนยัน → ไปหน้าตรวจทานโดยไม่เรียกฐานกลาง', async () => {
-    const { rpc, calls } = fakeRpc({});
+  await t('ปาล์มและยาง (ส่งทะเบียนแล้วโดยเลือกประเภทไว้) → ค้นหาแบบทดลองแล้วเจอเครื่อง', async () => {
+    const { rpc, calls } = fakeRpc({ 'lm:4': { status: 'same', id: U1 } });
     const r = await L.resolveForStart(M('lm:4', { biz: 'ปาล์มและยางพารา' }), { known: {}, orgId: 'o', build: R.build, rpc });
+    assert.equal(r.id, U1); assert.equal(calls.length, 1); assert.equal(calls[0].body.p.dry_run, true);
+  });
+  await t('ปาล์มและยาง ยังไม่ได้ส่งทะเบียน → ไปหน้าตรวจทาน (ไม่บันทึก)', async () => {
+    const { rpc, calls } = fakeRpc({ 'lm:4': { status: 'new' } });
+    const r = await L.resolveForStart(M('lm:4', { biz: 'ปาล์มและยางพารา' }), { known: {}, orgId: 'o', build: R.build, rpc });
+    assert.equal(r.review, true); assert.equal(r.id, undefined); assert.ok(calls.every((c) => c.body.p.dry_run === true));
+  });
+  await t('ไม่มีตำบล (ไม่ใช่เรื่องประเภท) → ไปหน้าตรวจทานโดยไม่เรียกฐานกลาง', async () => {
+    const { rpc, calls } = fakeRpc({});
+    const r = await L.resolveForStart(M('lm:6', { tambon: '' }), { known: {}, orgId: 'o', build: R.build, rpc });
     assert.equal(r.review, true); assert.equal(calls.length, 0);
   });
   await t('UUID ในแคชที่ไม่ใช่รูปแบบ UUID ไม่ถูกใช้', async () => {
