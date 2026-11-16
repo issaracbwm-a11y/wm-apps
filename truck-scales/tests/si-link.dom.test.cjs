@@ -225,5 +225,17 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     view.querySelector('[data-si-select-none]').click(); await tick();
     assert.equal(heading(), 'เลือกเครื่อง (0 จาก ' + total + ')');
   });
+  await t('หน้าส่งทะเบียน: พิมพ์ในช่องค้นหาแล้วหน้าวาดใหม่ เคอร์เซอร์ยังอยู่ในช่องค้นหา (พิมพ์ต่อได้)', async () => {
+    const { w } = await boot({ staff: true, session: true, machines: [M('lm:1', 'A-1')] });
+    w.location.hash = '#/si';
+    const view = w.document.getElementById('view'); w.TS.views.si(view);
+    for (let i = 0; i < 20 && !view.querySelector('input[type=search]'); i++) await tick();
+    const s1 = view.querySelector('input[type=search]'); s1.focus(); s1.value = '311'; s1.dispatchEvent(new w.Event('input'));
+    await new Promise((r) => setTimeout(r, 500));
+    const s2 = view.querySelector('input[type=search]');
+    assert.notEqual(s1, s2, 'ช่องค้นหาถูกสร้างใหม่');
+    assert.equal(w.document.activeElement, s2, 'โฟกัสอยู่ที่ช่องค้นหาใหม่');
+    assert.equal(s2.value, '311');
+  });
   console.log('PASS ' + pass + ' รายการ: si-link.dom');
 })().catch((e) => { console.error(e); process.exit(1); });
