@@ -272,7 +272,9 @@
     const head = h('section', { class: 'panel' }, h('p', null, 'เข้าสู่ระบบเป็น ', h('b', null, u.full_name), ' · ', (u.org && u.org.short_name) || '', ' ',
       h('button', { class: 'btn small', type: 'button', onclick: () => { client.signOut(); me = null; TS.render(); } }, 'ออกจากระบบ')),
       h('p', { class: 'muted small' }, 'เลือกเครื่องที่จะส่ง → ตรวจสอบกับฐานกลาง (ยังไม่บันทึก) → ตรวจทานผล → กดส่ง · ระบบไม่ส่งเองเมื่อเปิดหมุดหรือเปิดหน้านี้'));
-    const search = h('input', { type: 'search', value: st.q, placeholder: 'ค้นหาชื่อ เลขเครื่อง รหัส หรืออำเภอ', oninput: (e) => { st.q = e.target.value; clearTimeout(st.t); st.t = setTimeout(() => draw(box, u, start), 250); } });
+    const search = h('input', { type: 'search', value: st.q, placeholder: 'ค้นหาชื่อ เลขเครื่อง รหัส หรืออำเภอ', oninput: (e) => { st.q = e.target.value; clearTimeout(st.t); st.t = setTimeout(() => { st.refocus = true; draw(box, u, start); }, 400); } });
+    // วาดหน้าใหม่แทนช่องค้นหาเดิม → คืนเคอร์เซอร์ให้พิมพ์ต่อได้ (เดิมเสียโฟกัสทุกครั้งที่พิมพ์)
+    if (st.refocus) { st.refocus = false; setTimeout(() => { if (search.isConnected) { search.focus(); const n = search.value.length; try { search.setSelectionRange(n, n); } catch (_) { /* type=search บางเบราว์เซอร์ไม่รองรับ */ } } }, 0); }
     const rows = list.slice(0, 200).map((m) => {
       const r = byId.get(m.id);
       return h('tr', null,
