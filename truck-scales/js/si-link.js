@@ -116,6 +116,16 @@
       signedIn: () => !!ses,
       signIn: (username, password) => auth('password', { email: String(username).trim().toLowerCase() + '@' + cfg.domain, password }),
       signOut: () => save(null),
+      /** อ่านตารางผ่าน REST (GET อย่างเดียว ตาม RLS ของบัญชี) */
+      get: async (path) => {
+        const t = await token();
+        let res;
+        try { res = await fetch(cfg.url + '/rest/v1/' + path, { headers: { apikey: cfg.key, Authorization: 'Bearer ' + t }, credentials: 'omit', cache: 'no-store' }); }
+        catch (_) { throw new Error('เชื่อมต่อฐานกลางไม่ได้'); }
+        if (res.status === 401) { save(null); throw Object.assign(new Error('การเข้าสู่ระบบหมดอายุ เข้าสู่ระบบใหม่'), { kind: 'expired' }); }
+        if (!res.ok) throw new Error('อ่านข้อมูลจากฐานกลางไม่สำเร็จ (' + res.status + ')');
+        return res.json();
+      },
       /** เรียกเมื่อ session สิ้นสุด (ออกจากระบบ/หมดอายุ/401) — ใช้ล้างข้อมูลของบัญชีเดิมบนหน้าจอ */
       onSignOut: (f) => { outCbs.push(f); },
       rpc
@@ -244,7 +254,7 @@
   };
 
   /* ---------- หน้า "ส่งทะเบียนเข้าฐานกลาง" ---------- */
-  const st = { q: '', prov: '', amp: '', type: '', progress: '', error: '', sel: null, types: {}, cap: {}, accept: {}, rekey: {}, create: {}, result: null, sent: null, busy: false };
+  const st = { q: '', prov: '', amp: '', type: '', progress: '', error: '', links: {}, unlinked: null, sel: null, types: {}, cap: {}, accept: {}, rekey: {}, create: {}, result: null, sent: null, busy: false };
   TS.views.si = function (rootEl) {
     const qs = new URLSearchParams((location.hash.split('?')[1]) || '');
     const start = qs.get('start');
@@ -285,7 +295,7 @@
       h('button', { class: 'btn', type: 'button', 'data-si-select-all': '', disabled: !list.length, onclick: () => { for (const m of list) st.sel.add(m.id); redraw(); } }, 'เลือกทั้งหมด (' + TS.n(list.length) + ')'),
       h('button', { class: 'btn', type: 'button', 'data-si-select-none': '', disabled: !st.sel.size, onclick: () => { st.sel.clear(); redraw(); } }, 'ไม่เลือกทั้งหมด'));
     const sel = TS.machineList().filter((m) => st.sel.has(m.id));
-    const b = TS.siRegister.build(sel, { orgId: u.org_id, typeChoices: st.types, capacityConfirmed: st.cap, acceptChanges: st.accept, rekeyFrom: st.rekey, createNew: st.create });
+    const b = TS.siRegister.build(sel, { orgId: u.org_id, typeChoices: st.types, establishmentLinks: st.links, capacityConfirmed: st.cap, acceptChanges: st.accept, rekeyFrom: st.rekey, createNew: st.create });
     const res = st.result, byId = new Map(((res && res.machines) || []).map((x) => [x.source_machine_id, x]));
     const head = h('section', { class: 'panel' }, h('p', null, 'เข้าสู่ระบบเป็น ', h('b', null, u.full_name), ' · ', (u.org && u.org.short_name) || '', ' ',
       h('button', { class: 'btn small', type: 'button', onclick: () => { client.signOut(); me = null; TS.render(); } }, 'ออกจากระบบ')),
@@ -301,6 +311,22 @@
         h('td', null, r ? h('span', null, STATUS[r.status] || r.status, r.reasons ? h('div', { class: 'muted small' }, r.reasons.join(' · ')) : null, r.fields ? h('div', { class: 'muted small' }, 'ช่องที่ต่าง: ' + r.fields.join(', ')) : null) : ''));
     });
     const pending = b.review.filter((x) => !x.ready || x.type_state !== 'confirmed');
+    // สถานประกอบการที่สร้างใน Smart Inspection เอง (ยังไม่ผูกกับทะเบียน) — ให้เลือกผูกแทนการสร้างซ้ำ
+    if (st.unlinked === null) {
+      st.unlinked = [];
+      client.get('establishments?select=id,name,amphoe,province,created_at&source_station_key=is.null&org_id=eq.' + encodeURIComponent(u.org_id) + '&order=name')
+        .then((rows) => { st.unlinked = Array.isArray(rows) ? rows : []; if (st.unlinked.length) draw(box, u, start); }, () => { st.unlinked = []; });
+    }
+    const candOf = (g) => { const m = TS.S.machines.get(g.machines[0].id); const a = m ? TS.str(TS.v(m, 'amphoe')) : ''; return st.unlinked.filter((e) => e.amphoe === a); };
+    const linkPick = (g) => {
+      const same = candOf(g), linked = st.unlinked.filter((e) => e.id === st.links[g.key]);
+      const opts = [...same, ...linked.filter((e) => !same.includes(e))];
+      if (!opts.length) return null;
+      const lab = (e) => e.name + ' · อ.' + (e.amphoe || '-') + ' · สร้าง ' + String(e.created_at || '').slice(0, 10) + ' · รหัส ' + e.id.slice(0, 8);
+      return h('label', { class: 'fld' }, h('span', null, 'ผูกกับสถานประกอบการเดิมใน Smart Inspection (อำเภอเดียวกัน)'),
+        h('select', { 'data-si-link': g.key, onchange: (e) => { if (e.target.value) st.links[g.key] = e.target.value; else delete st.links[g.key]; st.result = null; draw(box, u, start); } },
+          h('option', { value: '' }, 'ไม่ผูก — สร้างรายการใหม่'), opts.map((e) => h('option', { value: e.id, selected: st.links[g.key] === e.id }, lab(e)))));
+    };
     const waiting = pending.filter((g) => g.type_state === 'pending' && !st.types[g.key]);
     const bulkType = waiting.length > 1 ? h('label', { class: 'fld' }, h('span', null, 'ตั้งประเภทให้ทุกแห่งที่รอเลือกประเภท (' + TS.n(waiting.length) + ' แห่ง)'),
       h('select', { 'data-si-bulk-type': '', onchange: (e) => { if (!e.target.value) return; for (const g of waiting) st.types[g.key] = e.target.value; redraw(); } },
@@ -309,12 +335,13 @@
       groupsView(pending)) : null;
     function groupsView(all) {
       // ต้องจัดการ (ส่งไม่ได้/รอเลือกประเภท/ยืนยันพิกัดกำลัง) แสดงเปิด · ที่ใช้ค่าแนะนำได้พับไว้ (ทะเบียนทั้งหมดมีนับพันแห่ง)
-      const need = (g) => !g.ready || (g.type_state === 'pending' && !st.types[g.key]) || g.machines.some((x) => x.warns.length) || g.warns.length;
+      const need = (g) => candOf(g).length > 0 || !!st.links[g.key] || !g.ready || (g.type_state === 'pending' && !st.types[g.key]) || g.machines.some((x) => x.warns.length) || g.warns.length;
       const one = (g) => h('div', { class: 'group' }, h('b', null, g.name || g.key), ' ', h('span', { class: 'muted small mono' }, g.key),
         h('label', { class: 'fld' }, h('span', null, 'ประเภทสถานประกอบการ' + (g.type_state === 'suggested' ? ' (ค่าแนะนำจากประเภทกิจการ — ตรวจทาน)' : '')),
           h('select', { onchange: (e) => { if (e.target.value) st.types[g.key] = e.target.value; else delete st.types[g.key]; st.result = null; draw(box, u, start); } },
             h('option', { value: '' }, g.type_state === 'pending' ? 'รอยืนยัน — เลือกประเภท' : 'ใช้ค่าแนะนำ'),
             Object.entries(TS.siRegister.TYPES).map(([k, t]) => h('option', { value: k, selected: st.types[g.key] === k }, t)))),
+        linkPick(g),
         g.commodities.length ? h('p', { class: 'muted small' }, 'สินค้า: ' + g.commodities.join(', ')) : null,
         g.reasons.filter((x) => !/ประเภท/.test(x)).length ? h('p', { class: 'warn-box' }, 'ยังส่งไม่ได้: ' + g.reasons.filter((x) => !/ประเภท/.test(x)).join(' · ') + ' — แก้ข้อมูลเครื่องในหน้าทะเบียนก่อน') : null,
         g.warns.map((w) => h('p', { class: 'muted small' }, w)),
@@ -337,7 +364,7 @@
       h('button', { class: 'btn primary', type: 'button', disabled: !sendable || st.busy, 'data-si-send': '', onclick: async () => {
         st.busy = true; draw(box, u, start);
         try {
-          const nb = TS.siRegister.build(sel, { orgId: u.org_id, dryRun: false, typeChoices: st.types, capacityConfirmed: st.cap, acceptChanges: st.accept, rekeyFrom: st.rekey, createNew: st.create });
+          const nb = TS.siRegister.build(sel, { orgId: u.org_id, dryRun: false, typeChoices: st.types, establishmentLinks: st.links, capacityConfirmed: st.cap, acceptChanges: st.accept, rekeyFrom: st.rekey, createNew: st.create });
           // ฐานกลางจำกัดเวลาต่อคำสั่ง (8 วินาที) → แบ่งส่งเป็นชุด เครื่องของสถานที่เดียวกันอยู่ชุดเดียวกัน
           const chunks = chunkPayload(nb.payload, CHUNK);
           const r = { dry_run: false, establishments: [], machines: [], counts: {} };

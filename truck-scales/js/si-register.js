@@ -15,6 +15,9 @@
   const str = (v) => (v === null || v === undefined) ? '' : String(v).trim();
   const val = (m, f) => (m.local && f in m.local) ? m.local[f] : (m.src || {})[f];
   const isoOK = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s + 'T00:00:00Z')) && new Date(s + 'T00:00:00Z').toISOString().slice(0, 10) === s;
+  /* หมายเลขเครื่องที่เป็นเครื่องหมายแทน "ไม่มี" (เช่น "-") ไม่ใช่หมายเลขจริง — ส่งเป็น null เพื่อไม่ให้จับคู่ผิดเครื่อง */
+  const PLACEHOLDER_SERIAL = /^(?:[-–—_./\s]+|ไม่มี|ไม่ทราบ|n\/?a|none|null)$/i;
+  const serialOf = (m) => { const v = str(val(m, 'machineNo')); return v && !PLACEHOLDER_SERIAL.test(v) ? v : ''; };
   const num = (v) => (typeof v === 'number' && isFinite(v)) ? v : null;
 
   /* ประเภทกิจการในทะเบียน → ประเภทสถานประกอบการและสินค้าเกษตร */
@@ -93,8 +96,8 @@
         const mw = [];
         if (cap.warn) mw.push(cap.warn);
         if (exp && !isoOK(exp)) mw.push('วันหมดอายุคำรับรองอ่านไม่ได้ — ไม่ส่งค่า');
-        if (!str(m.src.lmId) && !str(val(m, 'machineNo'))) mw.push('ไม่มี lmId และหมายเลขเครื่อง');
-        const row = { source_machine_id: m.id, station_key: g.key, lm_id: str(m.src.lmId) || null, serial_no: str(val(m, 'machineNo')) || null,
+        if (!str(m.src.lmId) && !serialOf(m)) mw.push('ไม่มี lmId และหมายเลขเครื่อง');
+        const row = { source_machine_id: m.id, station_key: g.key, lm_id: str(m.src.lmId) || null, serial_no: serialOf(m) || null,
           max_capacity: cap.max_capacity, unit: cap.unit, cert_expiry: isoOK(exp) ? exp : null, instrument_type: str(m.src.type) || null, register_status: statusOf(m) };
         if (o.rekeyFrom && o.rekeyFrom[m.id]) row.rekey_from = o.rekeyFrom[m.id];
         if (o.createNew && o.createNew[m.id]) row.create_new = true;
@@ -111,7 +114,7 @@
     return { payload, review, counts };
   }
 
-  const api = { SOURCE, TYPES, build, typeOf, stationKeyOf };
+  const api = { SOURCE, TYPES, build, typeOf, stationKeyOf, serialOf };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   /* TS ประกาศด้วย const ใน core.js จึงไม่อยู่บน window — อ้างชื่อตรงเมื่อมี */
   else if (typeof TS !== 'undefined') TS.siRegister = api; // eslint-disable-line no-undef

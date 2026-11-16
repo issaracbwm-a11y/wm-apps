@@ -33,6 +33,7 @@ async function boot({ staff, machines = [], session }) {
       return { ok: true, status: 200, json: async () => ({ machines: body.p.machines.map((m) => ({ source_machine_id: m.source_machine_id, status: st, id: m.source_machine_id === 'lm:2' ? U2 : U1 })), counts: { [st]: body.p.machines.length } }) };
     }
     if (url.endsWith('/rpc/truck_instrument_results')) { const m = w.__hist || 'ok'; if (m === '401') return { ok: false, status: 401, json: async () => ({}) }; if (m === '500') return { ok: false, status: 500, json: async () => ({ message: 'boom' }) }; if (m === '42501') return { ok: false, status: 403, json: async () => ({ code: '42501', message: 'permission denied' }) }; return { ok: true, status: 200, json: async () => (m === 'empty' ? [] : HIST) }; }
+    if (url.includes('/rest/v1/establishments?')) return { ok: true, status: 200, json: async () => (w.__unlinked || []) };
     return { ok: false, status: 404, json: async () => ({}) };
   };
   const inject = (code) => { const el = w.document.createElement('script'); el.textContent = code; w.document.body.append(el); };
@@ -271,6 +272,24 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     assert.equal(w.__sends, 4);
     assert.ok(!view.querySelector('[data-si-error]'));
     assert.ok(/ส่งแล้ว: (เพิ่มใหม่|new) 320/.test(view.textContent));
+  });
+  await t('ส่งทะเบียน: ผูกกับสถานประกอบการเดิมใน Smart Inspection (อำเภอเดียวกัน) → ส่ง establishment_id ไม่สร้างซ้ำ', async () => {
+    const m = M('lm:8001', 'L-1'); Object.assign(m.src, { stationKey: 'LINK-1', amphoe: 'คีรีรัฐนิคม', name: 'อมรเทพลานปาล์ม (สมมติ)' });
+    const { w, calls } = await boot({ staff: true, session: true, machines: [m] });
+    const E1 = '69438fea-0000-4000-8000-000000000001';
+    w.__unlinked = [{ id: E1, name: 'ลานปาล์ม (สมมติ)', amphoe: 'คีรีรัฐนิคม', province: 'สุราษฎร์ธานี', created_at: '2026-11-02T02:44:34Z' }, { id: '7472b805-0000-4000-8000-000000000002', name: 'อื่น', amphoe: 'พุนพิน', created_at: '2026-11-02T02:44:35Z' }];
+    w.location.hash = '#/si?start=lm%3A8001';
+    const view = w.document.getElementById('view'); w.TS.views.si(view);
+    for (let i = 0; i < 30 && !view.querySelector('[data-si-link]'); i++) await tick();
+    const sel = view.querySelector('[data-si-link="LINK-1"]');
+    assert.ok(sel, 'มีช่องผูก (แสดงเปิด ไม่พับ)');
+    assert.deepEqual([...sel.options].map((o) => o.value), ['', E1], 'เฉพาะอำเภอเดียวกัน');
+    sel.value = E1; sel.dispatchEvent(new w.Event('change')); await tick();
+    [...view.querySelectorAll('button')].find((b) => b.textContent.includes('ตรวจสอบกับฐานกลาง')).click(); await tick(); await tick();
+    const dry = calls.filter((c) => c.url.endsWith('register_import_truck_scales')).pop();
+    assert.equal(dry.body.p.dry_run, true);
+    assert.equal(dry.body.p.establishments[0].establishment_id, E1);
+    assert.ok(calls.some((c) => c.url.includes('/rest/v1/establishments?') && c.url.includes('source_station_key=is.null')), 'อ่านเฉพาะรายการที่ยังไม่ผูก');
   });
   console.log('PASS ' + pass + ' รายการ: si-link.dom');
 })().catch((e) => { console.error(e); process.exit(1); });
