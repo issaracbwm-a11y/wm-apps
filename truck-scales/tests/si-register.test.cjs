@@ -86,4 +86,10 @@ t('หมายเลขเครื่อง "-" / "ไม่มี" ไม่�
   assert.equal(R.serialOf({ src: { machineNo: '0-033904-4-1013-000036-67' }, local: {} }), '0-033904-4-1013-000036-67');
   assert.equal(R.serialOf({ src: { machineNo: '1-2' }, local: {} }), '1-2');
 });
+t('พิกัดกำลังที่ยืนยันว่าเป็นตัน → ส่งเป็นกิโลกรัม (80 → 80,000)', () => {
+  const m = { id: 'lm:1', src: { lmId: '1', machineNo: 'X-1', stationKey: 'S', name: 'ลานสมมติ', biz: 'ปาล์ม', province: 'สุราษฎร์ธานี', amphoe: 'พุนพิน', tambon: 'ท่าข้าม', capacity: 80 }, local: {} };
+  assert.equal(R.build([m], { orgId: 'o' }).payload.machines[0].max_capacity, null);
+  assert.equal(R.build([m], { orgId: 'o', capacityConfirmed: { 'lm:1': 'ton' } }).payload.machines[0].max_capacity, 80000);
+  assert.equal(R.build([m], { orgId: 'o', capacityConfirmed: { 'lm:1': true } }).payload.machines[0].max_capacity, 80);
+});
 console.log('PASS ' + pass + ' รายการ: si-register');

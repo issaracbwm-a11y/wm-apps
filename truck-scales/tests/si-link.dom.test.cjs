@@ -291,5 +291,21 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     assert.equal(dry.body.p.establishments[0].establishment_id, E1);
     assert.ok(calls.some((c) => c.url.includes('/rest/v1/establishments?') && c.url.includes('source_station_key=is.null')), 'อ่านเฉพาะรายการที่ยังไม่ผูก');
   });
+  await t('หน้าส่งทะเบียน: เครื่องที่ไม่มีตำบลไม่แสดง · พิกัดกำลังเลือก "เป็นตัน" ส่ง ×1000', async () => {
+    const a = M('lm:9101', 'T-1'); Object.assign(a.src, { stationKey: 'TON-1', capacity: 30, amphoe: 'ตันสมมติ' });
+    const b = M('lm:9102', 'T-2'); Object.assign(b.src, { stationKey: 'TON-2', tambon: '', amphoe: 'ตันสมมติ' });
+    const { w, calls } = await boot({ staff: true, session: true, machines: [a, b] });
+    w.location.hash = '#/si?start=lm%3A9101';
+    const view = w.document.getElementById('view'); w.TS.views.si(view);
+    for (let i = 0; i < 30 && !view.querySelector('[data-si-cap]'); i++) await tick();
+    assert.ok(!view.textContent.includes('lm:9102'), 'ไม่แสดงเครื่องที่ไม่มีตำบล');
+    const ton = view.querySelector('[data-si-cap="lm:9101"] input[value=ton]');
+    assert.ok(ton.closest('label').textContent.includes('30,000'));
+    ton.click(); ton.dispatchEvent(new w.Event('change')); await tick();
+    [...view.querySelectorAll('button')].find((x) => x.textContent.includes('ตรวจสอบกับฐานกลาง')).click(); await tick(); await tick();
+    const dry = calls.filter((c) => c.url.endsWith('register_import_truck_scales')).pop();
+    assert.equal(dry.body.p.machines[0].max_capacity, 30000);
+    assert.ok(view.querySelector('[data-si-cap="lm:9101"] input[value=ton]').checked, 'ตัวเลือกยังแสดงหลังเลือก');
+  });
   console.log('PASS ' + pass + ' รายการ: si-link.dom');
 })().catch((e) => { console.error(e); process.exit(1); });
