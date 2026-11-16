@@ -80,4 +80,10 @@ t('เลือกเฉพาะบางเครื่อง (only) และ
   assert.deepEqual(r.payload.machines.map((m) => m.source_machine_id), ['lm:18']);
   assert.equal(JSON.stringify(ms), before);
 });
+
+t('หมายเลขเครื่อง "-" / "ไม่มี" ไม่ส่งเป็นหมายเลขจริง', () => {
+  for (const v of ['-', ' - ', '--', '—', 'ไม่มี', 'N/A']) assert.equal(R.serialOf({ src: { machineNo: v }, local: {} }), '', v);
+  assert.equal(R.serialOf({ src: { machineNo: '0-033904-4-1013-000036-67' }, local: {} }), '0-033904-4-1013-000036-67');
+  assert.equal(R.serialOf({ src: { machineNo: '1-2' }, local: {} }), '1-2');
+});
 console.log('PASS ' + pass + ' รายการ: si-register');
