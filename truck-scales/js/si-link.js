@@ -43,7 +43,13 @@
   async function resolveForStart(machine, deps) {
     const known = deps.known && deps.known[machine.id];
     if (known && UUID_RE.test(known)) return { id: known, from: 'cache' };
-    const b = deps.build([machine], { orgId: deps.orgId, dryRun: true });
+    let b = deps.build([machine], { orgId: deps.orgId, dryRun: true });
+    // ค้นหาอย่างเดียว: ประเภทสถานประกอบการไม่มีผลต่อการจับคู่เครื่อง (จับคู่ด้วยรหัสเครื่องต้นทาง) —
+    // สถานที่ "ปาล์มและยาง" ที่เคยเลือกประเภทตอนส่งทะเบียน ต้องหาเจอด้วย จึงใส่ประเภทชั่วคราวเพื่อถามฐานกลาง
+    const g0 = b.review && b.review[0];
+    if (!b.payload.machines.length && g0 && g0.reasons.length && g0.reasons.every((x) => /ประเภท/.test(x))) {
+      b = deps.build([machine], { orgId: deps.orgId, dryRun: true, typeChoices: { [g0.key]: 'rubber_yard' } });
+    }
     if (!b.payload.machines.length) return { review: true, status: 'pending', reasons: (b.review[0] && b.review[0].reasons) || [] };
     const r = await deps.rpc('register_import_truck_scales', { p: Object.assign({}, b.payload, { dry_run: true }) });
     const row = (r && r.machines || []).find((x) => x.source_machine_id === machine.id);
@@ -220,7 +226,7 @@
   };
 
   /* ---------- หน้า "ส่งทะเบียนเข้าฐานกลาง" ---------- */
-  const st = { q: '', sel: null, types: {}, cap: {}, accept: {}, rekey: {}, create: {}, result: null, sent: null, busy: false };
+  const st = { q: '', prov: '', amp: '', type: '', sel: null, types: {}, cap: {}, accept: {}, rekey: {}, create: {}, result: null, sent: null, busy: false };
   TS.views.si = function (rootEl) {
     const qs = new URLSearchParams((location.hash.split('?')[1]) || '');
     const start = qs.get('start');
@@ -242,7 +248,24 @@
         h('button', { class: 'btn primary', type: 'submit' }, 'เข้าสู่ระบบ')));
   }
   function draw(box, u, start) {
-    const list = TS.machineList().filter((m) => !st.q || [TS.label(m), TS.v(m, 'machineNo'), m.id, TS.v(m, 'amphoe')].map((x) => TS.str(x).toLowerCase()).join('\n').includes(st.q.toLowerCase()));
+    const R = TS.siRegister, allM = TS.machineList();
+    // ประเภทที่ใช้กรอง: ที่เลือกไว้ในหน้านี้ → ค่าแนะนำจากประเภทกิจการ → "ปาล์มและยาง (รอเลือก)" / "ไม่ทราบ"
+    const typeOfM = (m) => { const k = R.stationKeyOf(m).key; if (st.types[k]) return st.types[k]; const t = R.typeOf(TS.v(m, 'biz')); return t.type_code || (t.commodities.length > 1 ? 'mixed' : 'unknown'); };
+    const list = allM.filter((m) => (!st.prov || TS.str(TS.v(m, 'province')) === st.prov) && (!st.amp || TS.str(TS.v(m, 'amphoe')) === st.amp) && (!st.type || typeOfM(m) === st.type)
+      && (!st.q || [TS.label(m), TS.v(m, 'machineNo'), m.id, TS.v(m, 'amphoe')].map((x) => TS.str(x).toLowerCase()).join('\n').includes(st.q.toLowerCase())));
+    const uniq = (a) => [...new Set(a.filter(Boolean))].sort((x, y) => x.localeCompare(y, 'th'));
+    const provs = uniq(allM.map((m) => TS.str(TS.v(m, 'province'))));
+    const amps = uniq(allM.filter((m) => !st.prov || TS.str(TS.v(m, 'province')) === st.prov).map((m) => TS.str(TS.v(m, 'amphoe'))));
+    const redraw = () => { st.result = null; draw(box, u, start); };
+    const pick = (label, value, opts, set) => h('label', { class: 'fld' }, h('span', null, label),
+      h('select', { onchange: (e) => { set(e.target.value); redraw(); } }, opts.map(([v, t]) => h('option', { value: v, selected: v === value }, t))));
+    const filters = h('div', { class: 'si-filters' },
+      pick('จังหวัด', st.prov, [['', 'ทุกจังหวัด'], ...provs.map((x) => [x, x])], (v) => { st.prov = v; if (v && !uniq(allM.filter((m) => TS.str(TS.v(m, 'province')) === v).map((m) => TS.str(TS.v(m, 'amphoe')))).includes(st.amp)) st.amp = ''; }),
+      pick('อำเภอ', st.amp, [['', 'ทุกอำเภอ'], ...amps.map((x) => [x, x])], (v) => { st.amp = v; }),
+      pick('ประเภทสถานประกอบการ', st.type, [['', 'ทุกประเภท'], ...Object.entries(R.TYPES), ['mixed', 'ปาล์มและยาง (รอเลือกประเภท)'], ['unknown', 'ไม่ทราบประเภท']], (v) => { st.type = v; }));
+    const selAll = h('div', { class: 'btnrow' },
+      h('button', { class: 'btn', type: 'button', 'data-si-select-all': '', disabled: !list.length, onclick: () => { for (const m of list) st.sel.add(m.id); redraw(); } }, 'เลือกทั้งหมด (' + TS.n(list.length) + ')'),
+      h('button', { class: 'btn', type: 'button', 'data-si-select-none': '', disabled: !st.sel.size, onclick: () => { st.sel.clear(); redraw(); } }, 'ไม่เลือกทั้งหมด'));
     const sel = TS.machineList().filter((m) => st.sel.has(m.id));
     const b = TS.siRegister.build(sel, { orgId: u.org_id, typeChoices: st.types, capacityConfirmed: st.cap, acceptChanges: st.accept, rekeyFrom: st.rekey, createNew: st.create });
     const res = st.result, byId = new Map(((res && res.machines) || []).map((x) => [x.source_machine_id, x]));
@@ -258,8 +281,16 @@
         h('td', null, r ? h('span', null, STATUS[r.status] || r.status, r.reasons ? h('div', { class: 'muted small' }, r.reasons.join(' · ')) : null, r.fields ? h('div', { class: 'muted small' }, 'ช่องที่ต่าง: ' + r.fields.join(', ')) : null) : ''));
     });
     const pending = b.review.filter((x) => !x.ready || x.type_state !== 'confirmed');
-    const typeBox = pending.length ? h('section', { class: 'panel' }, h('h2', null, 'ยืนยันประเภทสถานประกอบการ / ข้อมูลที่ต้องแก้'),
-      pending.map((g) => h('div', { class: 'group' }, h('b', null, g.name || g.key), ' ', h('span', { class: 'muted small mono' }, g.key),
+    const waiting = pending.filter((g) => g.type_state === 'pending' && !st.types[g.key]);
+    const bulkType = waiting.length > 1 ? h('label', { class: 'fld' }, h('span', null, 'ตั้งประเภทให้ทุกแห่งที่รอเลือกประเภท (' + TS.n(waiting.length) + ' แห่ง)'),
+      h('select', { 'data-si-bulk-type': '', onchange: (e) => { if (!e.target.value) return; for (const g of waiting) st.types[g.key] = e.target.value; redraw(); } },
+        h('option', { value: '' }, '— เลือกประเภท —'), Object.entries(R.TYPES).map(([k, t]) => h('option', { value: k }, t)))) : null;
+    const typeBox = pending.length ? h('section', { class: 'panel' }, h('h2', null, 'ยืนยันประเภทสถานประกอบการ / ข้อมูลที่ต้องแก้'), bulkType,
+      groupsView(pending)) : null;
+    function groupsView(all) {
+      // ต้องจัดการ (ส่งไม่ได้/รอเลือกประเภท/ยืนยันพิกัดกำลัง) แสดงเปิด · ที่ใช้ค่าแนะนำได้พับไว้ (ทะเบียนทั้งหมดมีนับพันแห่ง)
+      const need = (g) => !g.ready || (g.type_state === 'pending' && !st.types[g.key]) || g.machines.some((x) => x.warns.length) || g.warns.length;
+      const one = (g) => h('div', { class: 'group' }, h('b', null, g.name || g.key), ' ', h('span', { class: 'muted small mono' }, g.key),
         h('label', { class: 'fld' }, h('span', null, 'ประเภทสถานประกอบการ' + (g.type_state === 'suggested' ? ' (ค่าแนะนำจากประเภทกิจการ — ตรวจทาน)' : '')),
           h('select', { onchange: (e) => { if (e.target.value) st.types[g.key] = e.target.value; else delete st.types[g.key]; st.result = null; draw(box, u, start); } },
             h('option', { value: '' }, g.type_state === 'pending' ? 'รอยืนยัน — เลือกประเภท' : 'ใช้ค่าแนะนำ'),
@@ -267,7 +298,11 @@
         g.commodities.length ? h('p', { class: 'muted small' }, 'สินค้า: ' + g.commodities.join(', ')) : null,
         g.reasons.filter((x) => !/ประเภท/.test(x)).length ? h('p', { class: 'warn-box' }, 'ยังส่งไม่ได้: ' + g.reasons.filter((x) => !/ประเภท/.test(x)).join(' · ') + ' — แก้ข้อมูลเครื่องในหน้าทะเบียนก่อน') : null,
         g.warns.map((w) => h('p', { class: 'muted small' }, w)),
-        g.machines.filter((x) => x.warns.some((w) => w.includes('หน่วยตัน'))).map((x) => h('label', { class: 'chk' }, h('input', { type: 'checkbox', checked: !!st.cap[x.id], onchange: (e) => { if (e.target.checked) st.cap[x.id] = true; else delete st.cap[x.id]; st.result = null; draw(box, u, start); } }), ' ยืนยันพิกัดกำลังของ ' + x.id + ' เป็นกิโลกรัม'))))) : null;
+        g.machines.filter((x) => x.warns.some((w) => w.includes('หน่วยตัน'))).map((x) => h('label', { class: 'chk' }, h('input', { type: 'checkbox', checked: !!st.cap[x.id], onchange: (e) => { if (e.target.checked) st.cap[x.id] = true; else delete st.cap[x.id]; st.result = null; draw(box, u, start); } }), ' ยืนยันพิกัดกำลังของ ' + x.id + ' เป็นกิโลกรัม')));
+      const open = all.filter(need), rest = all.filter((g) => !need(g));
+      return [open.map(one), rest.length ? h('details', { 'data-si-suggested': '' }, h('summary', null, 'ใช้ประเภทตามค่าแนะนำ ' + TS.n(rest.length) + ' แห่ง (กดเพื่อดู/เปลี่ยน)'), rest.slice(0, 300).map(one),
+        rest.length > 300 ? h('p', { class: 'muted small' }, 'แสดง 300 แห่งแรก — กรองตามอำเภอเพื่อดูส่วนที่เหลือ') : null) : null];
+    }
     const decisions = res ? res.machines.filter((x) => x.status === 'conflict' || x.status === 'needs_confirmation').map((x) => h('div', { class: 'group' }, h('b', { class: 'mono' }, x.source_machine_id), ' — ', STATUS[x.status],
       x.status === 'conflict' ? h('label', { class: 'chk' }, h('input', { type: 'checkbox', checked: !!st.accept[x.source_machine_id], onchange: (e) => { if (e.target.checked) st.accept[x.source_machine_id] = true; else delete st.accept[x.source_machine_id]; draw(box, u, start); } }), ' ใช้ค่าจากอุปกรณ์นี้แทนค่าในฐานกลาง (' + (x.fields || []).join(', ') + ')') : null,
       x.status === 'needs_confirmation' ? h('div', null, h('p', { class: 'muted small' }, (x.reasons || []).join(' · ')),
@@ -291,7 +326,7 @@
     const startBox = startM ? h('section', { class: 'panel' }, h('h2', null, 'เครื่องที่จะเริ่มตรวจ'), h('p', null, TS.label(startM), ' · ', h('span', { class: 'mono' }, startM.id)),
       known()[startM.id] ? TS.siStartButton(startM) : h('p', { class: 'muted small' }, 'ส่งเครื่องนี้เข้าฐานกลางก่อน แล้วปุ่มเริ่มตรวจจะปรากฏที่นี่')) : null;
     TS.put(box, head, startBox,
-      h('section', { class: 'panel' }, h('h2', null, 'เลือกเครื่อง (' + TS.n(st.sel.size) + ' จาก ' + TS.n(TS.machineList().length) + ')'), h('label', { class: 'fld' }, h('span', null, 'ค้นหา'), search),
+      h('section', { class: 'panel' }, h('h2', null, 'เลือกเครื่อง (' + TS.n(st.sel.size) + ' จาก ' + TS.n(TS.machineList().length) + ')'), filters, h('label', { class: 'fld' }, h('span', null, 'ค้นหา'), search), selAll,
         h('div', { class: 'table-wrap' }, h('table', { class: 'reg' }, h('thead', null, h('tr', null, ['', 'สถานประกอบการ / รหัส', 'หมายเลขเครื่อง', 'อำเภอ', 'ผลตรวจสอบกับฐานกลาง'].map((t) => h('th', { scope: 'col' }, t)))), h('tbody', null, rows))),
         list.length > 200 ? h('p', { class: 'muted small' }, 'แสดง 200 รายการแรก พิมพ์คำค้นเพื่อให้เหลือน้อยลง') : null),
       typeBox, decisions.length ? h('section', { class: 'panel' }, h('h2', null, 'ต้องตัดสินใจก่อนส่ง'), decisions) : null,

@@ -109,3 +109,5 @@ details{margin:8px 0}summary{cursor:pointer;font-weight:650;padding:6px 0}
  .map{height:58vh}
 }
 @media print{.top,#nav,.btn,.filters,.foot{display:none}}
+
+.si-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:6px 0 10px}

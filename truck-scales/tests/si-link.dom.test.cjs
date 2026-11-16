@@ -189,5 +189,41 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     const b = w.TS.siRegister.build([w.TS.S.machines.get('lm:2'), w.TS.S.machines.get('lm:3')], { orgId: 'org-1' });
     assert.equal(JSON.stringify(b.payload.machines.map((m) => m.source_machine_id)), '["lm:2"]');
   });
+  await t('หน้าส่งทะเบียน: กรองจังหวัด/อำเภอ/ประเภท · เลือกทั้งหมด/ไม่เลือกทั้งหมด · ตั้งประเภทให้ทุกแห่งที่รอเลือก', async () => {
+    const mk = (id, prov, amp, biz, st) => { const m = M(id, 'N-' + id); Object.assign(m.src, { province: prov, amphoe: amp, biz, stationKey: st }); return m; };
+    const ms = [mk('lm:11', 'สุราษฎร์ธานี', 'ท่าฉาง', 'ปาล์ม', 'S1'), mk('lm:12', 'สุราษฎร์ธานี', 'ท่าฉาง', 'ยางพารา', 'S2'), mk('lm:13', 'สุราษฎร์ธานี', 'เมืองสุราษฎร์ธานี', 'ปาล์ม', 'S3'),
+      mk('lm:14', 'นครศรีธรรมราช', 'ทุ่งสง', 'ปาล์มและยางพารา', 'S4'), mk('lm:15', 'นครศรีธรรมราช', 'ทุ่งสง', 'ปาล์มและยางพารา', 'S5')];
+    const { w } = await boot({ staff: true, session: true, machines: ms });
+    w.location.hash = '#/si';
+    const view = w.document.getElementById('view'); w.TS.views.si(view);
+    for (let i = 0; i < 20 && !view.querySelector('[data-si-select-all]'); i++) await tick();
+    const sel = (label) => [...view.querySelectorAll('.si-filters label')].find((l) => l.textContent.startsWith(label)).querySelector('select');
+    const choose = async (label, v) => { const s = sel(label); s.value = v; s.dispatchEvent(new w.Event('change')); await tick(); };
+    const heading = () => [...view.querySelectorAll('h2')].map((x) => x.textContent).find((x) => x.startsWith('เลือกเครื่อง'));
+    // ฐานในเครื่องของชุดทดสอบมีเครื่องจากกรณีก่อนหน้า (อ.พุนพิน) ปนอยู่ — ตรวจเฉพาะสิ่งที่กรองได้
+    assert.deepEqual([...sel('จังหวัด').options].map((o) => o.value), ['', 'นครศรีธรรมราช', 'สุราษฎร์ธานี']);
+    const total = w.TS.machineList().length;
+    await choose('จังหวัด', 'สุราษฎร์ธานี');
+    assert.deepEqual([...sel('อำเภอ').options].map((o) => o.value), ['', 'ท่าฉาง', 'พุนพิน', 'เมืองสุราษฎร์ธานี'], 'อำเภอตามจังหวัดที่เลือก');
+    await choose('อำเภอ', 'ท่าฉาง');
+    assert.equal(view.querySelectorAll('table.reg tbody tr').length, 2);
+    await choose('ประเภทสถานประกอบการ', 'palm_yard');
+    assert.equal(view.querySelectorAll('table.reg tbody tr').length, 1);
+    view.querySelector('[data-si-select-all]').click(); await tick();
+    assert.equal(heading(), 'เลือกเครื่อง (1 จาก ' + total + ')');
+    await choose('ประเภทสถานประกอบการ', ''); await choose('อำเภอ', ''); await choose('จังหวัด', 'นครศรีธรรมราช');
+    await choose('ประเภทสถานประกอบการ', 'mixed');
+    assert.equal(view.querySelectorAll('table.reg tbody tr').length, 2);
+    view.querySelector('[data-si-select-all]').click(); await tick();
+    assert.equal(heading(), 'เลือกเครื่อง (3 จาก ' + total + ')', 'เลือกทั้งหมดเพิ่มจากที่เลือกไว้');
+    const bulk = view.querySelector('[data-si-bulk-type]');
+    assert.ok(bulk, 'มีตัวเลือกตั้งประเภททีเดียวเมื่อรอเลือกหลายแห่ง');
+    bulk.value = 'rubber_yard'; bulk.dispatchEvent(new w.Event('change')); await tick();
+    const b = w.TS.siRegister.build(['lm:11', 'lm:14', 'lm:15'].map((id) => w.TS.S.machines.get(id)), { orgId: 'org-1', typeChoices: { S4: 'rubber_yard', S5: 'rubber_yard' } });
+    assert.equal(b.payload.machines.length, 3);
+    assert.ok(view.textContent.includes('พร้อมส่ง 3 เครื่อง'), 'ทั้ง 3 เครื่องพร้อมส่งหลังตั้งประเภท');
+    view.querySelector('[data-si-select-none]').click(); await tick();
+    assert.equal(heading(), 'เลือกเครื่อง (0 จาก ' + total + ')');
+  });
   console.log('PASS ' + pass + ' รายการ: si-link.dom');
 })().catch((e) => { console.error(e); process.exit(1); });
