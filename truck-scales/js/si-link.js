@@ -151,7 +151,27 @@
     return { items, latest, progress: latest ? latest.status : 'ยังไม่มีงานที่ส่งใน Smart Inspection' };
   }
 
-  const api = { LINK_PROTOCOL, STAFF_URL, STATUS, JOB_STATUS, configOf, linkUrl, newNonce, resolveForStart, makeClient, historyView, chunkPayload };
+  /**
+   * สรุปผลจาก truck_instrument_results ต่อเครื่องในทะเบียน — นับเป็น "ตรวจแล้ว" เฉพาะงานที่ส่งแล้ว/ผ่านการตรวจทาน
+   * (ไม่นับฉบับร่าง/รอซิงก์/ส่งกลับแก้ไข) · ไม่ยุ่งกับวันสิ้นอายุคำรับรอง
+   * idBySource: { source_machine_id: instrument_id } · คืน { [source_machine_id]: { code, date, status, saved, url, jobId } }
+   */
+  function summarizeDone(rows, idBySource, siUrl) {
+    const bySrc = new Map(Object.entries(idBySource || {}).map(([src, id]) => [String(id).toLowerCase(), src]));
+    const out = {};
+    for (const r of Array.isArray(rows) ? rows : []) {
+      if (!r || (r.job_status !== 'submitted' && r.job_status !== 'reviewed')) continue;
+      const src = bySrc.get(String(r.instrument_id).toLowerCase());
+      if (!src) continue;
+      const cur = out[src];
+      if (cur && (String(cur.date) > String(r.inspected_on) || (cur.date === r.inspected_on && String(cur.submittedAt || '') >= String(r.submitted_at || '')))) continue;
+      out[src] = { jobId: r.job_id, code: r.job_code, date: r.inspected_on, status: r.job_status, saved: r.saved_result, submittedAt: r.submitted_at,
+        url: siUrl && UUID_RE.test(String(r.job_id)) ? siUrl.replace(/\/+$/, '') + '/jobs/' + String(r.job_id).toLowerCase() : null };
+    }
+    return out;
+  }
+
+  const api = { LINK_PROTOCOL, STAFF_URL, STATUS, JOB_STATUS, configOf, linkUrl, newNonce, resolveForStart, makeClient, historyView, chunkPayload, summarizeDone };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   /* TS ประกาศด้วย const ใน core.js จึงไม่อยู่บน window — รับเข้ามาเป็นอาร์กิวเมนต์ */
   const TS = appTS;
@@ -181,6 +201,38 @@
   async function loadMe() { if (!me) me = await client.rpc('app_me', {}); if (!me) throw new Error('ไม่พบบัญชีนี้ใน Smart Inspection'); return me; }
 
   document.addEventListener('DOMContentLoaded', () => { const a = document.querySelector('#nav [data-route="si"]'); if (a) a.hidden = false; });
+
+  /* ---------- ผลตรวจจาก Smart Inspection → สถานะ "ตรวจแล้ว" บนแผนที่ (อ่านอย่างเดียว) ---------- */
+  const SI_DONE_TTL = 15 * 60 * 1000;
+  const siDone = () => (TS.S.meta.siDone && TS.S.meta.siDone.map) || {};
+  TS.siDoneOf = (m) => siDone()[m.id] || null;
+  const baseWorkOf = TS.workOf, baseWorkBadge = TS.workBadge;
+  // งานที่บันทึกในแผนที่เองมาก่อน (รวม "รอติดตาม") · ถ้ายังไม่มี แต่ส่งงานใน Smart Inspection แล้ว → ตรวจแล้ว
+  TS.workOf = (m) => { const w = baseWorkOf(m); return (w === 'none' || w === 'planned') && TS.siDoneOf(m) ? 'done' : w; };
+  TS.workBadge = (m) => { const b = baseWorkBadge(m); const d = TS.siDoneOf(m); if (d && TS.inspectionsOf(m.id).length === 0 && TS.workOf(m) === 'done') { b.append(' (SI)'); b.title = 'ส่งงานใน Smart Inspection ' + d.code + ' วันที่ ' + d.date; b.dataset.siDone = d.code; } return b; };
+  let syncing = null;
+  /** ดึงผลตรวจจากฐานกลาง: รหัสเครื่อง (instruments) → truck_instrument_results ทีละ 500 เครื่อง */
+  TS.siSyncDone = async function (opts) {
+    if (!client.signedIn()) throw new Error('ยังไม่ได้เข้าสู่ระบบ Smart Inspection');
+    if (syncing) return syncing;
+    syncing = (async () => {
+      const rows = await client.get('instruments?select=id,source_machine_id&source_system=eq.wm-truck-scales&source_machine_id=not.is.null&limit=10000');
+      const idBySource = {}; for (const r of rows || []) if (r.source_machine_id && UUID_RE.test(String(r.id))) idBySource[r.source_machine_id] = r.id;
+      const ids = Object.values(idBySource), res = [];
+      for (let i = 0; i < ids.length; i += 500) res.push(...(await client.rpc('truck_instrument_results', { p_instruments: ids.slice(i, i + 500) })) || []);
+      const map = summarizeDone(res, idBySource, cfg.siUrl);
+      await TS.setMeta('siDone', { at: Date.now(), linked: ids.length, map });
+      await remember(Object.entries(idBySource));
+      if (!(opts && opts.quiet)) TS.toast('ดึงผลตรวจจาก Smart Inspection แล้ว · ตรวจแล้ว ' + TS.n(Object.keys(map).length) + ' เครื่อง');
+      if (TS.render) TS.render();
+      return map;
+    })();
+    try { return await syncing; } finally { syncing = null; }
+  };
+  document.addEventListener('DOMContentLoaded', () => {
+    const d = TS.S.meta.siDone;
+    if (client.signedIn() && (!d || Date.now() - d.at > SI_DONE_TTL)) setTimeout(() => TS.siSyncDone({ quiet: true }).catch(() => { /* เงียบเมื่อเปิดหน้า — กดดึงเองได้ในหน้าส่งทะเบียน */ }), 1500);
+  });
 
   /** ปุ่มในรายละเอียดเครื่อง (เลือกเป็นรายเครื่องเสมอ) */
   /** ไปหน้าเข้าสู่ระบบ/ส่งทะเบียนของเครื่องนี้ — ปิดหน้าต่างรายละเอียดเครื่องก่อน (หน้าต่างแบบ modal บังหน้าใหม่ไว้ ดูเหมือนกดแล้วไม่ไป) */
@@ -213,6 +265,11 @@
   TS.siHistoryPanel = function (m) {
     const box = h('div', { class: 'si-history', 'data-si-history': m.id });
     const btn = h('button', { class: 'btn', type: 'button' }, 'ดูประวัติผลตรวจจาก Smart Inspection');
+    const dn = TS.siDoneOf && TS.siDoneOf(m);
+    if (dn) box.append(h('p', { class: 'small', 'data-si-done': dn.code }, 'ส่งงานใน Smart Inspection แล้ว: ', h('b', null, dn.code), ' วันที่ ', (TS.fmtBE(dn.date) || dn.date),
+      ' · ' + (JOB_STATUS[dn.status] || dn.status) + ' · ผลที่บันทึก ณ วันส่ง: ', h('b', null, SAVED[dn.saved] || dn.saved || '-'), ' (ผลคำนวณอ้างอิง) ',
+      dn.url ? h('a', { href: dn.url, target: '_blank', rel: 'noopener' }, 'เปิดรายงาน') : null,
+      h('span', { class: 'muted small' }, ' · ไม่ต่ออายุคำรับรองอัตโนมัติ')));
     const out = h('div');
     let seq = 0;
     const loginMsg = (t) => h('p', { class: 'muted small', 'data-si-history-state': 'signin' }, t, h('a', { href: '#/si?start=' + encodeURIComponent(m.id), onclick: (e) => { e.preventDefault(); goSiPage(m.id); } }, 'เข้าสู่ระบบ'));
@@ -298,8 +355,14 @@
     const sel = TS.machineList().filter((m) => st.sel.has(m.id));
     const b = TS.siRegister.build(sel, { orgId: u.org_id, typeChoices: st.types, establishmentLinks: st.links, capacityConfirmed: st.cap, acceptChanges: st.accept, rekeyFrom: st.rekey, createNew: st.create });
     const res = st.result, byId = new Map(((res && res.machines) || []).map((x) => [x.source_machine_id, x]));
+    const dn = TS.S.meta.siDone;
+    const doneBox = h('p', { class: 'small', 'data-si-done-info': '' }, 'ผลตรวจจาก Smart Inspection บนแผนที่: ',
+      dn ? h('b', null, 'ตรวจแล้ว ' + TS.n(Object.keys(dn.map || {}).length) + ' เครื่อง') : 'ยังไม่ได้ดึง', dn ? ' (อัปเดต ' + new Date(dn.at).toLocaleString('th-TH') + ')' : '', ' ',
+      h('button', { class: 'btn small', type: 'button', 'data-si-sync-done': '', onclick: async (e) => { e.target.disabled = true; try { await TS.siSyncDone(); } catch (x) { TS.toast(x.message, 'err'); } finally { draw(box, u, start); } } }, 'ดึงผลตรวจล่าสุด'),
+      h('span', { class: 'muted small' }, ' · นับเฉพาะงานที่ส่งแล้ว/ผ่านการตรวจทาน ไม่ต่ออายุคำรับรอง'));
     const head = h('section', { class: 'panel' }, h('p', null, 'เข้าสู่ระบบเป็น ', h('b', null, u.full_name), ' · ', (u.org && u.org.short_name) || '', ' ',
       h('button', { class: 'btn small', type: 'button', onclick: () => { client.signOut(); me = null; TS.render(); } }, 'ออกจากระบบ')),
+      doneBox,
       h('p', { class: 'muted small' }, 'เลือกเครื่องที่จะส่ง → ตรวจสอบกับฐานกลาง (ยังไม่บันทึก) → ตรวจทานผล → กดส่ง · ระบบไม่ส่งเองเมื่อเปิดหมุดหรือเปิดหน้านี้'));
     const search = h('input', { type: 'search', value: st.q, placeholder: 'ค้นหาชื่อ เลขเครื่อง รหัส หรืออำเภอ', oninput: (e) => { st.q = e.target.value; clearTimeout(st.t); st.t = setTimeout(() => { st.refocus = true; draw(box, u, start); }, 400); } });
     // วาดหน้าใหม่แทนช่องค้นหาเดิม → คืนเคอร์เซอร์ให้พิมพ์ต่อได้ (เดิมเสียโฟกัสทุกครั้งที่พิมพ์)
