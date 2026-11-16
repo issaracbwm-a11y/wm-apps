@@ -128,5 +128,9 @@ const M = (id, src = {}, extra = {}) => ({ id, src: { lmId: id.startsWith('lm:')
     assert.equal(L.latestReport([{ name: 'v1-9.pdf' }, { name: 'v3-1.pdf' }, { name: 'v3-7.pdf' }, { name: 'x.pdf' }]), 'v3-7.pdf');
     assert.equal(L.latestReport([]), null);
   });
+  await t('doneNote: ข้อความใต้ป้ายตรวจแล้ว (SI)', () => {
+    assert.equal(L.doneNote({ code: 'JOB-1', date: '2026-11-16' }, () => '16/11/2569'), 'ส่งงานใน SI แล้ว · JOB-1 · 16/11/2569');
+    assert.equal(L.doneNote(null), '');
+  });
   console.log('PASS ' + pass + ' รายการ: si-link');
 })().catch((e) => { console.error(e); process.exit(1); });

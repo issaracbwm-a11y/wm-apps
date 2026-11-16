@@ -324,6 +324,8 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     assert.match(w.TS.workBadge(m1).textContent, /ตรวจแล้ว \(SI\)/);
     assert.equal(w.TS.v(m1, 'expiry'), expBefore, 'ไม่ต่ออายุคำรับรอง');
     assert.equal(w.TS.siDoneOf(m1).code, '1001', 'งานส่งกลับ (1003) และร่าง (1004) ไม่นับ');
+    assert.match(w.TS.siWorkNote(m1), /^ส่งงานใน SI แล้ว · 1001 · /, 'บรรทัดใต้ป้ายไม่ขัดกับ "ตรวจแล้ว (SI)"');
+    assert.doesNotMatch(w.TS.siWorkNote(m1), /\d{4}-\d{2}-\d{2}/, 'วันที่แสดงเป็น พ.ศ.');
     const panel = w.TS.siHistoryPanel(m1);
     assert.ok(panel.querySelector('[data-si-done]'), 'รายละเอียดเครื่องแสดงงานที่ส่งแล้ว + ลิงก์รายงาน');
     assert.ok(panel.querySelector('[data-si-done] a[href^="https://si.example.app/jobs/"]'));
