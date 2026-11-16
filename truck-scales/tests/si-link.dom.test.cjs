@@ -33,6 +33,8 @@ async function boot({ staff, machines = [], session }) {
       return { ok: true, status: 200, json: async () => ({ machines: body.p.machines.map((m) => ({ source_machine_id: m.source_machine_id, status: st, id: m.source_machine_id === 'lm:2' ? U2 : U1 })), counts: { [st]: body.p.machines.length } }) };
     }
     if (url.endsWith('/rpc/truck_instrument_results')) { const m = w.__hist || 'ok'; if (m === '401') return { ok: false, status: 401, json: async () => ({}) }; if (m === '500') return { ok: false, status: 500, json: async () => ({ message: 'boom' }) }; if (m === '42501') return { ok: false, status: 403, json: async () => ({ code: '42501', message: 'permission denied' }) }; return { ok: true, status: 200, json: async () => (m === 'empty' ? [] : HIST) }; }
+    if (url.includes('/storage/v1/object/list/inspection-reports')) return { ok: true, status: 200, json: async () => (w.__files || []) };
+    if (url.includes('/storage/v1/object/sign/inspection-reports/')) return { ok: true, status: 200, json: async () => ({ signedURL: '/object/sign/inspection-reports/x.pdf?token=T' }) };
     if (url.includes('/rest/v1/instruments?')) { const all = w.__instruments || [], off = +(new URL(url).searchParams.get('offset') || 0), lim = Math.min(1000, +(new URL(url).searchParams.get('limit') || 1000)); return { ok: true, status: 200, json: async () => all.slice(off, off + lim) }; }
     if (url.includes('/rest/v1/establishments?')) return { ok: true, status: 200, json: async () => (w.__unlinked || []) };
     return { ok: false, status: 404, json: async () => ({}) };
@@ -334,6 +336,26 @@ let pass = 0; const t = async (n, fn) => { await fn(); pass++; console.log('  �
     assert.equal(w.TS.S.meta.siDone.linked, 1848);
     assert.equal(calls.filter((c) => c.url.includes('/rest/v1/instruments?')).length, 2);
     assert.equal(calls.filter((c) => c.url.endsWith('/rpc/truck_instrument_results')).length, 4, 'ทีละ 500');
+  });
+  await t('ดูรายงาน PDF: เลือกไฟล์ล่าสุดของงาน → ลิงก์ชั่วคราว → แสดงในกล่อง · ไม่มีไฟล์แจ้งให้ส่งออกก่อน', async () => {
+    const { w, calls } = await boot({ staff: true, session: true, machines: [M('lm:1', 'A-1')] });
+    const dn = { jobId: '30001001-0000-4000-8000-000000000000', code: 'JOB-T-1', date: '2026-11-16', status: 'reviewed', saved: 'pass' };
+    w.__files = [];
+    assert.equal(await w.TS.siOpenReport(dn), null);
+    w.__files = [{ name: 'v1-100.pdf' }, { name: 'v2-50.pdf' }, { name: 'v2-90.pdf' }, { name: 'note.txt' }];
+    const r = await w.TS.siOpenReport(dn);
+    assert.equal(r.name, 'v2-90.pdf');
+    assert.equal(r.url, 'https://abcdefghijklmnopqrst.supabase.co/storage/v1/object/sign/inspection-reports/x.pdf?token=T');
+    const list = calls.filter((c) => c.url.includes('/object/list/')).pop();
+    assert.equal(list.body.prefix, 'org-1/30001001-0000-4000-8000-000000000000/', 'เฉพาะโฟลเดอร์ของหน่วยงาน/งานนี้');
+    const sign = calls.find((c) => c.url.includes('/object/sign/'));
+    assert.ok(sign.url.endsWith('/org-1/30001001-0000-4000-8000-000000000000/v2-90.pdf'));
+    assert.equal(sign.body.expiresIn, 600);
+    const holder = w.TS.siReportButton(dn); w.document.body.append(holder);
+    holder.querySelector('[data-si-report]').click();
+    for (let i = 0; i < 20 && !w.document.querySelector('dialog iframe'); i++) await tick();
+    assert.ok(w.document.querySelector('dialog iframe').src.includes('token=T'), 'แสดง PDF ในกล่อง');
+    assert.ok(w.document.querySelector('[data-si-report-link]'));
   });
   console.log('PASS ' + pass + ' รายการ: si-link.dom');
 })().catch((e) => { console.error(e); process.exit(1); });

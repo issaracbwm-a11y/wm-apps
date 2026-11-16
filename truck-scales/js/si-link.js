@@ -117,6 +117,17 @@
       signIn: (username, password) => auth('password', { email: String(username).trim().toLowerCase() + '@' + cfg.domain, password }),
       signOut: () => save(null),
       /** อ่านตารางผ่าน REST (GET อย่างเดียว ตาม RLS ของบัญชี) */
+      /** Supabase Storage (POST JSON) — ใช้ list/sign ของไฟล์รายงานตามสิทธิ์บัญชี */
+      storage: async (path, body) => {
+        const t = await token();
+        let res;
+        try { res = await fetch(cfg.url + '/storage/v1/' + path, { method: 'POST', headers: { apikey: cfg.key, Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}), credentials: 'omit', cache: 'no-store' }); }
+        catch (_) { throw new Error('เชื่อมต่อฐานกลางไม่ได้'); }
+        if (res.status === 401) { save(null); throw Object.assign(new Error('การเข้าสู่ระบบหมดอายุ เข้าสู่ระบบใหม่'), { kind: 'expired' }); }
+        const j = await res.json().catch(() => null);
+        if (!res.ok) throw new Error('อ่านไฟล์จากฐานกลางไม่สำเร็จ (' + res.status + ')');
+        return j;
+      },
       get: async (path) => {
         const t = await token();
         let res;
@@ -171,7 +182,15 @@
     return out;
   }
 
-  const api = { LINK_PROTOCOL, STAFF_URL, STATUS, JOB_STATUS, configOf, linkUrl, newNonce, resolveForStart, makeClient, historyView, chunkPayload, summarizeDone };
+  /** เลือกไฟล์รายงานล่าสุดจากรายการชื่อ v{version}-{เวลา}.pdf (รุ่นสูงสุด แล้วเวลาล่าสุด) */
+  function latestReport(files) {
+    const key = (n) => { const m = /^v(\d+)-(\d+)\.pdf$/.exec(String(n)); return m ? [+m[1], +m[2]] : null; };
+    let best = null, bk = null;
+    for (const f of Array.isArray(files) ? files : []) { const k = key(f && f.name); if (k && (!bk || k[0] > bk[0] || (k[0] === bk[0] && k[1] > bk[1]))) { best = f.name; bk = k; } }
+    return best;
+  }
+
+  const api = { LINK_PROTOCOL, STAFF_URL, STATUS, JOB_STATUS, configOf, linkUrl, newNonce, resolveForStart, makeClient, historyView, chunkPayload, summarizeDone, latestReport };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   /* TS ประกาศด้วย const ใน core.js จึงไม่อยู่บน window — รับเข้ามาเป็นอาร์กิวเมนต์ */
   const TS = appTS;
@@ -201,6 +220,35 @@
   async function loadMe() { if (!me) me = await client.rpc('app_me', {}); if (!me) throw new Error('ไม่พบบัญชีนี้ใน Smart Inspection'); return me; }
 
   document.addEventListener('DOMContentLoaded', () => { const a = document.querySelector('#nav [data-route="si"]'); if (a) a.hidden = false; });
+
+  /* ---------- สำเนา PDF รายงานในฐานกลาง (bucket ส่วนตัว inspection-reports) ---------- */
+  TS.siOpenReport = async function (dn) {
+    const u = await loadMe();
+    const prefix = String(u.org_id).toLowerCase() + '/' + String(dn.jobId).toLowerCase() + '/';
+    const files = await client.storage('object/list/inspection-reports', { prefix, limit: 100, offset: 0, sortBy: { column: 'name', order: 'desc' } });
+    const name = latestReport(files);
+    if (!name) return null;
+    const signed = await client.storage('object/sign/inspection-reports/' + prefix + encodeURIComponent(name), { expiresIn: 600 });
+    const rel = signed && (signed.signedURL || signed.signedUrl);
+    if (!rel) throw new Error('สร้างลิงก์ชั่วคราวไม่สำเร็จ');
+    return { url: cfg.url + '/storage/v1' + (rel.startsWith('/') ? '' : '/') + rel, name };
+  };
+  TS.siReportButton = function (dn) {
+    const msg = h('span', { class: 'muted small', 'data-si-report-msg': '' });
+    const btn = h('button', { class: 'btn small', type: 'button', 'data-si-report': dn.code, onclick: async () => {
+      btn.disabled = true; msg.textContent = ' กำลังเปิด…';
+      try {
+        const r = await TS.siOpenReport(dn);
+        if (!r) { msg.textContent = ' ยังไม่มีสำเนา PDF ในฐานกลาง — กด "ส่งออก PDF รายงาน" ใน Smart Inspection 1 ครั้ง'; return; }
+        msg.textContent = '';
+        TS.dialog('รายงาน ' + dn.code, h('div', null,
+          h('p', { class: 'small' }, h('a', { href: r.url, target: '_blank', rel: 'noopener', 'data-si-report-link': '' }, 'เปิด PDF ในแท็บใหม่ / ตัวดู PDF ของเครื่อง'), h('span', { class: 'muted small' }, ' · ลิงก์ใช้ได้ 10 นาที · ไฟล์ ' + r.name)),
+          h('iframe', { src: r.url, title: 'รายงาน ' + dn.code, style: 'width:100%;height:75vh;border:1px solid #ccc;border-radius:8px;background:#fff' })), { cls: 'wide' });
+      } catch (e) { msg.textContent = ' ' + e.message; }
+      finally { btn.disabled = false; }
+    } }, 'ดูรายงาน PDF');
+    return h('span', null, btn, msg);
+  };
 
   /* ---------- ผลตรวจจาก Smart Inspection → สถานะ "ตรวจแล้ว" บนแผนที่ (อ่านอย่างเดียว) ---------- */
   const SI_DONE_TTL = 15 * 60 * 1000;
@@ -274,7 +322,7 @@
     const dn = TS.siDoneOf && TS.siDoneOf(m);
     if (dn) box.append(h('p', { class: 'small', 'data-si-done': dn.code }, 'ส่งงานใน Smart Inspection แล้ว: ', h('b', null, dn.code), ' วันที่ ', (TS.fmtBE(dn.date) || dn.date),
       ' · ' + (JOB_STATUS[dn.status] || dn.status) + ' · ผลที่บันทึก ณ วันส่ง: ', h('b', null, SAVED[dn.saved] || dn.saved || '-'), ' (ผลคำนวณอ้างอิง) ',
-      dn.url ? h('a', { href: dn.url, target: '_blank', rel: 'noopener' }, 'เปิดรายงาน') : null,
+      dn.url ? h('a', { href: dn.url, target: '_blank', rel: 'noopener' }, 'เปิดงานใน Smart Inspection') : null, ' ', TS.siReportButton ? TS.siReportButton(dn) : null,
       h('span', { class: 'muted small' }, ' · ไม่ต่ออายุคำรับรองอัตโนมัติ')));
     const out = h('div');
     let seq = 0;

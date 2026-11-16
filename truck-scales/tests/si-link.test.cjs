@@ -124,5 +124,9 @@ const M = (id, src = {}, extra = {}) => ({ id, src: { lmId: id.startsWith('lm:')
     assert.equal(d['lm:a'].code, '2');
     assert.equal(d['lm:a'].url, 'https://si.example.app/jobs/' + rows[1].job_id);
   });
+  await t('latestReport: รุ่นสูงสุดแล้วเวลาล่าสุด · ข้ามชื่อที่ไม่ใช่รูปแบบ', async () => {
+    assert.equal(L.latestReport([{ name: 'v1-9.pdf' }, { name: 'v3-1.pdf' }, { name: 'v3-7.pdf' }, { name: 'x.pdf' }]), 'v3-7.pdf');
+    assert.equal(L.latestReport([]), null);
+  });
   console.log('PASS ' + pass + ' รายการ: si-link');
 })().catch((e) => { console.error(e); process.exit(1); });
