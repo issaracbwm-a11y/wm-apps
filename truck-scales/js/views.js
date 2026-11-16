@@ -261,7 +261,7 @@
       TS.put(body, 
         h('div', { class: 'two-status' },
           h('div', null, h('span', { class: 'muted small' }, 'สถานะคำรับรอง'), h('div', null, TS.certBadge(m, today)), h('div', { class: 'small' }, TS.certText(m, today))),
-          h('div', null, h('span', { class: 'muted small' }, 'สถานะงานตรวจ'), h('div', null, TS.workBadge(m)), h('div', { class: 'small' }, ins[0] ? 'ตรวจล่าสุด ' + TS.fmtBE(ins[0].date) + ' · ' + TS.str(ins[0].result) : plans[0] ? 'อยู่ในแผน ' + TS.fmtBE(plans[0].date) : 'ยังไม่มีแผนหรือผลตรวจ'))),
+          h('div', null, h('span', { class: 'muted small' }, 'สถานะงานตรวจ'), h('div', null, TS.workBadge(m)), h('div', { class: 'small' }, ins[0] ? 'ตรวจล่าสุด ' + TS.fmtBE(ins[0].date) + ' · ' + TS.str(ins[0].result) : (TS.siWorkNote && TS.siWorkNote(m)) ? TS.siWorkNote(m) : plans[0] ? 'อยู่ในแผน ' + TS.fmtBE(plans[0].date) : 'ยังไม่มีแผนหรือผลตรวจ'))),
         (ins.length && TS.certOf(m, today) === 'expired') ? h('p', { class: 'warn-box' }, 'เครื่องนี้ตรวจแล้ว แต่คำรับรองยังหมดอายุ — วันหมดอายุจะเปลี่ยนเมื่อมีหลักฐานคำรับรองใหม่เท่านั้น') : null,
         m.missing ? h('p', { class: 'warn-box' }, 'เครื่องนี้ไม่อยู่ในไฟล์ที่นำเข้าล่าสุด ข้อมูลและผลตรวจเดิมยังเก็บไว้') : null,
         m.fieldAdded ? h('p', { class: 'mode pick' }, h('b', null, 'เพิ่มจากภาคสนาม'), ' รายการนี้เจ้าหน้าที่เพิ่มเองบนอุปกรณ์นี้ ยังไม่อยู่ในทะเบียน และไม่นับในยอดแดชบอร์ดจนกว่าจะยืนยันกับทะเบียน') : null,

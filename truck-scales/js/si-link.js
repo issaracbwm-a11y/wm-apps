@@ -190,7 +190,13 @@
     return best;
   }
 
-  const api = { LINK_PROTOCOL, STAFF_URL, STATUS, JOB_STATUS, configOf, linkUrl, newNonce, resolveForStart, makeClient, historyView, chunkPayload, summarizeDone, latestReport };
+  /** บรรทัดใต้ป้าย "ตรวจแล้ว (SI)" ในกล่องสถานะงานตรวจ · fmt แปลงวันที่ ISO เป็น พ.ศ. */
+  function doneNote(d, fmt) {
+    if (!d || !d.code) return '';
+    return 'ส่งงานใน SI แล้ว · ' + d.code + (d.date ? ' · ' + (fmt ? fmt(d.date) : d.date) : '');
+  }
+
+  const api = { LINK_PROTOCOL, doneNote, STAFF_URL, STATUS, JOB_STATUS, configOf, linkUrl, newNonce, resolveForStart, makeClient, historyView, chunkPayload, summarizeDone, latestReport };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   /* TS ประกาศด้วย const ใน core.js จึงไม่อยู่บน window — รับเข้ามาเป็นอาร์กิวเมนต์ */
   const TS = appTS;
@@ -257,6 +263,7 @@
   const baseWorkOf = TS.workOf, baseWorkBadge = TS.workBadge;
   // งานที่บันทึกในแผนที่เองมาก่อน (รวม "รอติดตาม") · ถ้ายังไม่มี แต่ส่งงานใน Smart Inspection แล้ว → ตรวจแล้ว
   TS.workOf = (m) => { const w = baseWorkOf(m); return (w === 'none' || w === 'planned') && TS.siDoneOf(m) ? 'done' : w; };
+  TS.siWorkNote = (m) => (TS.workOf(m) === 'done' && TS.inspectionsOf(m.id).length === 0 ? doneNote(TS.siDoneOf(m), TS.fmtBE) : '');
   TS.workBadge = (m) => { const b = baseWorkBadge(m); const d = TS.siDoneOf(m); if (d && TS.inspectionsOf(m.id).length === 0 && TS.workOf(m) === 'done') { b.append(' (SI)'); b.title = 'ส่งงานใน Smart Inspection ' + d.code + ' วันที่ ' + d.date; b.dataset.siDone = d.code; } return b; };
   let syncing = null;
   /** ดึงผลตรวจจากฐานกลาง: รหัสเครื่อง (instruments) → truck_instrument_results ทีละ 500 เครื่อง */
