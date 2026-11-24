@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- ไอคอนแผนที่จุดตรวจสถานีบริการน้ำมันเชื้อเพลิง: แผนที่ + หมุดที่มีตู้จ่ายน้ำมัน (ออกแบบเอง) -->
+  <rect width="512" height="512" fill="#12352f"/>
+  <path d="M64 150 L176 116 L304 150 L448 116 V410 L304 444 L176 410 L64 444 Z" fill="#e8efe9"/>
+  <path d="M176 116 V410 L64 444 V150 Z" fill="#d3ded6"/>
+  <path d="M304 150 L448 116 V410 L304 444 Z" fill="#d3ded6"/>
+  <path d="M80 380 C150 340 170 300 240 300 S340 330 430 250" fill="none" stroke="#9fb7aa" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="110" cy="250" r="14" fill="#1f7a55"/><circle cx="400" cy="330" r="14" fill="#f2c200"/><circle cx="350" cy="190" r="12" fill="#b3261e"/>
+  <path d="M256 412 C220 360 168 304 168 240 A88 88 0 0 1 344 240 C344 304 292 360 256 412 Z" fill="#d9b45a" stroke="#12352f" stroke-width="10"/>
+  <circle cx="256" cy="240" r="62" fill="#12352f"/>
+  <g fill="#ffffff">
+    <rect x="222" y="200" width="42" height="72" rx="5"/>
+    <rect x="216" y="270" width="54" height="10" rx="3"/>
+    <path d="M264 214 h12 a8 8 0 0 1 8 8 v32 a6 6 0 0 0 12 0 v-34 l-10 -12" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <rect x="230" y="210" width="26" height="18" rx="2" fill="#12352f"/>
+</svg>
