@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12352f">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>แผนที่จุดตรวจสถานีบริการน้ำมันเชื้อเพลิง · ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)</title>
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="icons/manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="แผนที่หัวจ่าย">
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="app.css?v=1">
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><strong>ศูนย์ชั่งตวงวัดภาคใต้ (สุราษฎร์ธานี)</strong><span>แผนที่จุดตรวจมาตรวัดน้ำมันเชื้อเพลิงตามสถานีบริการ</span></div>
+    <div id="who" class="who"></div>
+  </div>
+  <nav id="nav" aria-label="เมนูหลัก">
+    <a href="#/map" data-route="map">แผนที่จุดตรวจ</a>
+    <a href="#/list" data-route="list">รายชื่อสถานี</a>
+    <a href="#/summary" data-route="summary">สรุปรายอำเภอ</a>
+  </nav>
+</header>
+<main id="view" tabindex="-1"><p class="muted">กำลังเปิด…</p></main>
+<noscript><p style="padding:16px">เปิด JavaScript เพื่อใช้แผนที่จุดตรวจ</p></noscript>
+<footer class="foot">ข้อมูลสถานีและชุดคำรับรองอ่านจากทะเบียนใน WM Smart Inspection (สำเนาจาก Back Office ระบบงานชั่งตวงวัด) ตามสิทธิ์บัญชีผู้ใช้ — ใช้วางแผนออกตรวจ ไม่ใช่สถานะคำรับรองทางราชการ · กองชั่งตวงวัด กรมการค้าภายใน</footer>
+<div id="toast" aria-live="polite"></div>
+<script src="vendor/leaflet.js"></script>
+<script src="js/app.js?v=1"></script>
+</body>
+</html>
