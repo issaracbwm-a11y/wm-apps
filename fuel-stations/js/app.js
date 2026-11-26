@@ -97,6 +97,61 @@
     return out;
   }
 
+  /* ---------- สำเนา PDF รายงานในฐานกลาง (bucket ส่วนตัว inspection-reports: {org}/{job}/v{รุ่น}-{เวลา}.pdf) ---------- */
+  async function storage(path, body) {
+    const t = await token();
+    let res;
+    try { res = await fetch(CFG.url + '/storage/v1/' + path, { method: 'POST', headers: { apikey: CFG.key, Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify(body), credentials: 'omit', cache: 'no-store' }); }
+    catch (_) { throw new Error('เชื่อมต่อฐานกลางไม่ได้ (ไม่มีอินเทอร์เน็ต)'); }
+    if (res.status === 401) { saveSes(null); throw expired(); }
+    const j = await res.json().catch(() => null);
+    if (!res.ok) throw new Error('เปิดสำเนารายงานไม่สำเร็จ (' + res.status + (j && j.message ? ' · ' + j.message : '') + ')');
+    return j;
+  }
+  /** ไฟล์ล่าสุด: รุ่นงานสูงสุด แล้วเวลาส่งออกล่าสุด */
+  function latestReport(files) {
+    const key = (x) => { const m = /^v(\d+)-(\d+)\.pdf$/.exec(String(x)); return m ? [+m[1], +m[2]] : null; };
+    let best = null, bk = null;
+    for (const f of Array.isArray(files) ? files : []) { const k = key(f && f.name); if (k && (!bk || k[0] > bk[0] || (k[0] === bk[0] && k[1] > bk[1]))) { best = f.name; bk = k; } }
+    return best;
+  }
+  async function openReport(job) {
+    if (!S.me || !UUID_RE.test(String(S.me.org_id)) || !UUID_RE.test(String(job.id))) throw new Error('ข้อมูลงานไม่ครบ');
+    const prefix = String(S.me.org_id).toLowerCase() + '/' + String(job.id).toLowerCase() + '/';
+    const files = await storage('object/list/inspection-reports', { prefix, limit: 100, offset: 0, sortBy: { column: 'name', order: 'desc' } });
+    const name = latestReport(files);
+    if (!name) return null;
+    const signed = await storage('object/sign/inspection-reports/' + prefix + encodeURIComponent(name), { expiresIn: 600 });
+    const rel = signed && (signed.signedURL || signed.signedUrl);
+    if (!rel) throw new Error('สร้างลิงก์ชั่วคราวไม่สำเร็จ');
+    return { url: CFG.url + '/storage/v1' + (rel.startsWith('/') ? '' : '/') + rel, name, count: files.filter((f) => /\.pdf$/.test(f.name)).length };
+  }
+  const REPORT_OK = ['submitted', 'reviewed', 'returned'];
+  function reportButton(job) {
+    if (!REPORT_OK.includes(job.status)) return null;
+    const msg = h('span', { class: 'muted small', 'data-report-msg': '' });
+    const btn = h('button', { class: 'btn small', type: 'button', 'data-report': job.code || job.id, onclick: async (e) => {
+      e.stopPropagation(); btn.disabled = true; msg.textContent = ' กำลังเปิด…';
+      try {
+        const r = await openReport(job);
+        if (!r) { msg.textContent = ' ยังไม่มีสำเนา PDF ในฐานกลาง — เปิดงานนี้ใน Smart Inspection แล้วกด "ส่งออก PDF" 1 ครั้ง (หลังส่งงานแล้ว)'; return; }
+        msg.textContent = '';
+        const dlg = h('dialog', { class: 'dlg wide', id: 'reportDlg' }, h('div', { class: 'dlg-head' }, h('h2', null, 'รายงาน ' + (job.code || '')), h('button', { class: 'btn icon', type: 'button', 'aria-label': 'ปิด', onclick: () => dlg.close() }, '✕')),
+          h('div', { class: 'dlg-body' },
+            h('p', { class: 'small' }, h('a', { href: r.url, target: '_blank', rel: 'noopener', 'data-report-link': '' }, 'เปิด PDF ในแท็บใหม่ / ตัวดู PDF ของเครื่อง'), h('span', { class: 'muted small' }, ' · ลิงก์ใช้ได้ 10 นาที · ส่งออก ' + fmtStamp(r.name) + (r.count > 1 ? ' (ฉบับล่าสุดจาก ' + n(r.count) + ' ฉบับ)' : ''))),
+            h('iframe', { src: r.url, title: 'รายงาน ' + (job.code || ''), class: 'pdfview' })));
+        dlg.addEventListener('close', () => dlg.remove());
+        document.body.append(dlg); dlg.showModal();
+      } catch (x) { msg.textContent = ' ' + x.message; }
+      finally { btn.disabled = false; }
+    } }, 'ดูรายงาน PDF');
+    return h('span', { class: 'rep' }, btn, msg);
+  }
+  function fmtStamp(name) {
+    const m = /-(\d{12,})\.pdf$/.exec(String(name)); if (!m) return name;
+    return new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(Number(m[1])));
+  }
+
   /* ---------- สถานะ ---------- */
   const S = { me: null, stations: [], loadedAt: null, warn: [], loading: false, err: null, route: 'map' };
   const CERT = {
@@ -229,8 +284,8 @@
         h('ul', { class: 'plain' }, s.batches.map((b) => h('li', null, h('b', null, b.register_no), ' · ', n(b.nozzle_count) + ' หัวจ่าย', b.brand ? ' · ' + b.brand : '', ' · สิ้นอายุ ' + (b.cert_expiry ? fmtBE(b.cert_expiry) : 'ไม่ระบุ'),
           b.serial_first ? h('div', { class: 'muted small mono' }, b.serial_first + (b.serial_last && b.serial_last !== b.serial_first ? ' – ' + b.serial_last : '')) : null)))) : null,
       h('div', { class: 'sub' }, h('b', { class: 'small' }, 'งานตรวจใน Smart Inspection ปีงบ ' + fy.be),
-        jobsFy.length ? h('ul', { class: 'plain' }, jobsFy.slice(0, 5).map((j) => h('li', { class: 'small' }, h('a', { href: siLink.job(j.id), target: '_blank', rel: 'noopener' }, j.code || 'เปิดงาน'), ' · ', fmtBE(j.inspected_on), ' · ', MODE[j.inspection_mode] || '', ' · ', JOB_STATUS[j.status] || j.status)))
-          : h('p', { class: 'muted small' }, 'ยังไม่มีงานที่ส่งเข้าฐานกลาง' + (s.jobs.length ? ' (ปีงบก่อนมี ' + n(s.jobs.length) + ' งาน ล่าสุด ' + fmtBE(s.jobs[0].inspected_on) + ')' : ''))),
+        jobsFy.length ? h('ul', { class: 'plain' }, jobsFy.slice(0, 5).map((j) => h('li', { class: 'small' }, h('a', { href: siLink.job(j.id), target: '_blank', rel: 'noopener' }, j.code || 'เปิดงาน'), ' · ', fmtBE(j.inspected_on), ' · ', MODE[j.inspection_mode] || '', ' · ', JOB_STATUS[j.status] || j.status, h('div', null, reportButton(j)))))
+          : h('div', null, h('p', { class: 'muted small' }, 'ยังไม่มีงานที่ส่งเข้าฐานกลาง' + (s.jobs.length ? ' (ปีงบก่อนมี ' + n(s.jobs.length) + ' งาน ล่าสุด ' + fmtBE(s.jobs[0].inspected_on) + ')' : '')), s.jobs.length ? reportButton(s.jobs[0]) : null)),
       h('div', { class: 'btnrow' },
         h('a', { class: 'btn primary small', href: siLink.start(s.id), target: '_blank', rel: 'noopener', 'data-si-start': s.id }, 'เริ่มตรวจใน Smart Inspection'),
         c.state === 'ok' ? h('a', { class: 'btn small', target: '_blank', rel: 'noopener', href: navUrl(c.lat, c.lng) }, 'นำทาง') : null,
@@ -529,7 +584,7 @@
     if (!keepScroll) window.scrollTo(0, 0);
   }
   window.addEventListener('hashchange', render);
-  window.FS = { S, certOf, workOf, fiscal, coordOf, applyFilter, MF, todayISO, load }; // ใช้ในการทดสอบ
+  window.FS = { S, latestReport, certOf, workOf, fiscal, coordOf, applyFilter, MF, todayISO, load }; // ใช้ในการทดสอบ
   render();
   if (ses && S.me && navigator.onLine !== false) load(); // เปิดหน้า: แสดงสำเนาเดิมก่อน แล้วโหลดข้อมูลล่าสุด
 })();
