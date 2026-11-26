@@ -131,3 +131,6 @@ ol.near li{padding:4px 0}
  .map{height:66vh}
 }
 @media(max-width:700px){.pop{font-size:13px;min-width:0}.pop .st-name{font-size:.95rem}.pop dl.mini{font-size:.8rem}.pop .btn.small{min-height:38px}}
+.dlg.wide{width:min(980px,96vw)}
+.pdfview{width:100%;height:75vh;border:1px solid #ccc;border-radius:8px;background:#fff}
+.rep{display:inline-block;margin-top:4px}
